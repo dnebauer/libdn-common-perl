@@ -82,7 +82,7 @@
          "web" : "https://github.com/dnebauer/libdn-common-perl"
       }
    },
-   "version" : "1.0.3",
+   "version" : "1.0.4",
    "x_contributors" : [
       "David Nebauer <david@nebauer,org>"
    ]
