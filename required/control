@@ -1,0 +1,42 @@
+Source: libdn-common-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper (>= 9),
+ perl
+Build-Depends-Indep: libconfig-simple-perl,
+ libdate-simple-perl,
+ libdnmenu-perl,
+ libfile-mimeinfo-perl,
+ libfile-util-perl,
+ libfile-which-perl,
+ libgetopt-declare-perl,
+ libgtk2-notify-perl,
+ liblogger-syslog-perl,
+ libmodule-build-tiny-perl (>= 0.039),
+ libnet-ping-external-perl,
+ libproc-processtable-perl,
+ libterm-clui-perl,
+ libterm-readkey-perl
+Standards-Version: 3.9.6
+Homepage: https://metacpan.org/release/Dn-Common
+
+Package: libdn-common-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ libconfig-simple-perl,
+ libdate-simple-perl,
+ libdnmenu-perl,
+ libfile-mimeinfo-perl,
+ libfile-util-perl,
+ libfile-which-perl,
+ libgetopt-declare-perl,
+ libgtk2-notify-perl,
+ liblogger-syslog-perl,
+ libnet-ping-external-perl,
+ libproc-processtable-perl,
+ libterm-clui-perl,
+ libterm-readkey-perl
+Description: common methods for use by perl scripts
+ Provides methods used by Perl scripts. Can be used to create a standalone
+ object providing these methods; or as base class for derived module or class.
