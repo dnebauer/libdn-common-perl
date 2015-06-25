@@ -66,6 +66,17 @@
       }
    },
    "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/dnebauer/libdn-common-perl/issues"
+      },
+      "homepage" : "https://github.com/dnebauer/libdn-common-perl",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/dnebauer/libdn-common-perl.git",
+         "web" : "https://github.com/dnebauer/libdn-common-perl"
+      }
+   },
    "version" : "1.0.1",
    "x_contributors" : [
       "David Nebauer <david@nebauer,org>"

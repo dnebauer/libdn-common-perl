@@ -1,14 +1,11 @@
 package Dn::Common;
 
-use strict;
-use warnings;
-
-use 5.014_002;    # use of /r modifier on substitutions requires 5.14.2
-                  # use of unicode features requires 5.12
-use version; our $VERSION = qv('1.0.1');    # must keep together on one line
+use Moose;
+use 5.014_002;
+use version; our $VERSION = qv('1.0.1');
 
 use namespace::autoclean;
-use Moose;
+use Function::Parameters;
 use Carp;
 use Readonly;
 use Try::Tiny;
