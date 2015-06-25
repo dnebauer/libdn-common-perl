@@ -2,7 +2,7 @@ package Dn::Common;
 
 use Moose;
 use 5.014_002;
-use version; our $VERSION = qv('1.0.4');
+use version; our $VERSION = qv('1.0.5');
 
 use namespace::autoclean;
 use Test::NeedsDisplay;    # enables Gtk2::Notify to compile
