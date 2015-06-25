@@ -19,6 +19,8 @@ requires 'Term::ReadKey';
 requires 'Gtk2::Notify';
 requires 'Logger::Syslog';
 
+build_requires 'Gtk2::TestHelper';
+
 on test => sub {
     requires 'Test::More', '0.96';
 };

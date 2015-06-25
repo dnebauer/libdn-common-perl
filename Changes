@@ -1,6 +1,7 @@
 Revision history for Dn-Common
 
 {{$NEXT}}
+        - Fix build display error from Gtk2.pm 
 
 1.0.3  2015-06-26 03:02:32 ACST
         - Add required files for dn-build-perl-perl-mod-deb
