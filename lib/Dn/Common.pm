@@ -5,6 +5,8 @@ use 5.014_002;
 use version; our $VERSION = qv('1.0.4');
 
 use namespace::autoclean;
+use Gtk2::TestHelper;
+use Test::NeedsDisplay;
 use Function::Parameters;
 use Carp;
 use Readonly;

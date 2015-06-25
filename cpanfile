@@ -16,15 +16,15 @@ requires 'Date::Simple';
 requires 'Term::Clui';
 requires 'Storable';
 requires 'Term::ReadKey';
-requires 'Gtk2::Notify';
+#requires 'Gtk2::Notify';
 requires 'Logger::Syslog';
 
-configure_requires 'Test::NeedsDisplay';
-test_requires 'Test::NeedsDisplay';
-build_requires 'Test::NeedsDisplay';
-configure_requires 'Gtk2::TestHelper';
-test_requires 'Gtk2::TestHelper';
-build_requires 'Gtk2::TestHelper';
+#configure_requires 'Test::NeedsDisplay';
+#test_requires 'Test::NeedsDisplay';
+#build_requires 'Test::NeedsDisplay';
+#configure_requires 'Gtk2::TestHelper';
+#test_requires 'Gtk2::TestHelper';
+#build_requires 'Gtk2::TestHelper';
 
 on test => sub {
     requires 'Test::More', '0.96';

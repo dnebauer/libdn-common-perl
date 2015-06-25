@@ -24,11 +24,6 @@
       ]
    },
    "prereqs" : {
-      "build" : {
-         "requires" : {
-            "Gtk2::TestHelper" : "0"
-         }
-      },
       "configure" : {
          "requires" : {
             "Module::Build::Tiny" : "0.039"
@@ -52,7 +47,6 @@
             "File::Util" : "0",
             "File::Which" : "0",
             "Getopt::Declare" : "0",
-            "Gtk2::Notify" : "0",
             "Logger::Syslog" : "0",
             "Net::Ping::External" : "0",
             "Proc::ProcessTable" : "0",
