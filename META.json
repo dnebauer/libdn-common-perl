@@ -1,5 +1,5 @@
 {
-   "abstract" : "Blah blah blah",
+   "abstract" : "common methods for use by perl scripts",
    "author" : [
       "David Nebauer <davidnebauer@hotkey.net.au>"
    ],
@@ -37,7 +37,26 @@
       },
       "runtime" : {
          "requires" : {
-            "perl" : "5.008005"
+            "Config::Simple" : "0",
+            "Cwd" : "0",
+            "Date::Simple" : "0",
+            "Dn::Menu" : "0",
+            "File::Basename" : "0",
+            "File::Copy" : "0",
+            "File::MimeInfo" : "0",
+            "File::Util" : "0",
+            "File::Which" : "0",
+            "Getopt::Declare" : "0",
+            "Gtk2::Notify" : "0",
+            "Logger::Syslog" : "0",
+            "Net::Ping::External" : "0",
+            "Proc::ProcessTable" : "0",
+            "Storable" : "0",
+            "Term::ANSIColor" : "0",
+            "Term::Clui" : "0",
+            "Term::ReadKey" : "0",
+            "Text::Wrap" : "0",
+            "perl" : "5.0"
          }
       },
       "test" : {
@@ -47,6 +66,9 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.01"
+   "version" : "1.0.1",
+   "x_contributors" : [
+      "David Nebauer <david@nebauer,org>"
+   ]
 }
 
