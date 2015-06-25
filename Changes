@@ -1,6 +1,8 @@
 Revision history for Dn-Common
 
 {{$NEXT}}
+
+1.0.3  2015-06-26 03:02:32 ACST
         - Add required files for dn-build-perl-perl-mod-deb
 
 1.0.2  2015-06-25 23:01:39 ACST
