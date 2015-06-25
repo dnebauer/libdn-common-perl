@@ -1,6 +1,7 @@
 Revision history for Dn-Common
 
 {{$NEXT}}
+        - Still trying to fix Gtk2 build error
 
 1.0.4  2015-06-26 03:13:00 ACST
         - Fix build display error from Gtk2.pm 
