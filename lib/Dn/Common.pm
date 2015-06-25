@@ -2,7 +2,7 @@ package Dn::Common;
 
 use Moose;
 use 5.014_002;
-use version; our $VERSION = qv('1.0.1');
+use version; our $VERSION = qv('1.0.2');
 
 use namespace::autoclean;
 use Function::Parameters;
