@@ -1,169 +1,634 @@
-### logger()
+# Dn::Common
+
+Provides useful methods for use by scripts.
+
+Note that this module has been optimised for clarity of script rather than speed of execution. For example, it uses Mouse.
+
+config\_param\($parameter\)
+------------------------
+
+###Configuration file syntax
+
+This method can handle configuration files with the following formats:
+
+####simple
+
+~~~~~~~~~~~~
+key1  value1
+key2  value2
+~~~~~~~~~~~~
+
+####http-like
+
+~~~~~~~~~~~~
+key1: value1
+key2: value2
+~~~~~~~~~~~~
+
+####ini file
+
+~~~~~~~~~~~~
+\[block1\]
+key1=value1
+key2=value2
+
+\[block2\]
+key3 = value3
+key4 = value4
+~~~~~~~~~~~~
+
+Note in this case the block headings are optional.
+
+Warning: Mixing formats in the same file will cause a fatal error.
+
+The key is provided as the argument to method, e.g.,
+
+```perl
+$parameter1 = $cp->config_param('key1');
+```
+
+If the ini file format is used with block headings, the block heading
+must be included using dot syntax, e.g.,
+
+```perl
+$parameter1 = $cp->config_param('block1.key1');
+```
+
+###Configuration file locations and names
+
+This method looks in these directories for configuration files in this order \(where FOO is the calling script\): ./, /usr/local/etc, /etc, /etc/FOO, and $HOME.
+
+Each directory is searched for these file names in this order \(where FOO is the calling script\): FOOconfig, FOOconf, FOO.config, FOO.conf, FOOrc, and .FOOrc.
+
+###Multiple values
+
+A key can have multiple values separated by commas:
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+key1  value1, value2, "value 3"
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+or
+
+~~~~~~~~~~~~~~~~~~~~
+key1: value1, value2
+~~~~~~~~~~~~~~~~~~~~
+
+or
+
+~~~~~~~~~~~~~~~~~~~
+key1=value1, value2
+~~~~~~~~~~~~~~~~~~~
+
+This is different to multiple lines in the configuration files defining the same key. In that case, the last such line overwrites all earlier ones.
+
+###Return value
+
+As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values -- this can be used to confirm a single parameter result where only one is expected.
+
+suspend\_screensaver\(\[$title\], \[$msg\]\)
+-------------------------------------
+
+###Purpose
+
+Suspend kde screensaver if it is present.
+
+The screensaver is suspended until it is restored \(see method "restore\_screensaver"\) or the process that suspended the screensaver exits.
+
+###Parameters
+
+####$title
+
+Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
+
+Optional. Default: name of calling script.
+
+####$msg
+
+Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
+
+Named parameter.
+
+Optional. Default: 'request from $PID'.
+
+###Prints
+
+User feedback indicating success or failure.
+
+###Returns
+
+Boolean. Whether able to successfully suspend the screensaver.
+
+###Usage
+
+```perl
+$cp->suspend_screensaver('Playing movie');
+$cp->suspend_screensaver(
+    'Playing movie', msg => 'requested by my-movie-player'
+
+);
+```
+
+restore\_screensaver\(\[$title\]\)
+-----------------------------
+
+###Purpose
+
+Restore suspended kde screensaver.
+
+Only works if used by the same process that suspended the screensaver \(See method "suspend\_screensaver". The screensaver is restored automatically is the process that suspended the screensaver exits.
+
+###Parameters
+
+####$title
+
+Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
+
+Optional. Default: name of calling script.
+
+###Prints
+
+User feedback indicating success or failure.
+
+###Returns
+
+Boolean. Whether able to successfully suspend the screensaver.
+
+notify\(@messages, \[$prepend\]\)
+----------------------------------
+
+###Purpose
+
+Display console message.
+
+###Parameters
+
+####@messages
+
+Message lines. Respects newlines if enclosed in double quotes.
+
+Required.
+
+####$prepend
+
+Whether to prepend each message line with name of calling script.
+
+Named parameter. Boolean.
+
+Optional. Default: false.
+
+###Prints
+
+Messages.
+
+###Returns
+
+Nil.
+
+###Usage
+
+```perl
+$cp->notify('File path is:', $filepath);
+$cp->notify('File path is:', $filepath, prepend => 1);
+```
+
+abort\(@messages, \[$prepend\]\)
+---------------------------------
+
+###Purpose
+
+Display console message and abort script execution.
+
+###Parameters
+
+####@messages
+
+Message lines. Respects newlines if enclosed in double quotes.
+
+Required.
+
+####$prepend
+
+Whether to prepend each message line with name of calling script.
+
+Named parameter. Boolean.
+
+Optional. Default: false.
+
+###Prints
+
+Messages followed by abort message.
+
+###Returns
+
+Nil.
+
+###Usage
+
+```perl
+$cp->abort('We failed');
+$cp->abort('We failed', prepend => 1);
+```
+
+notify\_sys\($message, \[$title\], \[$type\], \[$icon\], \[$time\]\)
+---------------------------------------------------------
+
+###Purpose
+
+Display message to user in system notification area
+
+###Parameters
+
+####$message
+
+Message content.
+
+Note there is no guarantee that newlines in message content will be respected.
+
+Required.
+
+####$title
+
+Message title.
+
+Optional. Default: name of calling script.
+
+####$type
+
+Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
+
+Optional. Default: 'info'.
+
+####$icon
+
+Message box icon filepath.
+
+Optional. A default icon is provided for each message type.
+
+####$time
+
+Message display time \(msec\).
+
+Optional. Default: 10,000.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean: whether able to display notification.
+
+###Usage
+
+```perl
+$cp->notify_sys('Operation successful!', title => 'Outcome')
+```
+
+###Caution
+
+Do not call this method from a spawned child process -- the 'show\(\)' call in the last line of this method causes the child process to hang without any feedback to user.
+
+logger\($message, \[$type\]\)
+-------------------------
+
+###Purpose
 
 Display message in system log.
 
-There are four message types: 'debug', 'notice', 'warning' and 'error'. One of the method parameters specifies message type -- if none is specified the default message type 'notify' is used. The method will die if an invalid message type is passed.
+There are four message types: 'debug', 'notice', 'warning' and 'error'.  Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
 
-Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
+Method dies if invalid message type is provided.
 
-Parameters: \[ 0 = class \] , 1 = message , 2 = message type (case-insensitive, optional, default = 'notice').
+###Parameters
 
-Examples:
+####$message
 
-    $cp->logger( "Widget started" );
-    $cp->logger( "Widget died unexpectedly!" , "error" );
+Message content.
 
-Return type: Boolean (whether able to display notification).
+Required.
 
-### abort()
+####$type
 
-Abort script with error message. Message may be prepended with scriptname and the associated method 'sc\_abort' is also available (see method 'notify' for the logic used). 
+Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
 
-Parameters: \[ 0 = class \] , 1 = prepend (boolean, optional) , 1|2 = message ,
-                            2 = message ...
+Method dies if invalid message type is provided.
 
-Return type: N/A.
+Optional. Default: 'notice'.
 
-### clear\_screen()
+###Prints
+
+Nil.
+
+###Returns
+
+Nil. Note method dies if invalid message type is provided.
+
+###Usage
+
+```perl
+$cp->logger('Widget started');
+$cp->logger( 'Widget died unexpectedly!', 'error' );
+```
+
+extract\_key\_value\($key, @items\)
+-------------------------------
+
+###Purpose
+
+Provided with a list that contains a key-value pair as a sequential pair of elements, return the value and the list-minus-key-and-value.
+
+###Parameters
+
+####$key
+
+Key of the key-value pair.
+
+Required.
+
+####@items
+
+The items containing key and value.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+List with first element being the target value \(undef if not found\) and subsequent elements being the original list minus key and value.
+
+###Usage
+
+```perl
+my ($value, @list) = $cp->($key, @list);
+```
+
+clear\_screen\(\)
+--------------
+
+###Purpose
 
 Clear the terminal screen.
 
-Parameters: (0 = class).
+###Parameters
 
-Returns: NIL.
+Nil.
 
-### input\_choose()
+###Prints
 
-User selects from a menu. The scriptname may be prepended to the prompt and the associated method 'sc\_input\_choose' is also available (see method 'notify' for the logic used).
+Nil.
 
-Returns user's selection.
+###Returns
 
-Parameters: (0 = class), 1 = prepend (boolean, optional) , 1|2 = prompt,
-                         2|3+ = options.
+Nil.
 
-Return type: Scalar.
+###Usage
 
-Common usage:
+```perl
+$cp->clear_screen;
+```
 
-    my $value = undef;
-    while ( 1 ) {
-        $value = $self->input_choose( "Select value:" , <@list> );
-        if ( $value ) { last; }
-        print "Invalid choice. Sorry, please try again.\n";
-    }
+input\_choose\($prompt, @options, \[$prepend\]\)
+-------------------------------------------
 
-### input\_ask()
+###Purpose
 
-User enters a value. The scriptname may be prepended to the prompt and the associated method 'sc\_input\_ask' is also available (see method 'notify' for the logic used).
+User selects option from a menu.
+
+###Parameters
+
+####$prompt
+
+Menu prompt.
+
+Required.
+
+####@options
+
+Menu options.
+
+Required.
+
+####$prepend
+
+Flag indicating whether to prepend script name to prompt.
+
+Named parameter. Scalar boolean.
+
+Optional. Default: false.
+
+###Prints
+
+Menu and user interaction.
+
+###Returns
+
+Return value depends on the calling context:
+
+####scalar
+
+Returns scalar \(undef if choice cancelled\).
+
+####list
+
+Returns list \(empty list if choice cancelled\).
+
+###Usage
+
+```perl
+my $value = undef;
+my @options = ( 'Pick me', 'No, me!' );
+while (1) {
+    $value = $self->input_choose( "Select value:", @options );
+    last if $value;
+    say "Invalid choice. Sorry, please try again.";
+}
+```
+
+input\_ask\($prompt, \[$default\], \[$prepend\]\)
+------------------------------------------
+
+###Purpose
+
+Obtain input from user.
 
 This method is intended for entering short values. Once the entered text wraps to a new line the user cannot move the cursor back to the previous line.
 
 Use method 'input\_large' if the value is likely to be longer than a single line.
 
-Returns user's input.
+###Parameters
 
-Parameters: (0 = class), 1 = prepend (boolean, optional) , 1|2 = prompt,
-                         2|3 = default.
+####$prompt
 
-Return type: Scalar (text).
+User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
 
-Common usage:
+####$default
 
-    my $value = undef;
-    while ( 1 ) {
-        $value = $self->input_ask( "Enter value:" , <$default> );
-        if ( $self->_is_valid_value( $value ) ) { last; }
-    }
+Default input.
 
-### input\_large()
+Optional. Default: none.
 
-User enters data. The scriptname may be prepended to the prompt and the associated method 'sc\_input\_large' is also available (see method 'notify' for the logic used).
+####$prepend
 
-This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple (short) value. An editor is used to enter the data. The default editor is used. If no default editor is set, vi(m) is used.
+Whether to prepend the script name to the prompt.
 
-When the editor opens it displays some boilerplate, the prompt, a horizontal rule (a line of dashes), and the default value if provided. When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
+Named parameter. Boolean.
 
-Returns user's input. Note that newlines are left in the return value unchanged.
+Optional. Default: false.
 
-Parameters: (0 = class), 1 = prepend (boolean, optional) , 1|2 = prompt,
-                         2|3 = default.
+###Prints
 
-Return type: Scalar (text).
+User interaction.
 
-Common usage:
+###Returns
 
-    my $value = undef;
-    while ( 1 ) {
-        $value = $self->input_large( "Enter value:" , <$default> );
-        last if $self->_is_valid_value( $value );
-    }
+User's input \(scalar\).
 
-To convert multi-line data to a single line:
+###Usage
 
-    my $value = undef;
-    while ( 1 ) {
-        $value = join " " ,
-                 split( "\n" , $self->input_large( "Value:" , <$default> ) );
-        last if $self->_is_valid_value( $value );
-    }
+```perl
+my $value;
+my $default = 'default';
+while (1) {
+    $value = $self->input_ask( "Enter value:", $default );
+    last if $value;
+}
+```
 
-### input\_confirm()
+input\_large\($prompt, \[$default\], \[$prepend\]\)
+--------------------------------------------
 
-User answers y/n to a question. The scriptname may be prepended to the question and the associated method 'sc\_input\_confirm' is also available (see method 'notify' for the logic used).
+###Purpose
 
-If the question is multi-line, after the answer is supplied only the first line is left on screen. The first line should be a short summary question with subsequent lines holding further information.
+Obtain input from user.
 
-Parameters: (0 = class), 1 = prepend (boolean , optional) , 1|2 = question.
+This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple \(short\) value.  An editor is used to enter the data. The default editor is used. If no default editor is set, vi\(m\) is used.
 
-Return type: Boolean.
+When the editor opens it displays some boilerplate, the prompt, a horizontal rule \(a line of dashes\), and the default value if provided.  When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
 
-Common usage:
+Use method 'input\_ask' if the prompt and input will fit on a single line.
 
-    if ( input_confirm( "Short question?\n\nMore\nmulti-line\ntext." ) ) {
-        # do stuff
-    }
+###Parameters
 
-### display()
+####$prompt
 
-Displays screen text with word wrapping.
+User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
 
-Parameters: (0 = class), 1 = display string.
+####$default
 
-Common usage:
+Default input.
 
-    display( <$scalar> );
+Optional. Default: none.
 
-### pecho()
+####$prepend
 
-Wrapper for bash 'echo' command.
+Whether to prepend the script name to the prompt.
 
-Parameters: (0 = class), 1 = display string.
+Named parameter. Boolean.
 
-Common usage:
+Optional. Default: false.
 
-    pecho( <$scalar> );
+###Prints
 
-### pechon()
+User interaction.
 
-Wrapper for bash 'echo -n' command.
+###Returns
 
-Parameters: (0 = class), 1 = display string.
+User's input as list, split on newlines in user input.
 
-Common usage:
+###Usage
 
-    pechon( <$scalar> );
+Here is a case where input is required:
 
-### underline()
+```perl
+my @input;
+my $default = 'default';
+my $prompt = 'Enter input:';
+while (1) {
+    @input = $self->input_large( $prompt, $default );
+    last if @input;
+    $prompt = "Input is requirednEnter input:";
+}
+```
 
-Wrap text in bash formatting codes that result in underlining.
+input\_confirm\($question, \[$prepend\]\)
+------------------------------------
 
-Parameters: (0 = class), 1 = display string.
+###Purpose
 
-Common usage:
+User answers y/n to a question.
 
-    underline( '<text>' );
+###Parameters
 
-### vim\_print()
+####$question
+
+Question to elicit user response. If user uses 'prepend' option \(see below\) the script name is prepended to it.
+
+Can be multi-line, i.e., enclose in double quotes and include '\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
+
+Required.
+
+####$prepend
+
+Whether to prepend the script name to the question.
+
+Boolean.
+
+Optional. Default: false.
+
+###Prints
+
+User interaction.
+
+###Return
+
+Scalar boolean.
+
+###Usage
+
+```perl
+my $prompt = "Short question?nnMorenmulti-linentext.";
+if ( input_confirm($prompt) ) {
+    # do stuff
+}
+```
+
+display\($string\)
+----------------
+
+###Purpose
+
+Displays text on screen with word wrapping.
+
+###Parameters
+
+####$string
+
+Test for display.
+
+Required.
+
+###Print
+
+Text for screen display.
+
+###Return
+
+Nil.
+
+###Usage
+
+```perl
+$cp->display($long_string);
+```
+
+vim\_print\($type, @messages\)
+---------------------------
+
+###Purpose
 
 Print text to terminal screen using vim's default colour scheme.
 
@@ -172,74 +637,114 @@ Five styles have been implemented:
              Vim
              Highlight
     Style    Group       Foreground    Background
+
     -------  ----------  ------------  ----------
+
     title    Title       bold magenta  normal
+
     error    ErrorMsg    bold white    red
+
     warning  WarningMsg  red           normal
+
     prompt   MoreMsg     bold green    normal
+
     normal   Normal      normal        normal
 
-You can supply one or more strings as an array reference in the first parameter. If you are supplying only one string it can be passed as a simple scalar.
+
+###Parameters
+
+####$type
+
+Type of text. Determines colour scheme.
+
+Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
+
+Required.
+
+####@messages
+
+Content to display.
 
 Supplied strings can contain escaped double quotes.
 
-The 'type' parameter is case-insensitive. You can type any or all of the type parameter -- as little as one character is sufficient. If the type parameter is invalid the text is printed as normal with no error generated.
+Required.
 
-Uses module Term::ANSIColor.
+###Prints
 
-Examples:
+Messages in the requested colour scheme.
 
-    $cp->vim_print( [ "This is a title" ] , 't' );
-    $cp->vim_print( "This is normal text" );
-    $cp->vim_print( [ "Error message" ] , 'Err' );
-    $cp->vim_print( [ "This is normal text" ] , 'N' );
-    my @warnings = ( "This is a list of warning messages" ,
-                     "It will be passed by reference"
-    );
-    $cp->vim_print( \@warnings , 'Warn' );
-    $cp->vim_print( "This is a prompt" , 'PROMPT' );
+###Returns
 
-Parameters: \[ 0 = class \] , 1 = message(s) (scalar|arrayref) , 2 = type ('title'|'error'|'warning'|'prompt'|'normal') (optional) (default = 'normal')
+Nil.
 
-Return type: N/A.
+###Usage
 
-### vim\_printify()
+```perl
+$cp->vim_print( 't', 'This is a title' );
+```
 
-Modifies a single string to be included in a List to be passed to the 'vim\_list\_printify' method. The string is given a prefix that signals to 'vim\_list\_printify' what format to use. The prefix is stripped before the string is printed.
+vim\_printify\($type, $message\)
+-----------------------------
+
+###Purpose
+
+Modifies a single string to be included in a List to be passed to the 'vim\_list\_print' method. The string is given a prefix that signals to 'vim\_list\_print' what format to use. The prefix is stripped before the string is printed.
 
 Five styles have been implemented:
 
              Vim
              Highlight
     Style    Group       Foreground    Background
+
     -------  ----------  ------------  ----------
+
     title    Title       bold magenta  normal
+
     error    ErrorMsg    bold white    red
+
     warning  WarningMsg  red           normal
+
     prompt   MoreMsg     bold green    normal
+
     normal   Normal      normal        normal
 
-Supplied strings can contain escaped double quotes.
 
-The 'type' parameter is case-insensitive. You can type any or all of the type parameter -- as little as one character is sufficient. If the type parameter is invalid the text is printed as normal with no error generated.
+###Parameters
 
-Uses module Term::ANSIColor.
+####$type
 
-Examples:
+Type of text. Determines colour scheme.
 
-    push @output , $cp->vim_printify( "Title" , 't' );
-    push @output , $cp->vim_printify( "Normal text" );
-    push @output , $cp->vim_printify( "Error message" , 'Err' );
-    push @output , $cp->vim_printify( "Normal text" , 'N' );
-    push @output , $cp->vim_printify( "Warning message" , 'Warning' );
-    push @output , $cp->vim_printify( "Prompt" , 'PROMPT' );
-    $cp->vim_list_print( \@output );
+Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
 
-Parameters: \[ 0 = class \] , 1 = message , 2 = type ('title'|'error'|'warning'|'prompt'|'normal') (optional) (default = 'normal')
+Required.
 
-Return type: N/A.
+####$message
 
-### vim\_list\_print()
+Content to modify.
+
+Supplied string can contain escaped double quotes.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Modified string.
+
+###Usage
+
+```perl
+$cp->vim_printify( 't', 'This is a title' );
+```
+
+vim\_list\_print\(@messages\)
+-------------------------
+
+###Purpose
 
 Prints a list of strings to the terminal screen using vim's default colour scheme.
 
@@ -248,435 +753,852 @@ Five styles have been implemented:
              Vim
              Highlight
     Style    Group       Foreground    Background
+
     -------  ----------  ------------  ----------
+
     title    Title       bold magenta  normal
+
     error    ErrorMsg    bold white    red
+
     warning  WarningMsg  red           normal
+
     prompt   MoreMsg     bold green    normal
+
     normal   Normal      normal        normal
+
 
 Supplied strings can contain escaped double quotes.
 
-Each element of the list can be printed in a different style. Element strings need to be prepared using the 'vim\_printify' method. See the 'vim\_printify' method for an example.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = array reference.
+####@messages
 
-Return type: N/A.
+Each element of the list can be printed in a different style.  Element strings need to be prepared using the 'vim\_printify' method. See the 'vim\_printify' method for an example.
 
-### browse()
+Required.
+
+###Prints
+
+Messages in requested styles.
+
+###Returns
+
+Nil.
+
+listify\(@items\)
+---------------
+
+###Purpose
+
+Tries to convert scalar, array and hash references in list to sequences of simple scalars. For other reference types a warning is issued.
+
+###Parameters
+
+####@items
+
+Items to convert to simple list.
+
+###Prints
+
+Warning messages for references other than scalar, array and hash.
+
+###Returns
+
+Simple list.
+
+browse\($title, $text\)
+---------------------
+
+###Purpose
 
 Displays large volume of text in default editor and then returns viewer to original screen.
 
-Parameters: (0 = class), 1 = title , 2 = text.
+###Parameters
 
-Common usage:
+####$title
 
-    browse( <$title> , <$text> );
+Title is prepended to displayed text \(along with some usage instructions\) and is used in creating the temporary file displayed in the editor.
 
-### prompt()
+Required.
 
-Display message and prompt user to press any key.  Default message: 'Press any key to continue'.
+####$text
 
-Parameters: \[ 0 = class \] , 1 = message (optional).
+Text to display.
 
-Returns: NIL.
+Required.
 
-### get\_path()
+###Prints
 
-Return path from filepath.
+Nil.
 
-Parameters: \[ 0 = class \] , 1 = filepath.
+###Returns
 
-Return type: String.
+Nil.
 
-### executable\_path()
+prompt\(\[message\]\)
+-----------------
 
-Return path of executable. Mimics bash 'which' utility. Returns absolute path to executable if executable exists. If executable does not exist, it returns undef.
+###Purpose
 
-Parameters: \[ 0 = class \] , 1 = executable name.
+Display message and prompt user to press any key.
 
-Return type: String.
+###Parameters
 
-### make\_dir()
+####Message
+
+Message to display.
+
+Optional. Default: 'Press any key to continue'.
+
+###Prints
+
+Message.
+
+###Returns
+
+Nil.
+
+get\_path\($filepath\)
+-------------------
+
+###Purpose
+
+Get path from filepath.
+
+###Parameters
+
+####$filepath
+
+File path.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar path.
+
+executable\_path\($exe\)
+---------------------
+
+###Purpose
+
+Get path of executable.
+
+###Parameters
+
+####$exe
+
+Short name of executable.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Return
+
+Scalar filepath: absolute path to executable if executable exists.
+
+Scalar boolean: returns undef If executable does not exist.
+
+make\_dir\($dir\_path\)
+-------------------
+
+###Purpose
 
 Make directory recursively.
 
-Parameters: \[ 0 = class \] , 1 = dirpath.
+###Parameters
 
-Return type: String.
+####$dir\_path
 
-### files\_list()
+Directory path to create.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Return
+
+Scalar boolean. If directory already exists returns true.
+
+files\_list\(\[$directory\]\)
+------------------------
+
+###Purpose
 
 List files in directory. Uses current directory if no directory is supplied.
 
-Parameters: \[ 0 = class \] , 1 = dirpath (optional).
+###Parameters
 
-Return type: Array reference.
+####$directory
 
-### dirs\_list()
+Directory path.
+
+Optional. Default: current directory.
+
+###Prints
+
+Nil.
+
+###Returns
+
+List. Dies if operation fails.
+
+dirs\_list\(\[$directory\]\)
+-----------------------
+
+###Purpose
 
 List subdirectories in directory. Uses current directory if no directory is supplied.
 
-Parameters: \[ 0 = class \] , 1 = dirpath (optional).
+###Parameters
 
-Return type: Array reference.
+####$directory
 
-### backup\_file()
+Directory from which to obtain file list.
+
+Optional. Default: current directory.
+
+###Prints
+
+Nil \(error message if dies\).
+
+###Returns
+
+List \(dies if operation fails\).
+
+backup\_file\($file\)
+------------------
+
+###Purpose
 
 Backs up file by renaming it to a unique file name. Will simply add integer to file basename.
 
-Uses 'move' function from File::Copy.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = file.
+####$file
 
-Return type: N/A.
+File to back up.
 
-### listify()
+Required.
 
-Designed for functions where arguments may be passed as a sequence of scalars, an array (which is handled as a sequence of scalars), or an array reference. The methood can handle a mixture of scalars and array references.
+###Prints
 
-Any other type of reference is ignored, though a warning is printed.
+Nil.
 
-Parameters: \[ 0 = class \] , 1+ = array\_ref|scalar.
+###Returns
 
-Return type: Array reference.
+Scalar filename.
 
-### adb\_run()
+valid\_positive\_integer\($value\)
+------------------------------
 
-A major problem with adb is that it does not return an error code if an operation fails. This method runs an adb command, traps the error code, converts it to perl semantics, and returns it.
+###Purpose
 
-Any error messages are printed to the console. 
+Determine whether supplied value is a valid positive integer \(zero or above\).
 
-The preferred parameter is an array reference, but the method tries to gracefully handle strings and arrays. If the method encounters a reference other than ARRAY it will be ignored and an error message printed.
+###Parameters
 
-If the parameters are processed and no command elements are derived from them, an error message is printed and an error code returned.
+####$value
 
-Parameters: \[ 0 = class \] , 1 = array\_ref|scalar , 2+ = array\_ref|scalar.
+Value to test.
 
-Return type: Boolean.
+Required.
 
-### adb\_capture()
+###Prints
 
-A major problem with adb is that it does not return an error code if an operation fails. This method runs an adb command, traps the error code, converts it to perl semantics, and returns it. It also capture any output and returns that.
+Nil.
 
-Any error messages from this method are printed to the console. 
+###Returns
 
-The preferred parameter is an array reference, but the method tries to gracefully handle strings and arrays. If the method encounters a reference other than ARRAY it will be ignored and an error message printed.
+Boolean.
 
-If the parameters are processed and no command elements are derived from them, an error message is printed and an error code returned.
+valid\_positive\_integer\($value\)
+------------------------------
 
-Parameters: \[ 0 = class \] , 1 = array\_ref|scalar , 2+ = array\_ref|scalar.
+###Purpose
 
-Return type: Array\_ref \[
-                scalar (boolean, adb\_success) ,
-                array\_ref (adb\_output) 
-\]
+Determine whether supplied value is a valid positive integer \(zero or above\).
 
-### valid\_positive\_integer()
+###Parameters
 
-Determine whether supplied value is a valid positive integer (zero or above).
+####$value
 
-Parameters: \[ 0 = class \] , 1 = value.
+Value to test.
 
-Return type: Boolean.
+Required.
 
-### today()
+###Prints
 
-Return today as an ISO-formatted date.
+Nil.
 
-Parameters: \[ 0 = class \].
+###Returns
 
-Return type: String.
+Boolean.
 
-### offset\_date()
+today\(\)
+-------
 
-Return as an ISO-formatted date a date offset from today. The offset can be a positive or negative integer.
+###Purpose
 
-Parameters: \[ 0 = class \] , 1 = offset.
+Get today as an ISO-formatted date.
 
-Return type: String.
+###Parameters
 
-### day\_of\_week()
+Nil.
 
-Return day of week that supplied date falls on. Note that supplied date must be in ISO format. Default date: today.
+###Prints
 
-Parameters: \[ 0 = class \] , 1 = date (optional).
+Nil.
 
-Return type: Scalar <string>.
+###Returns
 
-### konsolekalendar\_date\_format()
+ISO-formatted date.
 
-Return date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'. Note that supplied date must be in ISO format. Default date: today.
+offset\_date\($offset\)
+--------------------
 
-Parameters: \[ 0 = class \] , 1 = date (optional).
+###Purpose
 
-Return type: Scalar <string>.
+Get a date offset from today. The offset can be positive or negative.
 
-### valid\_date()
+###Parameters
 
-Determine whether supplied date is valid.
+####$offset
 
-Parameters: \[ 0 = class \] , 1 = date (YYYY-MM-DD).
+Offset in days. Can be positive or negative.
 
-Return type: Boolean.
+Required.
 
-### sequential\_dates()
+###Prints
 
-Determine whether supplied dates are sequential.
+Nil.
 
-Assumes both dates are formatted as ISO dates \[YYY-MM-DD\]. If this is not so, the results may be unpredictable.
+###Returns
 
-Parameters: \[ 0 = class \] , 1 = date (YYYY-MM-DD), 2 = date (YYYY-MM-DD).
+ISO-formatted date.
 
-Return type: Boolean.
+day\_of\_week\(\[$date\]\)
+--------------------
 
-### future\_date()
+###Purpose
+
+Get the day of week that the supplied date falls on.
+
+###Parameters
+
+####$date
+
+Date to analyse. Must be in ISO format.
+
+Optional. Default: today.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar day name.
+
+konsolekalendar\_date\_format\(\[$date\]\)
+------------------------------------
+
+###Purpose
+
+Get date formatted in same manner as konsolekalendar does in its output.  An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
+
+###Parameters
+
+####$date
+
+Date to convert. Must be in ISO format.
+
+Optional, Default: today.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar date string.
+
+valid\_date\($date\)
+-----------------
+
+###Purpose
+
+Determine whether date is valid and in ISO format.
+
+###Parameters
+
+####$date
+
+Candidate date.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean.
+
+sequential\_dates\($date1, $date2\)
+--------------------------------
+
+###Purpose
+
+Determine whether supplied dates are in chronological sequence.
+
+Both dates must be in ISO format or method will return failure. It is recommended that date formats be checked before calling this method.
+
+###Parameters
+
+####$date1
+
+First date. ISO format.
+
+Required.
+
+####$date2
+
+Second date. ISO format.
+
+Required.
+
+###Prints
+
+Nil. Error message if dates not in ISO-format.
+
+###Returns
+
+Boolean.
+
+future\_date\($date\)
+------------------
+
+###Purpose
 
 Determine whether supplied date occurs in the future, i.e, today or after today.
 
-Assumes date is formatted as ISO date \[YYY-MM-DD\]. If this is not so, the results may be unpredictable.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = date (YYYY-MM-DD).
+####$date
 
-Return type: Boolean.
+Date to compare. Must be ISO format.
 
-### valid\_24h\_time\_hrs()
+Required.
 
-Provide list of valid hour values for 24-hour time.
+###Prints
 
-Parameters: \[ 0 = class \].
+Nil. \(Error if invalid date.\)
 
-Return type: List.
+###Return
 
-### valid\_24h\_time\_minsec()
+Boolean. \(Dies if invalid date.\)
 
-Provide list of valid minute and second values for 24-hour time.
+valid\_24h\_time\($time\)
+---------------------
 
-Parameters: \[ 0 = class \].
-
-Return type: List.
-
-### valid\_24h\_time()
+###Purpose
 
 Determine whether supplied time is valid.
 
-Parameters: \[ 0 = class \] , 1 = time (HH:MM\[:SS\]).
+###Parameters
 
-Return type: Boolean.
+####$time
 
-### sequential\_24h\_times()
+Time to evaluate. Must be in 'HH::MM' format \(leading zero can be dropped\).
 
-Determine whether supplied times are sequential, i.e., second time occurs after first time. Assume both times are from the same day.
+Required.
 
-Parameters: \[ 0 = class \] , 1 = time (HH:MM\[:SS\]) , 2 = time (HH:MM\[:SS\]).
+###Prints
 
-Return type: Boolean.
+Nil.
 
-### deentitise()
+###Returns
 
-Perform standard conversions of HTML entities to reserved characters (see function 'entitise' for table of entities).
+Boolean.
 
-Parameters: \[ 0 = class \] , 1 = string.
+sequential\_24h\_times\($time1, $time2\)
+------------------------------------
 
-Return type: String.
+###Purpose
 
-### entitise()
+Determine whether supplied times are in chronological sequence, i.e., second time occurs after first time. Assume both times are from the same day.
 
-Perform standard conversions of reserved characters to HTML entities:
+###Parameters
 
-    Name             ASCII     Entity
-    ----             -----     ------
-    ampersand          &       &amp;
-    less than          <       &lt;
-    greater than       >       &gt;
-    quotation mark     "       &quot;
-    apostrophe         '       &apos;
+####$time1
 
-Parameters: \[ 0 = class \] , 1 = string.
+First time to compare. 24 hour time format.
 
-Return type: String.
+Required.
 
-### entitise\_apos()
+####$time2
 
-Perform standard conversions of apostrophes (single quotes) to an HTML entity.
+Second time to compare. 24 hour time format.
 
-Parameters: \[ 0 = class \] , 1 = string.
+Required.
 
-Return type: String.
+###Prints
 
-### dequote()
+Nil. \(Error if invalid time.\)
 
-Remove quote marks from string.
+###Returns
 
-Parameters: \[ 0 = class \] , 1 = string.
+Boolean \(Dies if invalid time.\)
 
-Return type: String.
+entitise\($string\)
+-----------------
 
-### tabify()
+###Purpose
 
-Covert tab markers ('\\t') in string to spaces. Default tab size is four spaces.
+Perform standard conversions of reserved characters to HTML entities.
 
-Parameters: \[ 0 = class \] , 1 = string , 2 = tab\_size (optional).
+###Parameters
 
-Return type: String.
+####$string
 
-### trim()
+String to analyse.
 
-Remove leading and trailing whitespace from string.
+Required.
 
-Parameters: \[ 0 = class \] , 1 = string.
+###Prints
 
-Return type: String.
+Nil.
 
-### boolise()
+###Returns
+
+Scalar string.
+
+deentitise\($string\)
+-------------------
+
+###Purpose
+
+Perform standard conversions of HTML entities to reserved characters.
+
+###Parameters
+
+####$string
+
+String to analyse.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar string.
+
+tabify\($string, \[$tab\_size\]\)
+----------------------------
+
+###Purpose
+
+Covert tab markers \('\t'\) in string to spaces. Default tab size is four spaces.
+
+###Parameters
+
+####$string
+
+String in which to convert tabs.
+
+Required.
+
+####$tab\_size
+
+Number of spaces in each tab. Integer.
+
+Optional. Default: 4.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar string.
+
+trim\($string\)
+-------------
+
+###Purpose
+
+Remove leading and trailing whitespace.
+
+###Parameters
+
+####$string
+
+String to be converted.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar string.
+
+boolise\($value\)
+---------------
+
+###Purpose
 
 Convert value to boolean.
 
-Parameters: \[ 0 = class \] , 1 = value.
+Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and 'off' to 0. Other values are returned unchanged.
 
-Return type: Boolean (integer: 0|1).
+###Parameters
 
-### is\_boolean()
+####$value
+
+Value to analyse.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean.
+
+is\_boolean\($value\)
+------------------
+
+###Purpose
 
 Determine whether supplied value is boolean.
 
-Parameters: \[ 0 = class \] , 1 = value.
+Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
 
-Return type: Boolean (integer: 0|1).
+###Parameters
 
-### save\_store()
+####$value
+
+Value to be analysed.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean. \(Undefined if no value provided.\)
+
+save\_store\($ref, $file\)
+-----------------------
+
+###Purpose
 
 Store data structure in file.
 
-Parameters: \[ 0 = class \] , 1 = variable reference , 2 = file.
+###Parameters
 
-Return type: Boolean (integer).
+####$ref
 
-Common usage:
+Reference to data structure \(usually hash or array\) to be stored.
 
-    my %functions = $self->functions();
-    my $storage_dir = '/path/to/filename';
-    $self->save_store( \%functions , $storage_file );
+####$file
 
-### retrieve\_store()
+File path in which to store data.
 
-Retrieves function data from sorage file.
+###Prints
 
-Parameters: \[ 0 = class \] , 1 = file.
+Nil \(except feedback from Storable module\).
 
-Return type: Scalar (function reference).
+###Returns
 
-Common usage:
+Boolean.
 
-    my $storage_file = '/path/to/filename';
-    my $funcref = $self->retrieve_store( $storage_file );
-    $self->set_functions( $funcref );
+###Usage
 
-### read\_config\_files()
+```perl
+my $storage_dir = '/path/to/filename';
+$self->save_store( %data, $storage_file );
+```
 
-Locates all configuration files and loads their parameters and values. Module documentation for Config::Simple give full information on various configuration file formats that can be read. Here are two simple formats that will suffice for most scripts. In each case the key is 'my\_key' and the corresponding value is 'my value'.
+retrieve\_store\($file\)
+---------------------
 
-    my_key my value
-    my_key: my value
+###Purpose
 
-Note the value does not need to be enclosed in quotes even if it contains spaces.
+Retrieves function data from storage file.
 
-If you wish to store multiple values for a single parameter, follow the instructions in the Config::Simple man|pod page for how to format the configuration file.
+###Parameters
 
-All values are stored as an array, even if there is only one value for a parameter. See method 'config\_param' for the implications of this.
+####$file
 
-Uses script name as root of configuration file name if one is not supplied. Searches the following directories in turn (assume configuration file root is 'FOO'):
+File in which data is stored.
 
-    ./ , /usr/local/etc , /etc , /etc/FOO , ~/
+Required.
 
-for the following files, in turn:
+###Prints
 
-    FOOconfig , FOOconf , FOO.config , FOO.conf , FOOrc , .FOOrc
+Nil \(except feedback from Storage module\).
 
-If there are multiple instances of a particular parameter in these files, only the last one read will be stored. As a result of the directory ordering a local parameter setting will override the same parameter's global setting.
+###Returns
 
-Parameters: \[ 0 = class \] , 1 = config file root (optional).
+Boolean.
 
-Return type: N/A.
+###Usage
 
-### config\_param()
+```perl
+my $storage_file = '/path/to/filename';
+my $ref = $self->retrieve_store($storage_file);
+my %data = %{$ref};
+```
 
-Retrieves named parameter value from configuration settings. Looks in configuration hash created by the 'read\_config\_files' method. If hash is empty it automatically runs that method to populate the hash. Note that this will use the default universal configuration file root. If your script needs to use a different configuration root, call 'read\_config\_files' explicitly -- if no argument is given it will default to using the calling script's name as root.
+number\_list\(@items\)
+-------------------
 
-All parameter values are stored internally as arrays, even if there is only one value. This method will convert a return value to a scalar if there is only one value. If there are multiple values they will be returned as a list. For this reason it is important to know how parameter values are stored when using this method to retrieve them.
+###Purpose
 
-If no matching parameter is found then undef is returned.
+Prefix each list item with element index. The index base is 1.
 
-Parameters: \[ 0 = class \] , 1 = param.
-
-Return type: Scalar or List.
-
-### uline()
-
-Underline text.
-
-Parameters: \[ 0 = class \] , 1 = string.
-
-Return type: Scalar (string).
-
-### number\_list()
-
-Take list and prefix each element with element index. Index is left padded with spaces so each is the same length.
+The prefix is left padded with spaces so each is the same length.
 
 Example: 'Item' becomes ' 9. Item'.
 
-Parameters: \[ 0 = class \] , 1 = list.
+###Parameters
 
-Return type: List.
+####@items
 
-### denumber\_list()
+List to be modified.
 
-Take list and remove any number prefixes added with method 'number\_list'.
+Required.
 
-Example: ' 9. Item' becomes 'Item'.
+###Prints
 
-Parameters: \[ 0 = class \] , 1 = list.
+Nil.
 
-Return type: List.
+###Returns
 
-### shorten()
+List.
+
+denumber\_list\(@list\)
+--------------------
+
+###Purpose
+
+Remove number prefixes added by method 'number\_list'.
+
+###Parameters
+
+####@items
+
+List to modify.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Return
+
+List.
+
+shorten\($string, \[$limit\], \[$cont\]\)
+-----------------------------------
+
+###Purpose
 
 Truncate text with ellipsis if too long.
 
-Parameters: \[ 0 = class \] , 1 = string , 2 = limit ,
-                            3 = continuation character (default: ellipsis).
+###Parameters
 
-Return type: Scalar (string).
+####$string
 
-### internet\_connection()
+String to shorten.
 
-Checks to see whether an internet connection can be found. Checks connection to a number of sites supplied by libdncommon-vars.
+Required.
 
-Parameters: \[ 0 = class \].
+####$length
 
-Return type: Boolean.
+Length at which to truncate. Must be integer > 10.
 
-### process\_fs\_mount\_file()
+Optional. Default: 72.
 
-Reads mount file and stores information on mounted filesystems.
+####$cont
 
-Credit: based on Linux::Mounts perl module by Stephane Chmielewski <snck@free.fr>.
+Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
 
-Parameters: \[ 0 = class \] , 1 = mount\_file (optional).
+Optional. Default: '...'.
 
-Return type: N/A.
+###Prints
 
-### cwd()
+Nil.
+
+###Returns
+
+Scalar string.
+
+internet\_connection\(\)
+---------------------
+
+###Purpose
+
+Checks to see whether an internet connection can be found.
+
+###Parameters
+
+Nil.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean.
+
+cwd\(\)
+-----
+
+###Purpose
 
 Provides current directory.
 
-Uses 'getcwd' from package Cwd.
+###Parameters
 
-Parameters: \[ 0 = class \].
+Nil.
 
-Return type: Scalar (dirpath).
+###Prints
 
-### true\_path()
+Nil.
+
+###Returns
+
+Scalar string
+
+true\_path\($filepath\)
+--------------------
+
+###Purpose
 
 Converts relative to absolute filepaths. Any filepath can be provided to this method -- if an absolute filepath is provided it is returned unchanged. Symlinks will be followed and converted to their true filepaths.
 
@@ -684,284 +1606,130 @@ If the directory part of the filepath does not exist the entire filepath is retu
 
 WARNING: If passing a variable to this function it should be double quoted. If not, passing a value like './' results in an error as the value is somehow reduced to an empty value.
 
-Parameters: \[ 0 = class \] , 1 = filepath , 2 = base (optional).
+###Parameters
 
-Return type: Scalar (filepath).
+####$filepath
 
-### mounted\_filesystems()
+Path to analyse. If a variable should be double quoted \(see above\).
 
-Returns list of mounted filesystems.
+Required.
 
-Will run 'process\_fs\_mount\_file' if this has not already occurred. Note that this method will be invoked without an argument so it will use the default mount file. If your script needs to use a different mount file, make sure to run 'process\_fs\_mount\_file' explicitly before calling 'get\_mounted\_filesystems'.
+###Prints
 
-This method is based on an assumption that the mount file has at least one entry in it. On modern Linux systems that will always be true.
+Nil
 
-Credit: based on Linux::Mounts perl module by Stephane Chmielewski <snck@free.fr>.
+###Returns
 
-Parameters: \[ 0 = class \].
+Scalar filepath.
 
-Return type: List.
+pid\_running\($pid\)
+-----------------
 
-### filesystem\_mountpoint()
-
-Determine mount point of filesystem.
-
-Will run 'process\_fs\_mount\_file' if this has not already occurred. Note that this method will be invoked without an argument so it will use the default mount file. If your script needs to use a different mount file, make sure to run 'process\_fs\_mount\_file' explicitly before calling 'get\_mounted\_filesystems'.
-
-This method is based on an assumption that the mount file has at least one entry in it. On modern Linux systems that will always be true.
-
-Credit: based on Linux::Mounts perl module by Stephane Chmielewski <snck@free.fr>.
-
-Parameters: \[ 0 = class \] , 1 = device node.
-
-Return type: Scalar (path).
-
-### pid\_running()
+###Purpose
 
 Determines whether process id is running.
 
-A snapshot of the process list is captured into a table when this method is called for the first time. Any further invocations of this method then access the same table. To refresh the process table the method 'reload\_processes' must be called.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = pid.
+####$pid
 
-Return type: Scalar (boolean). (note: return value is actually the number of matching processes -- this is effectively a boolean value)
+Process ID to search for.
 
-### process\_running()
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean scalar.
+
+process\_running\($cmd, \[$match\_full\]\)
+------------------------------------
+
+###Purpose
 
 Determines whether process is running. Matches on process command. Can match against part or all of process commands.
 
-A snapshot of the process list is captured into a table when this method is called for the first time. Any further invocations of this method then access the same table. To refresh the process table the method 'reload\_processes' must be called.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = command , 2 = match\_full\_cmd (optional, default = FALSE).
+####$cmd
 
-Return type: Scalar (boolean). (note: return value is actually the number of matching processes -- this is effectively a boolean value)
+Command to search for.
 
-### reload\_processes()
+Required.
 
-Reloads/refreshes process table.
+####$match\_full
 
-Parameters: \[ 0 = class \].
+Whether to require match against entire process command.
 
-Return type: N/A.
+Optional. Default: false.
 
-### file\_mime\_type()
+###Prints
 
-Get mime type of file.
+Nil.
 
-Uses module File::MimeInfo.
+###Returns
 
-Note: This method previously used File::Type and its 'mime\_type' method but that module incorrectly identifies some mp3 files as 'application/octet-stream'. If File::MimeInfo proves imperfect as well it may be necessary to use both. Other possible modules to use are File::MMagic and File::MMagic:Magic.
+Boolean scalar.
 
-Parameters: \[ 0 = class \] , 1 = file name.
+###is\_mp3\($filepath\)
 
-Return type: Scalar, undef on failure.
-
-### is\_mp3()
+###Purpose
 
 Determine whether file is an mp3 file.
 
-Note: This method previously used File::Type and its 'mime\_type' method but that module incorrectly identifies some mp3 files as 'application/octet-stream'. If File::MimeInfo proves imperfect as well it may be necessary to use both. Other possible modules to use are File::MMagic and File::MMagic:Magic.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = file name.
+####$filepath
 
-Return type: Scalar, undef on failure.
+File to analyse.
 
-### is\_mp4()
+Required. Method dies if $filepath is not provided or is invalid.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar boolean.
+
+###is\_mp4\($filepath\)
+
+###Purpose
 
 Determine whether file is an mp4 file.
 
-Note: This method previously used File::Type and its 'mime\_type' method but that module incorrectly identifies some mp3 files as 'application/octet-stream'. If File::MimeInfo proves imperfect as well it may be necessary to use both. Other possible modules to use are File::MMagic and File::MMagic:Magic.
+###Parameters
 
-Parameters: \[ 0 = class \] , 1 = file name.
+####$filepath
 
-Return type: Scalar, undef on failure.
+File to analyse.
 
-# NAME
+Required. Method dies if $filepath is not provided or is invalid.
 
-Dn::CommonPerl - common methods for use by perl scripts
+###Prints
 
-# SYNOPSIS
+Nil.
 
-    use Dn::Common;
+###Returns
 
-# DESCRIPTION
+Scalar boolean.
 
-Provides methods used by Perl scripts. Can be used to create a standalone
-object providing these methods; or as base class for derived module or class.
+Dependencies
+============
 
-## method config\_params(parameter)
+autodie
+-------
 
-Uses Config::Simple.
+Automated error checking of 'open' and 'close' functions.
 
-### Configuration files syntax
+Debian: provided by package 'libautodie-perl'.
 
-This method can handle configuration files with the following formats:
-
-> - simple
->
->         key1  value1
->         key2  value2
->
-> - http-like
->
->         key1: value1
->         key2: value2
->
-> - ini file
->
->         [block1]
->         key1=value1
->         key2=value2
->
->         [block2]
->         key3 = value3
->         key4 = value4
->
->     Note in this case the block headings are optional.
-
-The key is provided as the argument to method, e.g.:
-    $parameter1 = $cp->config\_param('key1');
-
-If the ini file format is used with block headings, the block heading must be included using dot syntax, e.g.:
-    $parameter1 = $cp->config\_param('block1.key1');
-
-### Configuration file location and name
-
-This method looks in these directories for configuration files in this order:
-    ./               # i.e., bash $( pwd )
-    /usr/local/etc
-    /etc
-    /etc/FOO         # where FOO is the calling script
-    ~/               # i.e., bash $HOME
-
-Each directory is searched for these file names in this order:
-    FOOconfig     # where FOO is the calling script
-    FOOconf
-    FOO.config
-    FOO.conf
-    FOOrc
-    .FOOrc
-
-### Multiple values
-
-A key can have multiple values separated by commas:
-
-    key1  value1, value2, "value 3"
-
-or
-
-    key1: value1, value2
-
-or
-
-    key1=value1, value2
-
-This is different to multiple **lines** in the configuration files defining the same key. In that case, the last such line overwrites all earlier ones.
-
-### Return value
-
-As it is possible to retrieve multiple values for a single key, this method uses a list variable internally to capture parameter values. If the method is returning its result in a list context, the list is returned. If the method is returning its result in a scalar context, the list is interpolated, e.g., "@values".
-
-# DEPENDENCIES
-
-These modules are not provided with Dn::Common.
-
-## File::Util
-
-Used for various file and directory operations, including recursive directory
-creation and extracting filename and/or dirpath from a filepath.
-
-Debian: provided by package 'libfile-util-perl'.
-
-## File::Which
-
-Used for finding paths to executable files.
-
-Provides the 'which' function which mimics the bash 'which' utility.
-
-Debian: provided by package 'libfile-which-perl'.
-
-## File::Basename
-
-Parse file names.
-
-Provides the 'fileparse' method.
-
-Debian: provided by package 'perl'.
-
-## File::Copy
-
-Used for file copying.
-
-Provides the 'copy' and 'move' functions.
-
-Debian: provided by package 'perl-modules'.
-
-## Cwd
-
-Used to normalise paths, including following symlinks and collapsing relative
-paths. Also used to provide current working directory.
-
-Provides the 'abs\_path' and 'getcwd' functions for these purposes,
-respectively.
-
-Debian: provided by package 'libfile-spec-perl'.
-
-## File::MimeInfo
-
-Provides 'mimetype' method for getting mime-type information about mp3 files.
-
-Debian: provided by package 'libfile-mimeinfo-perl'.
-
-Note: Previously used File::Type and its 'mime\_type' method to get file
-mime-type information but that module incorrectly identifies some mp3 files as
-'application/octet-stream'. Other alternatives are File::MMagic and
-File::MMagic:Magic.
-
-## Date::Simple
-
-Used for writing date strings.
-
-Debian: provided by package 'libdate-simple-perl'.
-
-## Term::ANSIColor
-
-Used for user input.
-
-Provides the 'colored' function.
-
-Debian: provided by package 'perl-modules'.
-
-## Term::Clui
-
-Used for user input.
-
-Provides 'choose', 'ask', 'edit' and 'confirm' functions.
-
-To prevent responses being remembered between invocations, include this command
-after the use statement:
-
-    $ENV{'CLUI_DIR'} = "OFF"; # do not remember responses
-
-Debian: provided by package 'libperl-term-clui'.
-
-## Text::Wrap
-
-Used for formatting text into readable paragraphs.
-
-Provides the 'wrap' function.
-
-Debian: provided by package 'perl-base'.
-
-## Storable
-
-Used for storing and retrieving persistent data.
-
-Provides the 'store' and 'retrieve' functions.
-
-Debian: provided by package 'perl'.
-
-## Config::Simple
+Config::Simple
+--------------
 
 Reads and parses configuration files.
 
@@ -969,36 +1737,150 @@ Provides the 'import\_from' function.
 
 Debian: provided by package 'libconfig-simple-perl'.
 
-## Term::ReadKey
+Cwd
+---
 
-Used for reading single characters from keyboard.
+Used to normalise paths, including following symlinks and collapsing relative paths. Also used to provide current working directory.
 
-Provides the ReadMode' and 'ReadKey' functions.
+Provides the 'abs\_path' and 'getcwd' functions for these purposes, respectively.
 
-Debian: provided by package 'libterm-readkey-perl'.
+Debian: provided by package 'libfile-spec-perl'.
 
-## Net::Ping::External
+Data::Dumper::Simple
+--------------------
 
-Cross-platform interface to ICMP "ping" utilities. Enables the pinging of
-internet hosts.
+Used for displaying variables.
 
-Provides the 'ping' function.
+Debian: provided by package 'libdata-dumper-simple-perl'.
 
-Debian: provided by package 'libnet-ping-external-perl'.
+Date::Simple
+------------
 
-## Gtk2::Notify
+Used for writing date strings.
+
+Debian: provided by package 'libdate-simple-perl'.
+
+Desktop::Detect
+---------------
+
+Used for detecting KDE desktop. Uses 'detect\_desktop' function.
+
+Debian: provided by package 'libdesktop-detect-perl'.
+
+File::Basename
+--------------
+
+Parse file names.
+
+Provides the 'fileparse' method.
+
+Debian: provided by package 'perl'.
+
+File::Copy
+----------
+
+Used for file copying.
+
+Provides the 'copy' and 'move' functions.
+
+Debian: provided by package 'perl-modules'.
+
+File::MimeInfo
+--------------
+
+Provides 'mimetype' method for getting mime-type information about mp3 files.
+
+Debian: provided by package 'libfile-mimeinfo-perl'.
+
+Note: Previously used File::Type and its 'mime\_type' method to get file mime-type information but that module incorrectly identifies some mp3 files as 'application/octet-stream'. Other alternatives are File::MMagic and File::MMagic:Magic.
+
+File::Util
+----------
+
+Used for various file and directory operations, including recursive directory creation and extracting filename and/or dirpath from a filepath.
+
+Debian: provided by package 'libfile-util-perl'.
+
+File::Which
+-----------
+
+Used for finding paths to executable files.
+
+Provides the 'which' function which mimics the bash 'which' utility.
+
+Debian: provided by package 'libfile-which-perl'.
+
+Gtk2::Notify
+------------
 
 Provides access to libnotify.
 
 Provides the 'set\_timeout' and 'show' functions.
 
-The module man page recommends the following nonstandard invocation:
+Uses this nonstandard invocation recommended by the module man page:
 
-    use Gtk2::Notify -init, "$0";
+####use Gtk2::Notify -init, "$0";
+
 
 Debian: provided by package 'libgtk2-notify-perl'.
 
-## Proc::ProcessTable
+HTML::Entities
+--------------
+
+Used for converting between html entities and reserved characters.  Provides 'encode\_entities' and 'decode\_entities' methods.
+
+Debian: provided by package: 'libhtml-parser-perl'.
+
+Debian: provided by package 'libnet-ping-external-perl'.
+
+Logger::Syslog
+--------------
+
+Interface to system log.
+
+Provides functions 'debug', 'notice', 'warning' and 'error'.
+
+Some system logs only record some message types. On debian systems, for example, /var/log/messages records only 'notice' and 'warning' message types while /var/log/syslog records all message types.
+
+Debian: provided by package 'liblogger-syslog-perl'.
+
+namespace::autoclean
+--------------------
+
+Used to optimise Mouse.
+
+Debian: provided by package 'libnamespace::autoclean'.
+
+Mouse
+-----
+
+Use modern perl.
+
+Debian: provided by 'libmouse-perl'.
+
+Mouse::Util::TypeConstraints
+----------------------------
+
+Used to enhance Mouse.
+
+Debian: provided by 'libmouse-perl'.
+
+MouseX::NativeTraits
+--------------------
+
+Used to enhance Mouse.
+
+Debian: provided by package 'libmousex-nativetraits-perl'.
+
+Net::DBus
+---------
+
+Used in manipulating DBus services.
+
+Debian: provided by package 'libnet-dbus-perl'.
+
+Proc::ProcessTable
+------------------
 
 Provides access to system process table, i.e., output of 'ps'.
 
@@ -1006,48 +1888,86 @@ Provides the 'table' method.
 
 Debian: provided by package 'libproc-processtable-perl'.
 
-## Logger::Syslog
+Net::Ping::External
+-------------------
 
-Interface to system log.
+Cross-platform interface to ICMP "ping" utilities. Enables the pinging of internet hosts.
 
-Provides functions 'debug', 'notice', 'warning' and 'error'.
+Provides the 'ping' function.
 
-Some system logs only record some message types. On debian systems, for
-example, /var/log/messages records only 'notice' and 'warning' message types
-while /var/log/syslog records all message types.
+Readonly
+--------
 
-Debian: provided by package 'liblogger-syslog-perl'.
+Use modern perl.
 
-## Dn::Menu
+Debian: provided by package 'libreadonly-perl'
 
-Provides menus for use by Perl scripts. There are three kinds of menus
-available: hotkey, terminal-based and graphical.
+Storable
+--------
 
-Debian: provided by package 'libdnmenu-perl'.
+Used for storing and retrieving persistent data.
 
-## Desktop::Detect
+Provides the 'store' and 'retrieve' functions.
 
-Detects running desktop.
+Debian: provided by package 'perl'.
 
-Must export method 'detect\_desktop'.
+Term::ANSIColor
+---------------
 
-## dncommon-vars bash library
+Used for user input.
 
-Common variables used by bash and perl scripts.
+Provides the 'colored' function.
 
-Debian: provided by package 'libdncommon-vars'.
+Debian: provided by package 'perl-modules'.
 
-# AUTHOR
+Term::Clui
+----------
 
-David Nebauer <davidnebauer@hotkey.net.au>
+Used for user input.
 
-# COPYRIGHT
+Provides 'choose', 'ask', 'edit' and 'confirm' functions.
 
-Copyright 2015- David Nebauer
+Is configured to not remember responses. To override put this command after this module is called:
 
-# LICENSE
+```perl
+$ENV{'CLUI_DIR'} = "ON";
+```
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Debian: provided by package 'libperl-term-clui'.
 
-# SEE ALSO
+Term::ReadKey
+-------------
+
+Used for reading single characters from keyboard.
+
+Provides the 'ReadMode' and 'ReadKey' functions.
+
+Debian: provided by package 'libterm-readkey-perl'.
+
+Test::NeedsDisplay
+------------------
+
+Prevents build error caused by Gtk2::Notify. The module tests require a display but cannot find one. Test::NeedsDisplay provides a fake display.
+
+Debian: provided by package 'libtest-needsdisplay-perl'.
+
+Text::Wrap
+----------
+
+Used for formatting text into readable paragraphs.
+
+Provides the 'wrap' function.
+
+Debian: provided by package 'perl-base'.
+
+Time::Simple
+------------
+
+Used for validating and comparing times.
+
+Debian: not available.
+
+License
+=======
+
+This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.

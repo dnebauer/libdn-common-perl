@@ -4,39 +4,70 @@ Priority: optional
 Maintainer: David Nebauer <david@nebauer.org>
 Build-Depends: debhelper (>= 9),
  perl
-Build-Depends-Indep: libconfig-simple-perl,
+Build-Depends-Indep: 
+ libautodie-perl,
+ libconfig-simple-perl,
+ libdata-dumper-simple-perl,
  libdate-simple-perl,
+ libdesktop-detect-perl,
  libdnmenu-perl,
+ libexporter-tiny-perl,
  libfile-mimeinfo-perl,
  libfile-util-perl,
  libfile-which-perl,
+ libfunction-parameters-perl,
  libgetopt-declare-perl,
  libgtk2-notify-perl,
+ libhtml-parser-perl,
  liblogger-syslog-perl,
  libmodule-build-tiny-perl (>= 0.039),
+ libmouse-perl,
+ libmousex-nativetraits-perl,
+ libnet-dbus-perl,
  libnet-ping-external-perl,
  libproc-processtable-perl,
+ libreadonly-perl,
  libterm-clui-perl,
- libterm-readkey-perl
+ libterm-readkey-perl,
+ libtest-needsdisplay-perl,
+ libtime-simple-perl,
+ libtry-tiny-perl,
+ libtype-tiny-perl,
+ perl
 Standards-Version: 3.9.6
 Homepage: https://metacpan.org/release/Dn-Common
 
 Package: libdn-common-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
+ libautodie-perl,
  libconfig-simple-perl,
+ libdata-dumper-simple-perl,
  libdate-simple-perl,
+ libdesktop-detect-perl,
  libdnmenu-perl,
+ libexporter-tiny-perl,
  libfile-mimeinfo-perl,
  libfile-util-perl,
  libfile-which-perl,
+ libfunction-parameters-perl,
  libgetopt-declare-perl,
  libgtk2-notify-perl,
+ libhtml-parser-perl,
  liblogger-syslog-perl,
+ libmouse-perl,
+ libmousex-nativetraits-perl,
+ libnet-dbus-perl,
  libnet-ping-external-perl,
  libproc-processtable-perl,
+ libreadonly-perl,
  libterm-clui-perl,
- libterm-readkey-perl
+ libterm-readkey-perl,
+ libtest-needsdisplay-perl,
+ libtime-simple-perl,
+ libtry-tiny-perl,
+ libtype-tiny-perl,
+ perl
 Description: common methods for use by perl scripts
  Provides methods used by Perl scripts. Can be used to create a standalone
  object providing these methods; or as base class for derived module or class.
