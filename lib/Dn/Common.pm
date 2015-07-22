@@ -17,6 +17,7 @@ use Test::NeedsDisplay;
 
 use namespace::autoclean;
 use Mouse::Util::TypeConstraints;
+use MooseX::MakeImmutable;
 use MouseX::NativeTraits;
 use Function::Parameters;
 use Carp qw(cluck croak);
@@ -34,6 +35,9 @@ Readonly my $FALSE => 0;
 use Config::Simple;
 use Cwd qw(abs_path getcwd);
 use Date::Simple;
+use DateTime;
+use DateTime::Format::Mail;
+use DateTime::TimeZone;
 use Desktop::Detect qw(detect_desktop);
 use File::Basename;
 use File::Copy;
@@ -42,6 +46,9 @@ use File::Util;
 use File::Which;
 use Gtk2::Notify -init, "$PROGRAM_NAME";
 use HTML::Entities;
+use IPC::Cmd qw(run);
+use IPC::Open3;
+use IPC::Run;
 use Logger::Syslog;
 use Net::DBus;
 use Net::Ping::External qw(ping);
@@ -53,6 +60,8 @@ $CLUI_DIR = 'OFF';    # do not remember responses
 use Term::ReadKey;
 use Text::Wrap;
 use Time::Simple;
+use Time::Zone;
+use UI::Dialog;
 
 use experimental 'switch';
 
@@ -60,7 +69,7 @@ use experimental 'switch';
 
 # subtype: filepath
 subtype 'FilePath' => as 'Str' => where { -f abs_path($_) } =>
-    message {"Invalid file '$_'"};
+    message {qq[Invalid file '$_']};
 
 # attribute: script
 #            public, scalar
@@ -87,14 +96,30 @@ has 'kde_running' => (
 # attribute: _screensaver
 #           private, Net::DBus::RemoteObject object
 #           used in suspending and restoring screensaver
+# note:     use lazy+builder because if use default sub
+#           then other modules that use this one can fail
+#           their build with this error:
+#               perl Build test --verbose
+#               t/basic.t ...............
+#               # No DISPLAY. Looking for xvfb-run...
+#               # Restarting with xvfb-run...
+#               Xlib:  extension "RANDR" missing on display ":99".
+#               org.freedesktop.DBus.Error.ServiceUnknown: The name \
+#                   org.freedesktop.ScreenSaver was not provided by \
+#                   any .service files
+#               Compilation failed in require at t/basic.t line 3.
+#               ...
 has '_screensaver' => (
     is      => 'rw',
     isa     => 'Net::DBus::RemoteObject',
-    default => sub {
-        Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
-            ->get_object('/org/freedesktop/ScreenSaver');
-    },
+    lazy    => $TRUE,
+    builder => '_build_screensaver',
 );
+
+method _build_screensaver () {
+    return Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
+        ->get_object('/org/freedesktop/ScreenSaver');
+}
 
 # attribute: _screensaver_cookie
 #            private, scalar integer
@@ -208,6 +233,37 @@ method _build_icon_info () {
     return $self->_get_icon('info.xpm');
 }
 
+# subtype: NotifySysType
+subtype 'NotifySysType' => as 'Str' => where {
+    my $val = $_;
+    my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
+    return ( $val and $is_valid_type{$val} );
+} => message {qq[Invalid file '$_']};
+
+has 'notify_sys_type' => (
+    is            => 'rw',
+    isa           => 'NotifySysType',
+    reader        => '_notify_sys_type',
+    required      => $FALSE,
+    documentation => q{Default type for method 'notify_sys'},
+);
+
+has 'notify_sys_title' => (
+    is            => 'rw',
+    isa           => 'Str',
+    reader        => '_notify_sys_title',
+    required      => $FALSE,
+    documentation => q{Default title for method 'notify_sys'},
+);
+
+has 'notify_sys_icon' => (
+    is            => 'rw',
+    isa           => 'FilePath',
+    reader        => '_notify_sys_icon',
+    required      => $FALSE,
+    documentation => q{Default icon for method 'notify_sys'},
+);
+
 # attribute: _urls
 #            private, array of strings
 #            urls to ping
@@ -247,61 +303,156 @@ eval
 
 # METHODS
 
-# method: _get_icon($icon)
+# abort(@messages, [$prepend])
 #
-# does:   gets filepath of icon included in module package
-# params: $icon - file name of icon [required]
-# prints: nil
-# return: icon filepath
-method _get_icon ($icon) {
-    if ( not $icon ) {
-        return;
-    }
-    my $branch = "auto/share/dist/Dn-Common/$icon";
-    for my $root (@INC) {
-        if ( -e "$root/$branch" ) {
-            return "$root/$branch";
-        }
-    }
-    return;
+# does:   abort script with error message
+# params: @messages - message lines [required]
+#         $prepend  - whether to prepend script name to message lines
+#                     [named parameter, boolean, optional, default=false]
+# prints: messages
+# return: nil
+# usage:  $cp->abort('Did not work', $filepath);
+#         $cp->abort('Did not work', $filepath, prepend => $TRUE);
+# note:   respects newline if enclosed in double quotes
+# TODO:   implement changed interface
+method abort (@messages) {
+
+    # display messages
+    $self->notify(@messages);
+
+    # set prefix
+    my ( $prepend, @messages )
+        = $self->extract_key_value( 'prepend', @messages );
+    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
+
+    # abort
+    die "${prefix}Aborting\n";
 }
 
-# method: _process_config_files()
+# adb_devices()
 #
-# does:   find all configuration files for calling script
-#         loads attribute '_configuration_files'
+# does:   gets all attached adb devices
 # params: nil
 # prints: nil
-# return: nil
-method _process_config_files () {
-    my $root = File::Util->new()->strip_path($PROGRAM_NAME);
+# return: list of devices
+# note:   tries to use 'fb-adb' then 'adb'
+method adb_devices () {
+                        # check for android debug bridge
+    my $adb;
+    my @adb_alternatives = qw/fb-adb adb/;
+    foreach my $adb_alternative (@adb_alternatives) {
+        if ( $self->executable_path($adb_alternative) ) {
+            $adb = $adb_alternative;
+            last;
+        }
+    }
+    if ( not $adb ) {
+        my @msg = (
+            "Cannot find 'fb-adb' or 'adb'\n",
+            "Unable to check for attached android devices\n",
+        );
+        cluck @msg;
+        return;
+    }
 
-    # set directory and filename possibilities to try
-    my ( @dirs, @files );
-    push @dirs,  $PWD;                # ./     == bash $( pwd )
-    push @dirs,  '/usr/local/etc';    # /usr/local/etc/
-    push @dirs,  '/etc';              # /etc/
-    push @dirs,  "/etc/$root";        # /etc/FOO/
-    push @dirs,  $HOME;               # ~/     == bash $HOME
-    push @files, "${root}config";     # FOOconfig
-    push @files, "${root}conf";       # FOOconf
-    push @files, "${root}.config";    # FOO.config
-    push @files, "${root}.conf";      # FOO.conf
-    push @files, "${root}rc";         # FOOrc
-    push @files, ".${root}rc";        # .FOOrc
-
-    # look for existing combinations and capture those config files
-    for my $dir (@dirs) {
-        for my $file (@files) {
-            my $cf = sprintf '%s/%s', $dir, $file;
-            if ( -r "$cf" ) {
-                $self->_add_config_file( Config::Simple->new($cf) );
+    # get and parse adb devices report
+    my @cmd = ( $adb, 'devices' );
+    my ( $success, $err, $full, $stdout, $stderr )
+        = IPC::Cmd::run( command => [@cmd] );
+    my @output = @{$full};
+    my @devices;
+    for my $line (@output) {
+        my @elements = split /\s+/xsm, $line;
+        if ( scalar @elements == 2 ) {
+            my $device = $elements[0];
+            my $type   = $elements[1];
+            if ( $type eq 'device' ) {
+                push @devices, $device;
             }
         }
     }
+    return @devices;
 }
 
-# method: config_param($param)
+# backup_file($file)
+#
+# does:   backs up file by renaming it to a unique file name
+# params: $file - file to back up [required]
+# prints: nil (error message if fails)
+# return: nil (die if fails)
+# detail: simply adds integer to file basename to get unique file name
+# uses:   File::Copy (move), File::Basename (fileparse)
+method backup_file ($file) {
+
+    # determine backup file name
+    my ( $base, $suffix )
+        = ( File::Basename::fileparse( $file, qr/[.][^.]*\z/xsm ) )[ 0, 2 ];
+    my $count  = 1;
+    my $backup = $base . q{_} . $count++ . $suffix;
+    while ( -e $backup ) {
+        $backup = $base . q{_} . $count++ . $suffix;
+    }
+
+    # do backup
+    File::Copy::move( $file, $backup )
+        or confess "Error: unable to backup $base to $backup";
+
+    # notify user
+    say "Existing file '$file' renamed to '$backup'";
+}
+
+# boolise($value)
+#
+# does:   convert value to boolean
+# detail: convert 'yes', 'true' and 'on' to 1
+#         convert 'no, 'false, and 'off' to 0
+#         other values returned unchanged
+# params: $value - value to analyse [required]
+# prints: nil
+# return: boolean
+method boolise ($value) {
+    if ( not defined $value ) { return; }    # handle special case
+    for ($value) {
+        when (/^yes$|^true$|^on$/ixsm)  { return 1; }        # true -> 1
+        when (/^no$|^false$|^off$/ixsm) { return 0; }        # false -> 0
+        default                         { return $value; }
+    }
+}
+
+# browse($title, $text)
+#
+# does:   displays a large volume of text in default editor
+# params: $title - title applied to editor temporary file
+# prints: nil
+# return: nil
+method browse ($title, $text) {
+    return if not $title;
+    return if not $text;
+    my $text
+        = qq{\n}
+        . $title
+        . qq{\n\n}
+        . qq{[This text should be displaying in your default editor.\n}
+        . qq{If no default editor is specified, vi(m) is used.\n}
+        . q{To exit this screen, exit the editor as you normally would}
+        . q{ - 'ZQ' for vi(m).]}
+        . qq{\n\n}
+        . $text;
+    Term::Clui::edit( $title, $text );
+}
+
+# clear_screen()
+#
+# does:   clear the terminal screen
+# params: nil
+# prints: nil
+# return: nil
+# TODO:   implement changed interface
+method clear_screen () {
+    system 'clear';
+}
+
+# config_param($param)
 #
 # does:   get parameter value
 # params: $param - configuration parameter name
@@ -334,206 +485,254 @@ method config_param ($param) {
     return @values;
 }
 
-# method: _load_processes()
+# cwd()
 #
-# does:   load '_processes' attribute with pid=>command pairs
+# does:   get current directory
 # params: nil
 # prints: nil
-# return: nil
-method _load_processes () {
-    $self->_clear_processes;
-    foreach my $process ( @{ Proc::ProcessTable->new()->table() } ) {
-        $self->_add_process( $process->pid, $process->cmndline );
-    }
+# return: scalar
+#  uses:  Cwd
+method cwd () {
+    return Cwd::getcwd();
 }
 
-# method: _reload_processes()
+# day_of_week([$date])
 #
-# does:   reload '_processes' attribute with pid=>command pairs
-# params: nil
+# does:   day of week the supplied date falls on
+# params: $date - date in ISO format [optional, default=today]
 # prints: nil
+# return: scalar day
+# uses:   Date::Simple
+method day_of_week ($date) {
+    if ( not $date ) { $date = $self->today(); }
+    return if not $self->valid_date($date);
+    my %day_numbers = (
+        '0' => 'Sunday',
+        '1' => 'Monday',
+        '2' => 'Tuesday',
+        '3' => 'Wednesday',
+        '4' => 'Thursday',
+        '5' => 'Friday',
+        '6' => 'Saturday',
+    );
+    my $d          = Date::Simple->new($date);
+    my $day_number = $d->day_of_week();
+    my $day        = $day_numbers{$day_number};
+    if ( not $day ) { return; }
+    return $day;
+}
+
+# deentitise($string)
+#
+# does:   convert HTML entities to reserved characters
+# params: $string - string to analyse [required]
+# prints: nil
+# return: scalar string
+# # uses: HTML::Entities
+method deentitise ($string = q//) {
+    return HTML::Entities::decode_entities($string);
+}
+
+# denumber_list(@list)
+#
+# does:   remove number prefixes added by method 'number_list'
+# params: @items - list to modify [required]
+# prints: nil
+# return: list
+# note:   map operation extracted to method as per Perl Best Practice
+method _remove_numeric_prefix ($item) {
+    $item =~ s/^\s*\d+[.]\s+//xsm;
+    $item;
+}
+
+method denumber_list (@items) {
+    map { $self->_remove_numeric_prefix($_) } @items;
+}
+
+# dirs_list($directory)
+#
+# does:   list subdirectories in directory
+# params: $directory - directory path [optional, default=cwd]
+# prints: nil
+# return: list, die if operation fails
+method dirs_list ($dir) {
+    if ( not $dir ) { $dir = $self->cwd(); }
+    $dir = $self->true_path($dir);
+    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
+    my $f = File::Util->new();
+
+    # method 'list_dir' fails if directory has no subdirs, so cannot test
+    # for failure of method - assume "failure" == no subdirs in directory
+    my @dirs;
+    @dirs = $f->list_dir( $dir, { dirs_only => $TRUE } );
+    if (@dirs) {
+        @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
+    }
+    return @dirs;
+}
+
+# display($string)
+#
+# does:   displays screen text with word wrapping
+# params: $string - text to display [required]
+# prints: text for display
 # return: nil
-method _reload_processes () {
-    $self->_load_processes;
+# usage:  $cp->display($long_string);
+# uses:   Text::Wrap
+method display ($string) {
+    say Text::Wrap::wrap( q{}, q{}, $string );
 }
 
-# method: suspend_screensaver([$title], [$msg])
+# echo_e($string)
 #
-# does:   suspends kde screensaver if present
-# params: $title - title of message box [optional, default=scriptname]
-#         $msg   - message explaining suspend request
-#                 [named param, optional, default='request from $PID']
-#                 example: 'running smplayer'
-# prints: nil (feedback via popup notification)
-# return: boolean
-# uses:   Net::DBus::RemoteObject
-#         DBus service org.freedesktop.ScreenSaver
-method suspend_screensaver ($title, :$msg) {
-    if ( not $title ) { $title = $self->_script; }
-    if ( not $msg )   { $msg   = "request from $PID"; }
-    my $cookie;
-
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {      # do not repeat request
-        $err = 'This process has already requested screensaver suspension';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
+# does:   use shell command 'echo -e'
+# params: $text - text to print [required]
+# prints: string with shell escape sequences escaped
+# return: nil
+method echo_e ($text) {
+    if ( not $text ) {
+        confess q{No text provided};
     }
-    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
-        $err = 'Cannot suspend screensaver on non-KDE desktop';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-
-    # suspension screensaver
-    if ( !eval { $cookie = $self->_screensaver->Inhibit( $PID, $msg ); 1 } ) {
-        $err = 'Failed to suspend screensaver';         # failed
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $self->_screensaver_attempt_suspend($FALSE);
-        return;
-    }
-    else {                                              # succeeded
-        $self->notify_sys( 'Suspended screensaver', title => $title );
-        $self->_screensaver_cookie($cookie);
-        return $TRUE;
-    }
+    my @cmd = ( q{echo}, q{-e}, $text );
+    system @cmd;
 }
 
-# method: restore_screensaver([$title])
+# echo_en($string)
 #
-# does:   restores suspended kde screensaver
-# params: $title - title of message box [optional, default=scriptname]
-# prints: nil (feedback via popup notification)
-# return: boolean
-# uses:   Net::DBus::RemoteObject
-#         DBus service org.freedesktop.ScreenSaver
-method restore_screensaver ($title) {
-    if ( not $title ) { $title = $self->_script; }
-    my $cookie;
-
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {
-        $cookie = $self->_screensaver_cookie;
+# does:   use shell command 'echo -en'
+# params: $text - text to print [required]
+# prints: string with shell escape sequences escaped
+#         and no trailing newline
+# return: nil
+method echo_en ($text) {
+    if ( not $text ) {
+        confess q{No text provided};
     }
-    else {                            # must first be suspended
-        $err = 'Screensaver has not been suspended by this process';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
-        $err = 'Cannot suspend screensaver on non-KDE desktop';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-
-    # restore screensaver
-    if ( !eval { $self->_screensaver->UnInhibit($cookie); 1 } ) {    # failed
-        $err = 'Unable to restore screensaver programmatically';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = 'It should restore automatically as this script exits';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    else {    # succeeded
-        $self->notify_sys( 'Restored screensaver', title => $title );
-        $self->_screensaver_cookie();
-        return $TRUE;
-    }
+    my @cmd = ( q{echo}, q{-en}, $text );
+    system @cmd;
 }
 
-# method: notify_sys($msg, [$title], [$type], [$icon], [$time])
+# email_date ([$date], [$time], [$offset])
 #
-# does:   display message to user in system notification area
-# params: $msg   - message content [required]
-#         $title - message title [optional, default=calling script name]
-#         $type  - 'info'|'question'|'warn'|'error'
-#                 [optional, default='info']
-#         $icon  - message icon filepath [optional, no default]
-#         $time  - message display time (msec) [optional, default=10,000]
-# return: boolean, whether able to display notification
-# usage:  $cp->notify_sys('Operation successful!', title => 'Outcome');
-# alert:  do not call this method from a spawned child process --
-#         the 'show()' call in the last line of this method causes
-#         the child process to hang without any feedback to user
-# note:   not guaranteed to respect newlines
-# uses:   Gtk2::Notify
-#         Test::NeedsDisplay (required to prevent build tools from failing)
-# TODO:   implement changed interface
-method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
+# does:   produce a date formatted according to RFC 2822
+#         (Internet Message Format)
+# params: $date   - iso-format date
+#                   [named parameter, optional, default=today]
+#         $time   - 24 hour time [named parameter, optional, default=now]
+#                   leading hour zero, and seconds, are optional
+#         $offset - timezone offset, e.g., +0930
+#                   [named parameter, optional, default=local timezone offset]
+# prints: message if fatal error
+# return: scalar string (undef if error)
+# note:   example output: 'Mon, 16 Jul 1979 16:45:20 +1000'
+method email_date (:$date, :$time, :$offset) {
 
-    # parameters
-    # - msg
-    return if not($msg);
-
-    # - title
-    if ( not $title ) { $title = $self->_script }
-
-    # - type
-    my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
-    if ( not( $type and $is_valid_type{$type} ) ) {
-        confess "Invalid type '$type'";
-    }
-
-    # - icon
-    if ( not( $icon and -e $icon ) ) {
-        for ($type) {    # no default because type *must* be 1 of these 4
-            when (/^info$/xsm)     { $icon = $self->_icon_info }
-            when (/^question$/xsm) { $icon = $self->_icon_question }
-            when (/^warn$/xsm)     { $icon = $self->_icon_warn }
-            when (/^error$/xsm)    { $icon = $self->_icon_error }
-            default { confess "Invalid type '$type'" }
+    # date
+    if ($date) {
+        if ( not $self->valid_date($date) ) {
+            cluck "Invalid date '$date'\n";
+            return;
         }
     }
-
-    # - time
-    if ( not( $time and $time =~ /^[1-9]\d+\z/xsm ) ) {
-        $time = 10_000;
+    else {
+        $date = $self->today();
     }
 
-    # display notification popup
-    my $n = Gtk2::Notify->new( $title, $msg, $icon );
-    $n->set_timeout($time);
-    $n->show();
-    return;
+    # time
+    if ($time) {
+        if ( not $self->valid_24h_time($time) ) {
+            cluck "Invalid time '$time'\n";
+            return;
+        }
+    }
+    else {
+        $time = $self->now();
+    }
+
+    # timezone
+    my $timezone;
+    if ($offset) {
+        $timezone = $self->timezone_from_offset($offset);
+        if ( not $timezone ) { return; }    # error shown by previous line
+    }
+    else {
+        $timezone = $self->local_timezone();
+    }
+
+    # get rfc 2822 string
+    my $ds = Date::Simple->new($date);
+    if ( not $ds ) { confess 'Unable to create Date::Simple object'; }
+    my $ts = Time::Simple->new($time);
+    if ( not $ts ) { confess 'Unable to create Time::Simple object'; }
+    my $dt = DateTime->new(
+        year      => $ds->year,
+        month     => $ds->month,
+        day       => $ds->day,
+        hour      => $ts->hour,
+        minute    => $ts->minute,
+        second    => $ts->second,
+        time_zone => $timezone,
+    );
+    if ( not $dt ) { confess 'Unable to create DateTime object'; }
+    my $email_date = DateTime::Format::Mail->format_datetime($dt);
+    if ( not $email_date ) { confess 'Unable to generate RFC2822 date'; }
+    return $email_date;
 }
 
-# method: logger($message, $type)
+# ensure_no_trailing_slash($dir)
 #
-# does:   write message to system logs
-# params: $message - message content [required]
-#         $type    - message type ['debug'|'notice'|'warning'|'error']
-#                   [optional, default='notice']
+# does:   removes trailing slash from directory path
+# params: $dir - directory path to analyse [required]
 # prints: nil
-# return: nil
-# note:   not all message types appear in all system logs -- on debian,
-#         for example, /var/log/messages records only notice and warning
-#         log messages while /var/log/syslog records all log messages
-# uses:   Logger::Syslog
-method logger ($message, $type = 'notice') {
-
-    # set and check variables
-    return if not $message;
-    $type =~ s/(.*)/\L$1/gxsm;               # lowercase
-
-    # log message
-    for ($type) {
-        when (/^debug$/xsm)   { Logger::Syslog::debug($message) }
-        when (/^notice$/xsm)  { Logger::Syslog::notice($message) }
-        when (/^warning$/xsm) { Logger::Syslog::warning($message) }
-        when (/^error$/xsm)   { Logger::Syslog::error($message) }
-        default               { confess "Invalid type '$type'" }
+# return: scalar string - altered dirpath
+method ensure_no_trailing_slash ($dir) {
+    if ( not $dir ) { return; }
+    while ( $dir =~ m{/$}xsm ) {
+        chop $dir;
     }
-
-    return;
+    return $dir;
 }
 
-# method: extract_key_value($key, @items)
+# ensure_trailing_slash($dir)
+#
+# does:   ensures directory has trailing slash
+# params: $dir - directory path to analyse [required]
+# prints: nil
+# return: scalar string - altered dirpath
+method ensure_trailing_slash ($dir) {
+    if ( not $dir ) { return; }
+    while ( $dir =~ m{/$}xsm ) {
+        chop $dir;
+    }
+    $dir .= q{/};
+    return $dir;
+}
+
+# entitise($string)
+#
+# does:   convert reserved characters to HTML entities
+# params: $string - string to analyse [required]
+# prints: nil
+# return: scalar string
+# # uses: HTML::Entities
+method entitise ($string = q//) {
+    return HTML::Entities::encode_entities($string);
+}
+
+# executable_path($exe)
+#
+# does:   find path to executable
+# params: $exe - short name of executable [requiered]
+# prints: nil
+# return: scalar filepath
+#         scalar boolean (undef if not found)
+# uses:   File::Which
+method executable_path ($exe) {
+    if ( not $exe ) { confess 'No executable name provided'; }
+    scalar File::Which::which($exe);
+}
+
+# extract_key_value($key, @items)
 #
 # does:   extract key value from list
 #         assumes key and value are pair of elements in list
@@ -560,71 +759,182 @@ method extract_key_value ($key, @items) {
     return ( $value, @remainder );
 }
 
-# method: notify(@messages, [$prepend])
+# files_list([$dir_path])
 #
-# does:   display console message
-# params: @messages - message lines [required]
-#         $prepend  - whether to prepend script name to message lines
-#                     named parameter, boolean, optional, default=false
-# prints: messages
-# return: nil
-# usage:  $cp->notify('File path is:', $filepath);
-#         $cp->notify('File path is:', $filepath, prepend => $TRUE);
-# note:   respects newline if enclosed in double quotes
-# TODO:   implement changed interface
-method notify (@messages) {
+# does:   list files in directory
+# params: $directory - directory path [optional, default=cwd]
+# prints: nil
+# return: list, die if operation fails
+method files_list ($dir) {
+    if ( not $dir ) { $dir = $self->cwd(); }
+    $dir = $self->true_path($dir);
+    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
+    my $f = File::Util->new();
 
-    # set prepend flag and display messages
-    my ( $prepend, @messages )
-        = $self->extract_key_value( 'prepend', @messages );
+    # method 'list_dir' fails if directory has no files, so cannot test
+    # for failure of method - assume "failure" == no files in directory
+    my @files;
+    @files = $f->list_dir( $dir, { files_only => $TRUE } );
+    return @files;
+}
 
-    # set prefix
-    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
+# future_date($date)
+#
+# does:   determine whether supplied date occurs in the future,
+#         i.e, today or after today
+# params: $date - date to compare, must be ISO format [required]
+# prints: nil (error if invalid date)
+# return: boolean (dies if invalid date)
+method future_date ($date) {
 
-    # display messages
-    for my $message (@messages) {
-        say "$prefix$message";
+    # check date
+    if ( not $self->valid_date($date) ) {
+        confess "Invalid date '$date'";
     }
+
+    # get dates
+    my $iso_date = Date::Simple->new($date);
+    my $today    = Date::Simple->new();
+
+    # evaluate date sequence
+    return ( $iso_date >= $today );
 }
 
-# method: abort(@messages, [$prepend])
+# params: $filepath - file path [required]
+# prints: nil
+# return: scalar filename
+# uses:   File::Basename
+# note:   returns last element in path, which may be dir in dirpath
+# get_filename($filepath)
 #
-# does:   abort script with error message
-# params: @messages - message lines [required]
-#         $prepend  - whether to prepend script name to message lines
-#                     [named parameter, boolean, optional, default=false]
-# prints: messages
-# return: nil
-# usage:  $cp->abort('Did not work', $filepath);
-#         $cp->abort('Did not work', $filepath, prepend => $TRUE);
-# note:   respects newline if enclosed in double quotes
-# TODO:   implement changed interface
-method abort (@messages) {
-
-    # display messages
-    $self->notify(@messages);
-
-    # set prefix
-    my ( $prepend, @messages )
-        = $self->extract_key_value( 'prepend', @messages );
-    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
-
-    # abort
-    die "${prefix}Aborting\n";
+# does:   get filename from filepath.
+# params: $filepath - file path [required]
+# prints: nil
+# return: scalar filename
+# uses:   File::Basename
+# note:   returns last element in path, which may be dir in dirpath
+method get_filename ($filepath) {
+    if ( not $filepath ) { confess 'No file path provided'; }
+    return File::Basename::fileparse($filepath);
 }
 
-# method: clear_screen()
+# get_path($filepath)
 #
-# does:   clear the terminal screen
+# does:   get path from filepath.
+# params: $filepath - file path [required]
+# prints: nil
+# return: scalar path
+# uses:   File::Util
+method get_path ($filepath) {
+    if ( not $filepath ) { confess 'No file path provided'; }
+    my $path = File::Util->new()->return_path($filepath);
+    if ( $path eq $filepath ) {
+        $path = q{};
+    }
+    return $path;
+}
+
+# internet_connection()
+#
+# does:   determine whether an internet connection can be found
 # params: nil
 # prints: nil
-# return: nil
-# TODO:   implement changed interface
-method clear_screen () {
-    system 'clear';
+# return: boolean
+# uses:   Net::Ping::External
+method internet_connection () {
+    my $connected;
+    foreach my $url ( $self->_ping_urls ) {
+        if ( Net::Ping::External::ping( hostname => $url ) ) {
+            $connected = $TRUE;
+            last;
+        }
+    }
+    if ($connected) { return $TRUE; }
+    return;
 }
 
-# method: input_choose($prompt, @options, [$prepend])
+# is_boolean($value)
+#
+# does:   determine whether supplied value is boolean
+# detail: checks whether value is one of: 'yes', 'true', 'on', 1,
+#         'no, 'false, 'off' or 0
+# params: $value - value to be analysed [required]
+# prints: nil
+# return: boolean (undefined if no value provided)
+method is_boolean ($value) {
+    if ( not defined $value ) { return; }
+    $value = $self->boolise($value);
+    return $value =~ /(^1$|^0$)/xsm;
+}
+
+# is_mp3($filepath)
+#
+# does:   determine whether file is an mp3 file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_mp3 ($filepath) {
+    return $self->_is_mimetype( $filepath, 'audio/mpeg' );
+}
+
+# is_mp4($filepath)
+#
+# does:   determine whether file is an mp3 file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_mp4 ($filepath) {
+    return $self->_is_mimetype( $filepath, 'video/mp4' );
+}
+
+# konsolekalendar_date_format($date)
+#
+# does:   get date formatted as konsolekalendar does in its output
+#         example date value is 'Tues, 15 Apr 2008'
+#         corresponding strftime format string is '%a, %e %b %Y'
+# params: $date - ISO formatted date [optional, default=today]
+# prints: nil
+# return: scalar date string
+method konsolekalendar_date_format ($date) {
+
+    # get date
+    if ( not $date ) { $date = $self->today(); }
+    if ( not $self->valid_date($date) ) { return; }
+
+    # reformat
+    my $format = '%a, %e %b %Y';
+    my $d      = Date::Simple->new($date)->format($format);
+    $d =~ s/  / /gsm;                        # dates 1-9 have leading space
+    return $d;
+}
+
+# input_ask($prompt, [$default],[$prepend])
+#
+# does:   get input from user
+# params: $prompt  - user prompt [required]
+#         $default - default input [optional, default=q{}]
+#         $prepend - whether to prepend scrip name to prompt
+#                    [named parameter, options, default=false]
+# prints: user interaction
+# return: user input (scalar)
+# note:   intended for entering short values
+#         -- once the line wraps the user cannot move to previous line
+#         use method 'input_large' for long input
+# uses:   Term::Clui
+# TODO:   implement changed interface
+method input_ask ($prompt, $default, @options) {
+    return if not $prompt;
+    ( my $prepend, @options )
+        = $self->extract_key_value( 'prepend', @options );
+    if ($prepend) {
+        $prompt = $self->_script . ': ' . $prompt;
+    }
+    Term::Clui::ask( $prompt, $default );
+}
+
+# input_choose($prompt, @options, [$prepend])
 #
 # does:   user selects option from a menu
 # params: $prompt  - menu prompt [required]
@@ -656,31 +966,39 @@ method input_choose ($prompt, @options) {
     Term::Clui::choose( $prompt, @options );
 }
 
-# method: input_ask($prompt, [$default],[$prepend])
+# input_confirm($question, [$prepend])
 #
-# does:   get input from user
-# params: $prompt  - user prompt [required]
-#         $default - default input [optional, default=q{}]
-#         $prepend - whether to prepend scrip name to prompt
-#                    [named parameter, options, default=false]
+# does:   user answers y/n to a question
+# params: $question - question to be answered with yes or no
+#                     [required, can be multi-line (use "\n")]
+#         $prepend  - whether to prepend scrip name to question
+#                     [named parameter, options, default=false]
 # prints: user interaction
-# return: user input (scalar)
-# note:   intended for entering short values
-#         -- once the line wraps the user cannot move to previous line
-#         use method 'input_large' for long input
+#         after user answers, all but first line of question
+#           is removed from the screen
+#         answer also remains on screen
+# return: scalar boolean
+# usage:  my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
+#         if ( input_confirm($prompt) ) {
+#             # do stuff
+#         }
 # uses:   Term::Clui
 # TODO:   implement changed interface
-method input_ask ($prompt, $default, @options) {
-    return if not $prompt;
+method input_confirm ($question, @options) {
+
+    # set variables
+    return if not $question;
     ( my $prepend, @options )
         = $self->extract_key_value( 'prepend', @options );
     if ($prepend) {
-        $prompt = $self->_script . ': ' . $prompt;
+        $question = $self->_script . ': ' . $question;
     }
-    Term::Clui::ask( $prompt, $default );
+
+    # get user response
+    Term::Clui::confirm($question);
 }
 
-# method: input_large($prompt, [$default],[$prepend])
+# input_large($prompt, [$default],[$prepend])
 #
 # does:   get input from user
 # params: $prompt  - user prompt [required]
@@ -732,161 +1050,7 @@ method input_large ($prompt, $default, @options) {
     return;
 }
 
-# method: input_confirm($question, [$prepend])
-#
-# does:   user answers y/n to a question
-# params: $question - question to be answered with yes or no
-#                     [required, can be multi-line (use "\n")]
-#         $prepend  - whether to prepend scrip name to question
-#                     [named parameter, options, default=false]
-# prints: user interaction
-#         after user answers, all but first line of question
-#           is removed from the screen
-#         answer also remains on screen
-# return: scalar boolean
-# usage:  my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
-#         if ( input_confirm($prompt) ) {
-#             # do stuff
-#         }
-# uses:   Term::Clui
-# TODO:   implement changed interface
-method input_confirm ($question, @options) {
-
-    # set variables
-    return if not $question;
-    ( my $prepend, @options )
-        = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) {
-        $question = $self->_script . ': ' . $question;
-    }
-
-    # get user response
-    Term::Clui::confirm($question);
-}
-
-# method: display($string)
-#
-# does:   displays screen text with word wrapping
-# params: $string - text to display [required]
-# prints: text for display
-# return: nil
-# usage:  $cp->display($long_string);
-# uses:   Text::Wrap
-method display ($string) {
-    say Text::Wrap::wrap( q{}, q{}, $string );
-}
-
-# method: vim_print($type, @messages)
-#
-# does:   print text to terminal screen using vim's default colour scheme
-# params: $type     - type ['title'|'error'|'warning'|'prompt'|'normal']
-#                     case-insensitive, can supply partial value
-#                     [required]
-#         @messages - content to print [required, multi-part]
-#                     can contain escaped double quotes
-# prints: messages
-# return: nil
-# detail: five styles have been implemented:
-#                  Vim
-#                  Highlight
-#         Style    Group       Foreground    Background
-#         -------  ----------  ------------  ----------
-#         title    Title       bold magenta  normal
-#         error    ErrorMsg    bold white    red
-#         warning  WarningMsg  red           normal
-#         prompt   MoreMsg     bold green    normal
-#         normal   Normal      normal        normal
-# usage:  $cp->vim_print( 't', "This is a title" );
-# note:   will gracefully handle arrays and array references in message list
-# uses:   Term::ANSIColor
-# TODO:   implement changed interface
-method vim_print ($type, @messages) {
-
-    # variables
-    # - messages
-    @messages = $self->listify(@messages);
-
-    # - type
-    if ( not $type ) { $type = 'normal'; }
-
-    # - attributes (to pass to function 'colored')
-    my $attributes;
-    for ($type) {
-        when (/^t/ixsm) { $attributes = [ 'bold', 'magenta' ] }
-        when (/^p/ixsm) { $attributes = [ 'bold', 'bright_green' ] }
-        when (/^w/ixsm) { $attributes = ['bright_red'] }
-        when (/^e/ixsm) { $attributes = [ 'bold', 'white', 'on_red' ] }
-        default { $attributes = ['reset'] }
-    }
-
-    # print messages
-    for my $message (@messages) {
-        say Term::ANSIColor::colored( $attributes, $message );
-    }
-}
-
-# method: vim_printify($type, $message)
-#
-# does:   modifies a single string to be passed to 'vim_list_print'
-# params: $type    - as per method 'vim_print' [required]
-#         $message - content to be modified [required]
-#                    can contain escaped double quotes
-# prints: nil
-# return: modified string
-# usage:  @output = $cp->vim_printify( 't', 'My Title' );
-# detail: the string is given a prefix that signals to 'vim_list_print'
-#         what format to use (prefix is stripped before printing)
-# TODO:   implement changed interface
-method vim_printify ($type, $message) {
-
-    # variables
-    # - message
-    if ( not $message ) { return q{}; }
-
-    # - type
-    if ( not $type ) { $type = 'normal'; }
-
-    # - token to prepend to message
-    my $token;
-    for ($type) {
-        when (/^t/ixsm) { $token = '::title::' }
-        when (/^p/ixsm) { $token = '::prompt::' }
-        when (/^w/ixsm) { $token = '::warn::' }
-        when (/^e/ixsm) { $token = '::error::' }
-        default         { $token = q{} }
-    }
-
-    # return altered string
-    return "$token$message";
-}
-
-# method: vim_list_print(@messages)
-#
-# does:   prints a list of strings to the terminal screen using
-#         vim's default colour scheme
-# detail: see method 'vim_print' for details of the colour schemes
-#         each message can be printed in a different style
-#         - element strings need to be prepared using 'vim_printify'
-# params: @messages - messages to display [required]
-#                     can contain escaped double quotes.
-# prints: messages in requested styles
-# return: nil
-method vim_list_print (@messages) {
-    my @messages = $self->listify(@messages);
-    my ( $index, $flag );
-    foreach my $message (@messages) {
-        for ($message) {
-            when (/^::title::/ixsm)  { $index = 9;  $flag = 't' }
-            when (/^::error::/ixsm)  { $index = 9;  $flag = 'e' }
-            when (/^::warn::/ixsm)   { $index = 8;  $flag = 'w' }
-            when (/^::prompt::/ixsm) { $index = 10; $flag = 'p' }
-            default                  { $index = 0;  $flag = 'n' }
-        }
-        $self->vim_print( $flag, substr( $message, $index ) );
-    }
-}
-
-# method: listify(@items)
+# listify(@items)
 #
 # does:   tries to convert scalar, array and hash references to scalars
 # params: @items - items to convert to lists [required]
@@ -932,29 +1096,276 @@ method listify (@items) {
     return @scalars;
 }
 
-# method: browse($title, $text)
+# local_timezone()
 #
-# does:   displays a large volume of text in default editor
-# params: $title - title applied to editor temporary file
+# does:   get local timezone
+# params: nil
 # prints: nil
-# return: nil
-method browse ($title, $text) {
-    return if not $title;
-    return if not $text;
-    my $text
-        = qq{\n}
-        . $title
-        . qq{\n\n}
-        . qq{[This text should be displaying in your default editor.\n}
-        . qq{If no default editor is specified, vi(m) is used.\n}
-        . q{To exit this screen, exit the editor as you normally would}
-        . q{ - 'ZQ' for vi(m).]}
-        . qq{\n\n}
-        . $text;
-    Term::Clui::edit( $title, $text );
+# return: scalar string
+method local_timezone () {
+    return DateTime::TimeZone->new( name => 'local' )->name();
 }
 
-# method: prompt([message])
+# logger($message, [$type])
+#
+# does:   write message to system logs
+# params: $message - message content [required]
+#         $type    - message type ['debug'|'notice'|'warning'|'error']
+#                   [optional, default='notice']
+# prints: nil
+# return: nil
+# note:   not all message types appear in all system logs -- on debian,
+#         for example, /var/log/messages records only notice and warning
+#         log messages while /var/log/syslog records all log messages
+# uses:   Logger::Syslog
+method logger ($message, $type = 'notice') {
+
+    # set and check variables
+    return if not $message;
+    $type =~ s/(.*)/\L$1/gxsm;               # lowercase
+
+    # log message
+    for ($type) {
+        when (/^debug$/xsm)   { Logger::Syslog::debug($message) }
+        when (/^notice$/xsm)  { Logger::Syslog::notice($message) }
+        when (/^warning$/xsm) { Logger::Syslog::warning($message) }
+        when (/^error$/xsm)   { Logger::Syslog::error($message) }
+        default               { confess "Invalid type '$type'" }
+    }
+
+    return;
+}
+
+# make_dir($dir_path)
+#
+# does:   make directory recursively
+# params: $dir_path - directory path [required]
+# prints: nil
+# return: boolean (whether created)
+# note:   if directory already exists does nothing but return true
+# uses:   File::Util
+method make_dir ($dir_path) {
+    if ( not $dir_path ) { confess 'No directory path provided'; }
+    File::Util->new()->make_dir( $dir_path, { if_not_exists => $TRUE } )
+        or confess "Unable to create '$dir_path'";
+}
+
+# msg_box([$msg], [$title])
+#
+# does:   display message in gui dialog
+# params: $msg   - message [optional, default='Press OK button to proceed']
+#         $title - dialog title [optional, default=scriptname]
+# prints: nil
+# return: nil
+method msg_box ($msg, $title) {
+    if ( not $title ) { $title = $self->scriptname(); }
+    if ( not $msg )   { $msg   = 'Press OK button to proceed'; }
+    my @widget_preference = grep { File::Which::which $_ }
+        qw/kdialog zenity gdialog cdialog whiptail ascii/;
+    my $ui = UI::Dialog->new( order => [@widget_preference] );
+    $ui->msgbox( title => $title, text => $msg );
+}
+
+# notify(@messages, [$prepend])
+#
+# does:   display console message
+# params: @messages - message lines [required]
+#         $prepend  - whether to prepend script name to message lines
+#                     named parameter, boolean, optional, default=false
+# prints: messages
+# return: nil
+# usage:  $cp->notify('File path is:', $filepath);
+#         $cp->notify('File path is:', $filepath, prepend => $TRUE);
+# note:   respects newline if enclosed in double quotes
+# TODO:   implement changed interface
+method notify (@messages) {
+
+    # set prepend flag and display messages
+    my ( $prepend, @messages )
+        = $self->extract_key_value( 'prepend', @messages );
+
+    # set prefix
+    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
+
+    # display messages
+    for my $message (@messages) {
+        say "$prefix$message";
+    }
+}
+
+# notify_sys($msg, [$title], [$type], [$icon], [$time])
+#
+# does:   display message to user in system notification area
+# params: $msg   - message content [required]
+#         $title - message title
+#                  [named parameter, optional, falls back to attribute
+#                   'notify_sys_title' then falls back to calling script name]
+#         $type  - 'info'|'question'|'warn'|'error'
+#                  [named parameter, optional, falls back to attribute
+#                   'notify_sys_type' then falls back to 'info']
+#         $icon  - message icon filepath
+#                  [named parameter, optional, falls back to attribute
+#                   'notify_sys_icon', otherwise no default]
+#         $time  - message display time (msec)
+#                  [named parameter, optional, default=10,000]
+# return: boolean, whether able to display notification
+# usage:  $cp->notify_sys('Operation successful!', title => 'Outcome');
+# alert:  do not call this method from a spawned child process --
+#         the 'show()' call in the last line of this method causes
+#         the child process to hang without any feedback to user
+# note:   not guaranteed to respect newlines
+# uses:   Gtk2::Notify
+#         Test::NeedsDisplay (required to prevent build tools from failing)
+# TODO:   implement changed interface
+method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
+
+    # parameters
+    # - msg
+    return if not($msg);
+
+    # - title
+    if ( not $title ) {
+        if ( $self->_notify_sys_title ) {
+            $title = $self->_notify_sys_title;
+        }
+        else {
+            $title = $self->_script;
+        }
+    }
+
+    # - type
+    my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
+    if ( not( $type and $is_valid_type{$type} ) ) {
+        if ( $self->_notify_sys_type ) {
+            $type = $self->_notify_sys_type;
+        }
+        else {
+            $type = 'info';
+        }
+    }
+
+    # - icon
+    if ( not( $icon and -e $icon ) ) {
+        if ( $self->_notify_sys_icon ) {
+            $icon = $self->_notify_sys_icon;
+        }
+        else {
+            for ($type) {    # no default because type *must* be 1 of these 4
+                when (/^info$/xsm)     { $icon = $self->_icon_info }
+                when (/^question$/xsm) { $icon = $self->_icon_question }
+                when (/^warn$/xsm)     { $icon = $self->_icon_warn }
+                when (/^error$/xsm)    { $icon = $self->_icon_error }
+                default { confess "Invalid type '$type'" }
+            }
+        }
+    }
+
+    # - time
+    if ( not( $time and $time =~ /^[1-9]\d+\z/xsm ) ) {
+        $time = 10_000;
+    }
+
+    # display notification popup
+    my $n = Gtk2::Notify->new( $title, $msg, $icon );
+    $n->set_timeout($time);
+    $n->show();
+    return;
+}
+
+# now()
+#
+# does:   provide current time ('HH::MM::SS')
+# params: nil
+# prints: nil
+# return: scalar string
+method now () {
+    return Time::Simple->new()->format;
+}
+
+# number_list(@items)
+#
+# does:   prefix each list item with element index (base = 1)
+#         prefix is left padded so each is the same length
+# params: @items - list to be modified [required]
+# prints: nil
+# return: list
+# note:   map operation extracted to method as per Perl Best Practice
+method _add_numeric_prefix ($item, $prefix_length) {
+    state $index = 1;
+    my $index_width   = length $index;
+    my $padding_width = $prefix_length - $index_width;
+    my $padding       = q{ } x $padding_width;
+    my $prefix        = "$padding$index. ";
+    $index++;
+    $item = "$prefix$item";
+    return $item;
+}
+
+method number_list (@items) {
+    if ( not @items ) { return; }
+    my $prefix_length = length scalar @items;
+    my $index         = 1;
+    my @numbered_list
+        = map { $self->_add_numeric_prefix( $_, $prefix_length ) } @items;
+    return @numbered_list;
+}
+
+# offset_date($offset)
+#
+# does:   get a date offset from today
+# params: $offset - offset in days [required]
+#                   can be positive or negative
+# prints: nil
+# return: ISO-formatted date (die if fails)
+# uses:   Date::Simple
+method offset_date ($offset) {
+    if ( not( $offset and $self->valid_integer($offset) ) ) { return; }
+    my $date = Date::Simple->today() + $offset;
+    return $date->format('%Y-%m-%d');
+}
+
+# pid_running($pid)
+#
+# does:   determines whether process id is running
+#         reloads processes each time method is called
+# params: $pid - pid to look for [required]
+# prints: nil
+# return: boolean scalar
+method pid_running ($pid) {
+    if ( not $pid ) { return; }
+    $self->_reload_processes;
+    my @pids = $self->_pids();
+    return scalar grep {/^$pid$/xsm} @pids;    # force scalar context
+}
+
+# process_running($cmd, [$match_full])
+#
+# does:   determine whether process is running
+# params: $cmd         - command to search for [required]
+#         $ match_full - whether to require match against entire process
+#                        [optional, default=false]
+# prints: nil
+# return: boolean
+# note:   if the command string is part of a parameter passed to a script
+#         which then calls this method, and partial matching is in effect,
+#         the script process will match and result in a false positive
+method process_running ($cmd, $match_full = $FALSE) {
+
+    # set and check variables
+    if ( not $cmd ) { return; }
+    $self->_reload_processes;
+    my @cmds = $self->_commands;
+
+    # search process commands for matches
+    if ($match_full) {
+        return scalar grep {/^$cmd$/xsm} @cmds;
+    }
+    else {
+        return scalar grep {/$cmd/xsm} @cmds;
+    }
+}
+
+# prompt([message])
 #
 # does:   display message and prompt user to press any key
 # params: message - prompt message [optional]
@@ -973,395 +1384,67 @@ method prompt ($message) {
     print "\n";
 }
 
-# method: get_path($filepath)
+# restore_screensaver([$title])
 #
-# does:   get path from filepath.
-# params: $filepath - file path [required]
-# prints: nil
-# return: scalar path
-# uses:   File::Util
-method get_path ($filepath) {
-    if ( not $filepath ) { confess 'No file path provided'; }
-    my $path = File::Util->new()->return_path($filepath);
-    if ( $path eq $filepath ) {
-        $path = q{};
-    }
-    return $path;
-}
-
-# method: executable_path($exe)
-#
-# does:   find path to executable
-# params: $exe - short name of executable [requiered]
-# prints: nil
-# return: scalar filepath
-#         scalar boolean (undef if not found)
-# uses:   File::Which
-method executable_path ($exe) {
-    if ( not $exe ) { confess 'No executable name provided'; }
-    scalar File::Which::which($exe);
-}
-
-# method: make_dir($dir_path)
-#
-# does:   make directory recursively
-# params: $dir_path - directory path [required]
-# prints: nil
-# return: boolean (whether created)
-# note:   if directory already exists does nothing but return true
-# uses:   File::Util
-method make_dir ($dir_path) {
-    if ( not $dir_path ) { confess 'No directory path provided'; }
-    File::Util->new()->make_dir( $dir_path, { if_not_exists => $TRUE } )
-        or confess "Unable to create '$dir_path'";
-}
-
-# method: files_list([$dir_path])
-#
-# does:   list files in directory
-# params: $directory - directory path [optional, default=cwd]
-# prints: nil
-# return: list, die if operation fails
-method files_list ($dir) {
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->true_path($dir);
-    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
-    my $f = File::Util->new();
-    my @files = $f->list_dir( $dir, { files_only => $TRUE } )
-        or confess "Unable to get file listing from '$dir'";
-    return @files;
-}
-
-# method: dirs_list($directory)
-#
-# does:   list subdirectories in directory
-# params: $directory - directory path [optional, default=cwd]
-# prints: nil
-# return: list, die if operation fails
-method dirs_list ($dir) {
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->true_path($dir);
-    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
-    my $f = File::Util->new();
-    my @dirs = $f->list_dir( $dir, { dirs_only => $TRUE } )
-        or croak "Unable to get directory listing from '$dir'";
-    @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
-    return @dirs;
-}
-
-# method: backup_file($file)
-#
-# does:   backs up file by renaming it to a unique file name
-# params: $file - file to back up [required]
-# prints: nil (error message if fails)
-# return: nil (die if fails)
-# detail: simply adds integer to file basename to get unique file name
-# uses:   File::Copy (move), File::Basename (fileparse)
-method backup_file ($file) {
-
-    # determine backup file name
-    my ( $base, $suffix )
-        = ( File::Basename::fileparse( $file, qr/[.][^.]*\z/xsm ) )[ 0, 2 ];
-    my $count  = 1;
-    my $backup = $base . q{_} . $count++ . $suffix;
-    while ( -e $backup ) {
-        $backup = $base . q{_} . $count++ . $suffix;
-    }
-
-    # do backup
-    File::Copy::move( $file, $backup )
-        or confess "Error: unable to backup $base to $backup";
-
-    # notify user
-    say "Existing file '$file' renamed to '$backup'";
-}
-
-# method: valid_positive_integer($value)
-#
-# does:   determine whether a valid positive integer (zero or above)
-# params: $value - value to test [required]
-# prints: nil
+# does:   restores suspended kde screensaver
+# params: $title - title of message box [optional, default=scriptname]
+# prints: nil (feedback via popup notification)
 # return: boolean
-method valid_positive_integer ($value) {
-    if ( not defined $value ) { return; }
-    for ($value) {
-        when (/^[+]?0$/xsm)         { return $TRUE; }    # zero
-        when (/^[+]?[1-9]\d*\z/xsm) { return $TRUE; }    # above zero
-        default                     { return; }
+# uses:   Net::DBus::RemoteObject
+#         DBus service org.freedesktop.ScreenSaver
+method restore_screensaver ($title) {
+    if ( not $title ) { $title = $self->_script; }
+    my $cookie;
+
+    # sanity checks
+    my $err;
+    if ( $self->_screensaver_cookie ) {
+        $cookie = $self->_screensaver_cookie;
     }
-}
-
-# method: valid_integer($value)
-#
-# does:   determine whether a valid integer (can be negative)
-# params: $value - value to test [required]
-# prints: nil
-# return: boolean
-method valid_integer ($value) {
-    if ( not defined $value ) { return; }
-    for ($value) {
-        when (/^[+-]?0\z/xsm)        { return $TRUE; }    # zero
-        when (/^[+-]?[1-9]\d*\z/xsm) { return $TRUE; }    # other int
-        default                      { return; }
-    }
-}
-
-# method: today()
-#
-# does:   get today as an ISO-formatted date
-# params: nil
-# prints: nil
-# return: ISO-formatted date
-# uses:   Date::Simple
-method today () {
-    return Date::Simple->today()->format('%Y-%m-%d');
-}
-
-# method: offset_date($offset)
-#
-# does:   get a date offset from today
-# params: $offset - offset in days [required]
-#                   can be positive or negative
-# prints: nil
-# return: ISO-formatted date (die if fails)
-# uses:   Date::Simple
-method offset_date ($offset) {
-    if ( not( $offset and $self->valid_integer($offset) ) ) { return; }
-    my $date = Date::Simple->today() + $offset;
-    return $date->format('%Y-%m-%d');
-}
-
-# method: day_of_week([$date])
-#
-# does:   day of week the supplied date falls on
-# params: $date - date in ISO format [optional, default=today]
-# prints: nil
-# return: scalar day
-# uses:   Date::Simple
-method day_of_week ($date) {
-    if ( not $date ) { $date = $self->today(); }
-    return if not $self->valid_date($date);
-    my %day_numbers = (
-        '0' => 'Sunday',
-        '1' => 'Monday',
-        '2' => 'Tuesday',
-        '3' => 'Wednesday',
-        '4' => 'Thursday',
-        '5' => 'Friday',
-        '6' => 'Saturday',
-    );
-    my $d          = Date::Simple->new($date);
-    my $day_number = $d->day_of_week();
-    my $day        = $day_numbers{$day_number};
-    if ( not $day ) { return; }
-    return $day;
-}
-
-# method: konsolekalendar_date_format($date)
-#
-# does:   get date formatted as konsolekalendar does in its output
-#         example date value is 'Tues, 15 Apr 2008'
-#         corresponding strftime format string is '%a, %e %b %Y'
-# params: $date - ISO formatted date [optional, default=today]
-# prints: nil
-# return: scalar date string
-method konsolekalendar_date_format ($date) {
-
-    # get date
-    if ( not $date ) { $date = $self->today(); }
-    if ( not $self->valid_date($date) ) { return; }
-
-    # reformat
-    my $format = '%a, %e %b %Y';
-    my $d      = Date::Simple->new($date)->format($format);
-    $d =~ s/  / /gsm;                        # dates 1-9 have leading space
-    return $d;
-}
-
-# method: valid_date($date)
-#
-# does:   determine whether date is valid and in ISO format
-# params: $date - candidate date [required]
-# prints: nil
-# return: boolean
-method valid_date ($date) {
-    if ( not $date ) { return; }
-    return Date::Simple->new($date);
-}
-
-# method: sequential_dates($date1, $date2)
-#
-# does:   determine whether supplied dates are in chronological sequence
-# params: $date1 - first date, ISO-formatted [required]
-#         $date1 - second date, ISO-formatted [required]
-# prints: nil (error if invalid dates)
-# return: boolean (die on failure)
-method sequential_dates ($date1, $date2) {
-
-    # check dates
-    if ( not $date1 ) { confess 'Missing date'; }
-    if ( not $date2 ) { confess 'Missing date'; }
-    if ( not $self->valid_date($date1) ) {
-        confess "Invalid date '$date1'";
-    }
-    if ( not $self->valid_date($date2) ) {
-        confess "Invalid date '$date2'";
-    }
-
-    # compare dates
-    my $d1 = Date::Simple->new($date1);
-    my $d2 = Date::Simple->new($date2);
-    return ( $d2 > $d1 );
-}
-
-# method: future_date($date)
-#
-# does:   determine whether supplied date occurs in the future,
-#         i.e, today or after today
-# params: $date - date to compare, must be ISO format [required]
-# prints: nil (error if invalid date)
-# return: boolean (dies if invalid date)
-method future_date ($date) {
-
-    # check date
-    if ( not $self->valid_date($date) ) {
-        confess "Invalid date '$date'";
-    }
-
-    # get dates
-    my $iso_date = Date::Simple->new($date);
-    my $today    = Date::Simple->new();
-
-    # evaluate date sequence
-    return ( $iso_date >= $today );
-}
-
-# method: valid_24h_time($time)
-#
-# does:   determine whether supplied time is valid 24 hour time
-# params: $time - time to evaluate, 'HH::MM' format [required]
-#                 leading zero can be dropped
-# prints: nil
-# return: boolean
-# TODO: test eval
-method valid_24h_time ($time) {
-    if ( not $time ) { return; }
-    if ( !eval { Time::Simple->new($time); 1 } ) {    # failed
+    else {                            # must first be suspended
+        $err = 'Screensaver has not been suspended by this process';
+        $self->notify_sys( $err, type => 'error', title => $title );
         return;
     }
-    return $TRUE;                                     # succeeded
-}
-
-# method: sequential_24h_times($time1, $time2)
-#
-# does:   determine whether supplied times are in chronological
-#         sequential, i.e., second time occurs after first time
-#         assume both times are from the same day
-# params: $time1 - first time to compare, 24 hour time [required]
-#         $time2 - second time to compare, 24 hour time [required]
-# prints: nil (error if invalid time)
-# return: boolean (dies if invalid time)
-method sequential_24h_times ($time1, $time2) {
-
-    # check times
-    if ( not $self->valid_24h_time($time1) ) {
-        confess "Invalid time '$time1'";
-    }
-    if ( not $self->valid_24h_time($time2) ) {
-        confess "Invalid time '$time2'";
+    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
+        $err = 'Cannot suspend screensaver on non-KDE desktop';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
     }
 
-    # compare
-    my $t1 = Time::Simple->new($time1);
-    my $t2 = Time::Simple->new($time2);
-    return ( $t2 > $t1 );
+    # restore screensaver
+    if ( !eval { $self->_screensaver->UnInhibit($cookie); 1 } ) {    # failed
+        $err = 'Unable to restore screensaver programmatically';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = "Error: $EVAL_ERROR";
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = 'It should restore automatically as this script exits';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    else {    # succeeded
+        $self->notify_sys( 'Restored screensaver', title => $title );
+        $self->_screensaver_cookie();
+        return $TRUE;
+    }
 }
 
-# method: entitise($string)
+# retrieve_store($file)
 #
-# does:   convert reserved characters to HTML entities
-# params: $string - string to analyse [required]
-# prints: nil
-# return: scalar string
-# # uses: HTML::Entities
-method entitise ($string = q//) {
-    return HTML::Entities::encode_entities($string);
-}
-
-# method: deentitise($string)
-#
-# does:   convert HTML entities to reserved characters
-# params: $string - string to analyse [required]
-# prints: nil
-# return: scalar string
-# # uses: HTML::Entities
-method deentitise ($string = q//) {
-    return HTML::Entities::decode_entities($string);
-}
-
-# method: tabify($string, [$tab_size])
-#
-# does:   covert tab markers ('\t') to spaces
-# params: $string   - string to convert [required]
-#         $tab_size - size of tab in characters [optional, default=4]
-# prints: nil
-# return: scalar string
-method tabify ($string = q//, $tab_size = 4) {
-
-    # set tab
-    if ( $tab_size !~ /^[1-9]\d*\z/xsm ) { $tab_size = 4; }
-    my $tab = q{ } x $tab_size;
-
-    # convert tabs
-    $string =~ s/\\t/$tab/gxsm;
-    return $string;
-}
-
-# method: trim($string)
-#
-# does:   remove leading and trailing whitespace
-# params: $string - string to be converted [required]
-# prints: nil
-# return: scalar string
-method trim ($string = q//) {
-    $string =~ s/^\s+//xsm;
-    $string =~ s/\s+\z//xsm;
-    return $string;
-}
-
-# method: boolise($value)
-#
-# does:   convert value to boolean
-# detail: convert 'yes', 'true' and 'on' to 1
-#         convert 'no, 'false, and 'off' to 0
-#         other values returned unchanged
-# params: $value - value to analyse [required]
-# prints: nil
+# does:   retrieves function data from storage file
+# params: $file - file in which data is stored [required]
+# prints: nil (except feedback from Storage module)
 # return: boolean
-method boolise ($value) {
-    if ( not defined $value ) { return; }    # handle special case
-    for ($value) {
-        when (/^yes$|^true$|^on$/ixsm)  { return 1; }        # true -> 1
-        when (/^no$|^false$|^off$/ixsm) { return 0; }        # false -> 0
-        default                         { return $value; }
-    }
+# uses:   Storable
+# usage:  my $storage_file = '/path/to/filename';
+#         my $ref = $self->retrieve_store($storage_file);
+#         my %data = %{$ref};
+method retrieve_store ($file) {
+    if ( not -r $file ) { confess "Cannot read file '$file'"; }
+    return Storable::retrieve $file;
 }
 
-# method: is_boolean($value)
-#
-# does:   determine whether supplied value is boolean
-# detail: checks whether value is one of: 'yes', 'true', 'on', 1,
-#         'no, 'false, 'off' or 0
-# params: $value - value to be analysed [required]
-# prints: nil
-# return: boolean (undefined if no value provided)
-method is_boolean ($value) {
-    if ( not defined $value ) { return; }
-    $value = $self->boolise($value);
-    return $value =~ /(^1$|^0$)/xsm;
-}
-
-# method: save_store($ref, $file)
+# save_store($ref, $file)
 # does:   store data structure in file
 # params: $ref  - reference to data structure to be stored
 #         $file - file path in which to store data
@@ -1388,67 +1471,101 @@ method save_store ($ref, $file) {
     return Storable::store $ref, $file;
 }
 
-# method: retrieve_store($file)
+# scriptname
 #
-# does:   retrieves function data from storage file
-# params: $file - file in which data is stored [required]
-# prints: nil (except feedback from Storage module)
-# return: boolean
-# uses:   Storable
-# usage:  my $storage_file = '/path/to/filename';
-#         my $ref = $self->retrieve_store($storage_file);
-#         my %data = %{$ref};
-method retrieve_store ($file) {
-    if ( not -r $file ) { confess "Cannot read file '$file'"; }
-    return Storable::retrieve $file;
-}
-
-# method: number_list(@items)
-#
-# does:   prefix each list item with element index (base = 1)
-#         prefix is left padded so each is the same length
-# params: @items - list to be modified [required]
+# does:   gets name of executing script
+# params: nil
 # prints: nil
-# return: list
-# note:   map operation extracted to method as per Perl Best Practice
-# uses:   List::Util
-method _add_numeric_prefix ($item, $prefix_length) {
-    state $index = 1;
-    my $index_width   = length $index;
-    my $padding_width = $prefix_length - $index_width;
-    my $padding       = q{ } x $padding_width;
-    my $prefix        = "$padding$index. ";
-    $index++;
-    $item = "$prefix$item";
-    return $item;
+# return: scalar file name
+method scriptname () {
+    return $self->_script;
 }
 
-method number_list (@items) {
-    if ( not @items ) { return; }
-    my $prefix_length = length scalar @items;
-    my $index         = 1;
-    my @numbered_list
-        = map { $self->_add_numeric_prefix( $_, $prefix_length ) } @items;
-    return @numbered_list;
-}
-
-# method: denumber_list(@list)
+# sequential_24h_times($time1, $time2)
 #
-# does:   remove number prefixes added by method 'number_list'
-# params: @items - list to modify [required]
+# does:   determine whether supplied times are in chronological
+#         sequential, i.e., second time occurs after first time
+#         assume both times are from the same day
+# params: $time1 - first time to compare, 24 hour time [required]
+#         $time2 - second time to compare, 24 hour time [required]
+# prints: nil (error if invalid time)
+# return: boolean (dies if invalid time)
+method sequential_24h_times ($time1, $time2) {
+
+    # check times
+    if ( not $self->valid_24h_time($time1) ) {
+        confess "Invalid time '$time1'";
+    }
+    if ( not $self->valid_24h_time($time2) ) {
+        confess "Invalid time '$time2'";
+    }
+
+    # compare
+    my $t1 = Time::Simple->new($time1);
+    my $t2 = Time::Simple->new($time2);
+    return ( $t2 > $t1 );
+}
+
+# sequential_dates($date1, $date2)
+#
+# does:   determine whether supplied dates are in chronological sequence
+# params: $date1 - first date, ISO-formatted [required]
+#         $date1 - second date, ISO-formatted [required]
+# prints: nil (error if invalid dates)
+# return: boolean (die on failure)
+method sequential_dates ($date1, $date2) {
+
+    # check dates
+    if ( not $date1 ) { confess 'Missing date'; }
+    if ( not $date2 ) { confess 'Missing date'; }
+    if ( not $self->valid_date($date1) ) {
+        confess "Invalid date '$date1'";
+    }
+    if ( not $self->valid_date($date2) ) {
+        confess "Invalid date '$date2'";
+    }
+
+    # compare dates
+    my $d1 = Date::Simple->new($date1);
+    my $d2 = Date::Simple->new($date2);
+    return ( $d2 > $d1 );
+}
+
+# shared_module_file_milla($dist, $file)
+#
+# does:   gets filepath of file in 'share' directory
+#         of milla project
+# params: $file - file name [required]
 # prints: nil
-# return: list
-# note:   map operation extracted to method as per Perl Best Practice
-method _remove_numeric_prefix ($item) {
-    $item =~ s/^\s*\d+[.]\s+//xsm;
-    $item;
+# return: scalar file path (undef if not found)
+#         (so also functions as boolean)
+method shared_module_file_milla ($dist, $file) {
+    if ( not $file ) { confess 'No file provided'; }
+    if ( not $dist ) { confess 'No dist provided'; }
+    my $branch = "auto/share/dist/$dist/$file";
+    for my $root (@INC) {
+        if ( -e "$root/$branch" ) {
+            return "$root/$branch";
+        }
+    }
+    return;
 }
 
-method denumber_list (@items) {
-    map { $self->_remove_numeric_prefix($_) } @items;
+# shell_underline($string)
+#
+# does:   underline string
+# params: $string - string to underline
+# prints: nil
+# return: string with enclosing shell commands
+method shell_underline ($string) {
+    if ( not $string )         { return; }
+    if ( length $string == 0 ) { return $string; }
+    my $underline_on  = q{\033[4m};
+    my $underline_off = q{\033[24m};
+    return $underline_on . $string . $underline_off;
 }
 
-# method: shorten($string, [$limit], [$cont])
+# shorten($string, [$limit], [$cont])
 #
 # does:   truncate text if too long
 # params: $string - string to shorten [required]
@@ -1501,37 +1618,134 @@ method shorten ($string, $limit, $cont) {
     return $string;
 }
 
-# method: internet_connection()
+# suspend_screensaver([$title], [$msg])
 #
-# does:   determine whether an internet connection can be found
-# params: nil
-# prints: nil
+# does:   suspends kde screensaver if present
+# params: $title - title of message box [optional, default=scriptname]
+#         $msg   - message explaining suspend request
+#                 [named param, optional, default='request from $PID']
+#                 example: 'running smplayer'
+# prints: nil (feedback via popup notification)
 # return: boolean
-# uses:   Net::Ping::External
-method internet_connection () {
-    my $connected;
-    foreach my $url ( $self->_ping_urls ) {
-        if ( Net::Ping::External::ping( hostname => $url ) ) {
-            $connected = $TRUE;
-            last;
+# uses:   Net::DBus::RemoteObject
+#         DBus service org.freedesktop.ScreenSaver
+method suspend_screensaver ($title, :$msg) {
+    if ( not $title ) { $title = $self->_script; }
+    if ( not $msg )   { $msg   = "request from $PID"; }
+    my $cookie;
+
+    # sanity checks
+    my $err;
+    if ( $self->_screensaver_cookie ) {      # do not repeat request
+        $err = 'This process has already requested screensaver suspension';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
+        $err = 'Cannot suspend screensaver on non-KDE desktop';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+
+    # suspension screensaver
+    if ( !eval { $cookie = $self->_screensaver->Inhibit( $PID, $msg ); 1 } ) {
+        $err = 'Failed to suspend screensaver';         # failed
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = "Error: $EVAL_ERROR";
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $self->_screensaver_attempt_suspend($FALSE);
+        return;
+    }
+    else {                                              # succeeded
+        $self->notify_sys( 'Suspended screensaver', title => $title );
+        $self->_screensaver_cookie($cookie);
+        return $TRUE;
+    }
+}
+
+# tabify($string, [$tab_size])
+#
+# does:   covert tab markers ('\t') to spaces
+# params: $string   - string to convert [required]
+#         $tab_size - size of tab in characters [optional, default=4]
+# prints: nil
+# return: scalar string
+method tabify ($string = q//, $tab_size = 4) {
+
+    # set tab
+    if ( $tab_size !~ /^[1-9]\d*\z/xsm ) { $tab_size = 4; }
+    my $tab = q{ } x $tab_size;
+
+    # convert tabs
+    $string =~ s/\\t/$tab/gxsm;
+    return $string;
+}
+
+# timezone_from_offset($offset)
+#
+# does:   determine timezone for offset
+# params: $offset - timezone offset to check [required]
+# prints: nil
+# return: scalar string
+method timezone_from_offset ($offset) {
+    if ( not $offset ) { confess 'No offset provided'; }
+
+    # get timezones for all offsets
+    my @countries = DateTime::TimeZone->countries();
+    my %timezone;
+    foreach my $country (@countries) {
+        my @names = DateTime::TimeZone->names_in_country($country);
+        foreach my $name (@names) {
+            my $dt = DateTime->now( time_zone => $name, );
+            my $offset_seconds = $dt->offset();
+            my $offset
+                = DateTime::TimeZone->offset_as_string($offset_seconds);
+            push @{ $timezone{$offset} }, $name;
         }
     }
-    if ($connected) { return $TRUE; }
-    return;
+
+    # find timezones for given offset
+    if ( not $timezone{$offset} ) {
+        cluck "No timezones for offset '$offset'\n";
+        return;
+    }
+    my @timezones = sort @{ $timezone{$offset} };
+
+    # prefer Australian timezone
+    my $oz_timezone
+        = List::MoreUtils::first_result { $_ if /Australia/sm } @timezones;
+    if ($oz_timezone) {
+        return $oz_timezone;
+    }
+    else {
+        return $timezones[0];
+    }
 }
 
-# method: cwd()
+# today()
 #
-# does:   get current directory
+# does:   get today as an ISO-formatted date
 # params: nil
 # prints: nil
-# return: scalar
-#  uses:  Cwd
-method cwd () {
-    return Cwd::getcwd();
+# return: ISO-formatted date
+# uses:   Date::Simple
+method today () {
+    return Date::Simple->today()->format('%Y-%m-%d');
 }
 
-# method: true_path($filepath)
+# trim($string)
+#
+# does:   remove leading and trailing whitespace
+# params: $string - string to be converted [required]
+# prints: nil
+# return: scalar string
+method trim ($string = q//) {
+    $string =~ s/^\s+//xsm;
+    $string =~ s/\s+\z//xsm;
+    return $string;
+}
+
+# true_path($filepath)
 #
 # does:   convert relative filepath to absolute
 # params: $filepath - filepath to convert [required]
@@ -1564,48 +1778,198 @@ method true_path ($filepath) {
     return abs_path($filepath);
 }
 
-# method: pid_running($pid)
+# valid_24h_time($time)
 #
-# does:   determines whether process id is running
-#         reloads processes each time method is called
-# params: $pid - pid to look for [required]
-# prints: nil
-# return: boolean scalar
-method pid_running ($pid) {
-    if ( not $pid ) { return; }
-    $self->_reload_processes;
-    my @pids = $self->_pids();
-    return scalar grep {/^$pid$/xsm} @pids;    # force scalar context
-}
-
-# method: process_running($cmd, [$match_full])
-#
-# does:   determine whether process is running
-# params: $cmd         - command to search for [required]
-#         $ match_full - whether to require match against entire process
-#                        [optional, default=false]
+# does:   determine whether supplied time is valid 24 hour time
+# params: $time - time to evaluate, 'HH::MM' format [required]
+#                 leading zero can be dropped
 # prints: nil
 # return: boolean
-# note:   if the command string is part of a parameter passed to a script
-#         which then calls this method, and partial matching is in effect,
-#         the script process will match and result in a false positive
-method process_running ($cmd, $match_full = $FALSE) {
-
-    # set and check variables
-    if ( not $cmd ) { return; }
-    $self->_reload_processes;
-    my @cmds = $self->_commands;
-
-    # search process commands for matches
-    if ($match_full) {
-        return scalar grep {/^$cmd$/xsm} @cmds;
+# TODO: test eval
+method valid_24h_time ($time) {
+    if ( not $time ) { return; }
+    if ( !eval { Time::Simple->new($time); 1 } ) {    # failed
+        return;
     }
-    else {
-        return scalar grep {/$cmd/xsm} @cmds;
+    return $TRUE;                                     # succeeded
+}
+
+# valid_date($date)
+#
+# does:   determine whether date is valid and in ISO format
+# params: $date - candidate date [required]
+# prints: nil
+# return: boolean
+method valid_date ($date) {
+    if ( not $date ) { return; }
+    return Date::Simple->new($date);
+}
+
+# valid_integer($value)
+#
+# does:   determine whether a valid integer (can be negative)
+# params: $value - value to test [required]
+# prints: nil
+# return: boolean
+method valid_integer ($value) {
+    if ( not defined $value ) { return; }
+    for ($value) {
+        when (/^[+-]?0\z/xsm)        { return $TRUE; }    # zero
+        when (/^[+-]?[1-9]\d*\z/xsm) { return $TRUE; }    # other int
+        default                      { return; }
     }
 }
 
-# method: _file_mime_type($filepath)
+# valid_positive_integer($value)
+#
+# does:   determine whether a valid positive integer (zero or above)
+# params: $value - value to test [required]
+# prints: nil
+# return: boolean
+method valid_positive_integer ($value) {
+    if ( not defined $value ) { return; }
+    for ($value) {
+        when (/^[+]?0$/xsm)         { return $TRUE; }    # zero
+        when (/^[+]?[1-9]\d*\z/xsm) { return $TRUE; }    # above zero
+        default                     { return; }
+    }
+}
+
+# valid_timezone_offset($offset)
+#
+# does:   determine whether a timezone offset is valid
+# params: $offset - timezone offset to check
+# prints: nil
+# return: boolean
+method valid_timezone_offset ($offset) {
+    if ( not $offset ) { confess 'No offset provided'; }
+    my @countries = DateTime::TimeZone->countries();
+    my %is_valid_offset;
+    foreach my $country (@countries) {
+        my @names = DateTime::TimeZone->names_in_country($country);
+        foreach my $name (@names) {
+            my $dt = DateTime->new( year => 1999, time_zone => $name, );
+            my $offset_seconds = $dt->offset();
+            my $offset
+                = DateTime::TimeZone->offset_as_string($offset_seconds);
+            $is_valid_offset{$offset} = $TRUE;
+        }
+    }
+    return $is_valid_offset{$offset};
+}
+
+# vim_list_print(@messages)
+#
+# does:   prints a list of strings to the terminal screen using
+#         vim's default colour scheme
+# detail: see method 'vim_print' for details of the colour schemes
+#         each message can be printed in a different style
+#         - element strings need to be prepared using 'vim_printify'
+# params: @messages - messages to display [required]
+#                     can contain escaped double quotes.
+# prints: messages in requested styles
+# return: nil
+method vim_list_print (@messages) {
+    my @messages = $self->listify(@messages);
+    my ( $index, $flag );
+    foreach my $message (@messages) {
+        for ($message) {
+            when (/^::title::/ixsm)  { $index = 9;  $flag = 't' }
+            when (/^::error::/ixsm)  { $index = 9;  $flag = 'e' }
+            when (/^::warn::/ixsm)   { $index = 8;  $flag = 'w' }
+            when (/^::prompt::/ixsm) { $index = 10; $flag = 'p' }
+            default                  { $index = 0;  $flag = 'n' }
+        }
+        $message = substr $message, $index;
+        $self->vim_print( $flag, $message );
+    }
+}
+
+# vim_print($type, @messages)
+#
+# does:   print text to terminal screen using vim's default colour scheme
+# params: $type     - type ['title'|'error'|'warning'|'prompt'|'normal']
+#                     case-insensitive, can supply partial value
+#                     [required]
+#         @messages - content to print [required, multi-part]
+#                     can contain escaped double quotes
+# prints: messages
+# return: nil
+# detail: five styles have been implemented:
+#                  Vim
+#                  Highlight
+#         Style    Group       Foreground    Background
+#         -------  ----------  ------------  ----------
+#         title    Title       bold magenta  normal
+#         error    ErrorMsg    bold white    red
+#         warning  WarningMsg  red           normal
+#         prompt   MoreMsg     bold green    normal
+#         normal   Normal      normal        normal
+# usage:  $cp->vim_print( 't', "This is a title" );
+# note:   will gracefully handle arrays and array references in message list
+# uses:   Term::ANSIColor
+# TODO:   implement changed interface
+method vim_print ($type, @messages) {
+
+    # variables
+    # - messages
+    @messages = $self->listify(@messages);
+
+    # - type
+    if ( not $type ) { $type = 'normal'; }
+
+    # - attributes (to pass to function 'colored')
+    my $attributes;
+    for ($type) {
+        when (/^t/ixsm) { $attributes = [ 'bold', 'magenta' ] }
+        when (/^p/ixsm) { $attributes = [ 'bold', 'bright_green' ] }
+        when (/^w/ixsm) { $attributes = ['bright_red'] }
+        when (/^e/ixsm) { $attributes = [ 'bold', 'white', 'on_red' ] }
+        default { $attributes = ['reset'] }
+    }
+
+    # print messages
+    for my $message (@messages) {
+        say Term::ANSIColor::colored( $attributes, $message );
+    }
+}
+
+# vim_printify($type, $message)
+#
+# does:   modifies a single string to be passed to 'vim_list_print'
+# params: $type    - as per method 'vim_print' [required]
+#         $message - content to be modified [required]
+#                    can contain escaped double quotes
+# prints: nil
+# return: modified string
+# usage:  @output = $cp->vim_printify( 't', 'My Title' );
+# detail: the string is given a prefix that signals to 'vim_list_print'
+#         what format to use (prefix is stripped before printing)
+# TODO:   implement changed interface
+method vim_printify ($type, $message) {
+
+    # variables
+    # - message
+    if ( not $message ) { return q{}; }
+
+    # - type
+    if ( not $type ) { $type = 'normal'; }
+
+    # - token to prepend to message
+    my $token;
+    for ($type) {
+        when (/^t/ixsm) { $token = '::title::' }
+        when (/^p/ixsm) { $token = '::prompt::' }
+        when (/^w/ixsm) { $token = '::warn::' }
+        when (/^e/ixsm) { $token = '::error::' }
+        default         { $token = q{} }
+    }
+
+    # return altered string
+    return "$token$message";
+}
+
+# _file_mime_type($filepath)
 #
 # does:   determine mime type of file
 # params: $filepath - file to analyse [required]
@@ -1623,7 +1987,17 @@ method _file_mime_type ($filepath) {
     return File::MimeInfo->new()->mimetype($filepath);
 }
 
-# method: _is_mimetype($filepath, $mimetype)
+# _get_icon($icon)
+#
+# does:   gets filepath of icon included in module package
+# params: $icon - file name of icon [required]
+# prints: nil
+# return: icon filepath
+method _get_icon ($icon) {
+    return $self->shared_module_file_milla( 'Dn-Common', $icon );
+}
+
+# _is_mimetype($filepath, $mimetype)
 #
 # does:   determine whether file is a specified mimetype
 # params: $filepath - file to analyse [required]
@@ -1639,29 +2013,91 @@ method _is_mimetype ($filepath, $mimetype) {
     return $filetype =~ m{^$mimetype\z}xsm;
 }
 
-# method: is_mp3($filepath)
+# _load_processes()
 #
-# does:   determine whether file is an mp3 file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
+# does:   load '_processes' attribute with pid=>command pairs
+# params: nil
 # prints: nil
-# return: scalar boolean
-method is_mp3 ($filepath) {
-    return $self->_is_mimetype( $filepath, 'audio/mpeg' );
+# return: nil
+method _load_processes () {
+    $self->_clear_processes;
+    foreach my $process ( @{ Proc::ProcessTable->new()->table() } ) {
+        $self->_add_process( $process->pid, $process->cmndline );
+    }
 }
 
-# method: is_mp4($filepath)
+# _process_config_files()
 #
-# does:   determine whether file is an mp3 file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
+# does:   find all configuration files for calling script
+#         loads attribute '_configuration_files'
+# params: nil
 # prints: nil
-# return: scalar boolean
-method is_mp4 ($filepath) {
-    return $self->_is_mimetype( $filepath, 'video/mp4' );
+# return: nil
+method _process_config_files () {
+    my $root = File::Util->new()->strip_path($PROGRAM_NAME);
+
+    # set directory and filename possibilities to try
+    my ( @dirs, @files );
+    push @dirs,  $PWD;                # ./     == bash $( pwd )
+    push @dirs,  '/usr/local/etc';    # /usr/local/etc/
+    push @dirs,  '/etc';              # /etc/
+    push @dirs,  "/etc/$root";        # /etc/FOO/
+    push @dirs,  $HOME;               # ~/     == bash $HOME
+    push @files, "${root}config";     # FOOconfig
+    push @files, "${root}conf";       # FOOconf
+    push @files, "${root}.config";    # FOO.config
+    push @files, "${root}.conf";      # FOO.conf
+    push @files, "${root}rc";         # FOOrc
+    push @files, ".${root}rc";        # .FOOrc
+
+    # look for existing combinations and capture those config files
+    for my $dir (@dirs) {
+        for my $file (@files) {
+            my $cf = sprintf '%s/%s', $dir, $file;
+            if ( -r "$cf" ) {
+                $self->_add_config_file( Config::Simple->new($cf) );
+            }
+        }
+    }
 }
+
+# _reload_processes()
+#
+# does:   reload '_processes' attribute with pid=>command pairs
+# params: nil
+# prints: nil
+# return: nil
+method _reload_processes () {
+    $self->_load_processes;
+}
+
+MooseX::MakeImmutable->lock_down;
 
 1;
+
+# POD: Method header format
+# -------------------------
+#
+# In the pod documentation below each method description begins with the
+# method signature in a second level header.
+#
+# A typical header looks like:
+#
+#     =head2 method($arg1, $arg2)
+#
+# For methods with no arguments this would normally result in a header like:
+#
+#     =head2 method()
+#
+# Some display engines, however, format headers differently if they include
+# empty parentheses, i.e., in a different colour.
+#
+# To ensure consistent display of method headers, therefore, headers for
+# methods without arguments have a single space inserted between parentheses, like:
+#
+#     =head2 method( )
+#
+# This ensures all method headers are displayed in the same format.
 
 __END__
 
@@ -1681,13 +2117,180 @@ Provides methods used by Perl scripts. Can be used to create a standalone object
 
 =head1 SUBROUTINES/METHODS
 
+=head2 abort(@messages, [$prepend])
+
+=head3 Purpose
+
+Display console message and abort script execution.
+
+=head3 Parameters
+
+=over
+
+=item @messages
+
+Message lines. Respects newlines if enclosed in double quotes.
+
+Required.
+
+=item $prepend
+
+Whether to prepend each message line with name of calling script.
+
+Named parameter. Boolean.
+
+Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Messages followed by abort message.
+
+=head3 Returns
+
+Nil.
+
+=head3 Usage
+
+    $cp->abort('We failed');
+    $cp->abort('We failed', prepend => $TRUE);
+
+=head2 adb_devices( )
+
+=head3 Purpose
+
+Get attached android devices.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List of attached devices. (Empty list if none.)
+
+=head3 Note
+
+Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
+
+=head2 backup_file($file)
+
+=head3 Purpose
+
+Backs up file by renaming it to a unique file name. Will simply add integer to file basename.
+
+=head3 Parameters
+
+=over
+
+=item $file
+
+File to back up. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head4 Returns
+
+Scalar filename.
+
+=head2 boolise($value)
+
+=head3 Purpose
+
+Convert value to boolean.
+
+Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and 'off' to 0. Other values are returned unchanged.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to analyse. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 browse($title, $text)
+
+=head3 Purpose
+
+Displays large volume of text in default editor and then returns viewer to original screen.
+
+=head3 Parameters
+
+=over
+
+=item $title
+
+Title is prepended to displayed text (along with some usage instructions) and is used in creating the temporary file displayed in the editor.
+
+Required.
+
+=item $text
+
+Text to display.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Nil.
+
+=head2 clear_screen( )
+
+=head3 Purpose
+
+Clear the terminal screen.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Nil.
+
+=head3 Usage
+
+    $cp->clear_screen;
+
 =head2 config_param($parameter)
 
 =head3 Configuration file syntax
 
 This method can handle configuration files with the following formats:
-
-=over 4
 
 =over
 
@@ -1712,8 +2315,6 @@ This method can handle configuration files with the following formats:
     key4 = value4
 
 Note in this case the block headings are optional.
-
-=back
 
 =back
 
@@ -1762,266 +2363,263 @@ This is different to multiple B<lines> in the configuration files defining the s
 
 As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values - this can be used to confirm a single parameter result where only one is expected. 
 
-=head2 suspend_screensaver([$title], [$msg])
+=head2 cwd( )
 
 =head3 Purpose
 
-Suspend kde screensaver if it is present.
-
-The screensaver is suspended until it is restored (see method C<restore_screensaver>) or the process that suspended the screensaver exits.
+Provides current directory.
 
 =head3 Parameters
 
-=over 4
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string
+
+=head2 day_of_week([$date])
+
+=head3 Purpose
+
+Get the day of week that the supplied date falls on.
+
+=head3 Parameters
 
 =over
 
-=item $title
+=item $date
 
-Message box title. Note that feedback is given in a popup notification (see method C<notify_sys>).
+Date to analyse. Must be in ISO format.
 
-Optional. Default: name of calling script.
-
-=item $msg
-
-Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
-
-Named parameter.
-
-Optional. Default: 'request from $PID'.
-
-=back
+Optional. Default: today.
 
 =back
 
 =head3 Prints
 
-User feedback indicating success or failure.
+Nil.
 
 =head3 Returns
 
-Boolean. Whether able to successfully suspend the screensaver.
+Scalar day name.
 
-=head3 Usage
-
-    $cp->suspend_screensaver('Playing movie');
-    $cp->suspend_screensaver(
-        'Playing movie', msg => 'requested by my-movie-player'
-    );
-
-=head2 restore_screensaver([$title])
+=head2 deentitise($string)
 
 =head3 Purpose
 
-Restore suspended kde screensaver.
-
-Only works if used by the same process that suspended the screensaver (See method C<suspend_screensaver>. The screensaver is restored automatically is the process that suspended the screensaver exits.
+Perform standard conversions of HTML entities to reserved characters.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item $title
+=item $string
 
-Message box title. Note that feedback is given in a popup notification (see method C<notify_sys>).
-
-Optional. Default: name of calling script.
-
-=back
-
-=back
-
-=head3 Prints
-
-User feedback indicating success or failure.
-
-=head3 Returns
-
-Boolean. Whether able to successfully suspend the screensaver.
-
-=head2 notify(@messages, [$prepend])
-
-=head3 Purpose
-
-Display console message.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item @messages
-
-Message lines. Respects newlines if enclosed in double quotes.
+String to analyse. 
 
 Required.
 
-=item $prepend
-
-Whether to prepend each message line with name of calling script.
-
-Named parameter. Boolean.
-
-Optional. Default: false.
-
 =back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 denumber_list(@list)
+
+=head3 Purpose
+
+Remove number prefixes added by method 'number_list'.
+
+=head3 Parameters
+
+=over
+
+=item @items
+
+List to modify. 
+
+Required.
 
 =back
 
 =head3 Prints
 
-Messages.
+Nil.
+
+=head3 Return
+
+List.
+
+=head2 dirs_list([$directory])
+
+=head3 Purpose
+
+List subdirectories in directory. Uses current directory if no directory is supplied.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory from which to obtain file list.
+
+Optional. Default: current directory.
+
+=back
+
+=head3 Prints
+
+Nil (error message if dies).
 
 =head3 Returns
+
+List (dies if operation fails).
+
+=head2 display($string)
+
+=head3 Purpose
+
+Displays text on screen with word wrapping.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+Test for display.
+
+Required.
+
+=back
+
+=head3 Print
+
+Text for screen display.
+
+=head3 Return
 
 Nil.
 
 =head3 Usage
 
-    $cp->notify('File path is:', $filepath);
-    $cp->notify('File path is:', $filepath, prepend => $TRUE);
+    $cp->display($long_string);
 
-=head2 abort(@messages, [$prepend])
+=head2 echo_e($string)
 
 =head3 Purpose
 
-Display console message and abort script execution.
+Use shell command 'echo -e' to display text in console. Escape sequences are escaped.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item @messages
+=item $text
 
-Message lines. Respects newlines if enclosed in double quotes.
+Text to display. Scalar string.
 
 Required.
-
-=item $prepend
-
-Whether to prepend each message line with name of calling script.
-
-Named parameter. Boolean.
-
-Optional. Default: false.
-
-=back
 
 =back
 
 =head3 Prints
 
-Messages followed by abort message.
+Text with shell escape sequences escaped.
 
 =head3 Returns
 
 Nil.
 
-=head3 Usage
-
-    $cp->abort('We failed');
-    $cp->abort('We failed', prepend => $TRUE);
-
-=head2 notify_sys($message, [$title], [$type], [$icon], [$time])
+=head2 echo_en($string)
 
 =head3 Purpose
 
-Display message to user in system notification area
+Use shell command 'echo -en' to display text in console. Escape sequences are escaped. No newline is appended.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item $message
+=item $text
 
-Message content.
-
-Note there is no guarantee that newlines in message content will be respected.
+Text to display. Scalar string.
 
 Required.
 
-=item $title
+=back
 
-Message title.
+=head3 Prints
 
-Optional. Default: name of calling script.
+Text with shell escape sequences escaped and no trailing newline.
 
-=item $type
+=head3 Returns
 
-Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
+Nil.
 
-Optional. Default: 'info'.
+=head2 email_date ([$date], [$time], [$offset])
 
-=item $icon
+=head3 Purpose
 
-Message box icon filepath.
+Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
 
-Optional. A default icon is provided for each message type.
+=head3 Parameters
+
+=over
+
+=item $date
+
+ISO-formatted date.
+
+Named parameter. Optional. Default: today.
 
 =item $time
 
-Message display time (msec).
+A time in 24-hour format: 'HH:MM[:SS]'. Note that the following are not required: leading zero for hour, and seconds.
 
-Optional. Default: 10,000.
+Named parameter. Optional. Default: now.
 
-=back
+=item $offset
+
+Timezone offset. Example: '+0930'.
+
+Named parameter. Optional. Default: local timezone offset.
 
 =back
 
 =head3 Prints
 
-Nil.
+Nil routinely. Error message if fatal error encountered.
 
 =head3 Returns
 
-Boolean: whether able to display notification.
+Scalar string, undef if method fails.
 
-=head3 Usage
-
-    $cp->notify_sys('Operation successful!', title => 'Outcome')
-
-=head3 Caution
-
-Do not call this method from a spawned child process -- the 'show()' call in the last line of this method causes the child process to hang without any feedback to user.
-
-=head2 logger($message, [$type])
+=head2 ensure_no_trailing_slash($dir)
 
 =head3 Purpose
 
-Display message in system log.
-
-There are four message types: 'debug', 'notice', 'warning' and 'error'. Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
-
-Method dies if invalid message type is provided.
+Remove trailing slash ('/'), if present, from directory path.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item $message
+=item $dir
 
-Message content.
+Directory path to analyse.
 
 Required.
-
-=item $type
-
-Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
-
-Method dies if invalid message type is provided.
-
-Optional. Default: 'notice'.
-
-=back
 
 =back
 
@@ -2031,12 +2629,91 @@ Nil.
 
 =head3 Returns
 
-Nil. Note method dies if invalid message type is provided.
+Scalar string (directory path).
 
-=head3 Usage
+Undef if no directory path provided.
 
-    $cp->logger('Widget started');
-    $cp->logger( 'Widget died unexpectedly!', 'error' );
+=head2 ensure_trailing_slash($dir)
+
+=head3 Purpose
+
+Ensure directory has a trailing slash ('/').
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to analyse.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string (directory path).
+
+Undef if no directory path provided.
+
+=head2 entitise($string)
+
+=head3 Purpose
+
+Perform standard conversions of reserved characters to HTML entities.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to analyse. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 executable_path($exe)
+
+=head3 Purpose
+
+Get path of executable.
+
+=head3 Parameters
+
+=over
+
+=item $exe
+
+Short name of executable. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Return
+
+Scalar filepath: absolute path to executable if executable exists.
+
+Scalar boolean: returns undef If executable does not exist.
 
 =head2 extract_key_value($key, @items)
 
@@ -2045,8 +2722,6 @@ Nil. Note method dies if invalid message type is provided.
 Provided with a list that contains a key-value pair as a sequential pair of elements, return the value and the list-minus-key-and-value.
 
 =head3 Parameters
-
-=over 4
 
 =over
 
@@ -2064,8 +2739,6 @@ Required.
 
 =back
 
-=back
-
 =head3 Prints
 
 Nil.
@@ -2078,11 +2751,119 @@ List with first element being the target value (undef if not found) and subseque
 
     my ($value, @list) = $cp->($key, @list);
 
-=head2 clear_screen()
+=head2 files_list([$directory])
 
 =head3 Purpose
 
-Clear the terminal screen.
+List files in directory. Uses current directory if no directory is supplied.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory path.
+
+Optional. Default: current directory.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List. Dies if operation fails.
+
+=head2 future_date($date)
+
+=head3 Purpose
+
+Determine whether supplied date occurs in the future, i.e, today or after today.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Date to compare. Must be ISO format. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil. (Error if invalid date.)
+
+=head3 Return
+
+Boolean. (Dies if invalid date.)
+
+=head2 get_filename($filepath)
+
+=head3 Purpose
+
+Get filename from filepath.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Filepath to analyse. Assumed to have a filename as the last element in the path.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string (filename).
+
+=head3 Note
+
+This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle I<virtual> filepaths.
+
+=head2 get_path($filepath)
+
+=head3 Purpose
+
+Get path from filepath.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File path. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar path.
+
+=head2 internet_connection( )
+
+=head3 Purpose
+
+Checks to see whether an internet connection can be found.
 
 =head3 Parameters
 
@@ -2094,11 +2875,112 @@ Nil.
 
 =head3 Returns
 
+Boolean.
+
+=head2 is_boolean($value)
+
+=head3 Purpose
+
+Determine whether supplied value is boolean.
+
+Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to be analysed. 
+
+Required.
+
+=back
+
+=head3 Prints
+
 Nil.
+
+=head3 Returns
+
+Boolean. (Undefined if no value provided.)
+
+=head2 konsolekalendar_date_format([$date])
+
+=head3 Purpose
+
+Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Date to convert. Must be in ISO format.
+
+Optional, Default: today.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar date string.
+
+=head2 input_ask($prompt, [$default], [$prepend])
+
+=head3 Purpose
+
+Obtain input from user.
+
+This method is intended for entering short values. Once the entered text wraps to a new line the user cannot move the cursor back to the previous line.
+
+Use method 'input_large' if the value is likely to be longer than a single line.
+
+=head3 Parameters
+
+=over
+
+=item $prompt
+
+User prompt. If user uses 'prepend' option (see below) the script name is prepended to the prompt.
+
+=item $default
+
+Default input.
+
+Optional. Default: none.
+
+=item $prepend
+
+Whether to prepend the script name to the prompt.
+
+Named parameter. Boolean.
+
+Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+User interaction.
+
+=head3 Returns
+
+User's input (scalar).
 
 =head3 Usage
 
-    $cp->clear_screen;
+    my $value;
+    my $default = 'default';
+    while (1) {
+        $value = $self->input_ask( "Enter value:", $default );
+        last if $value;
+    }
 
 =head2 input_choose($prompt, @options, [$prepend])
 
@@ -2107,8 +2989,6 @@ Nil.
 User selects option from a menu.
 
 =head3 Parameters
-
-=over 4
 
 =over
 
@@ -2134,8 +3014,6 @@ Optional. Default: false.
 
 =back
 
-=back
-
 =head3 Prints
 
 Menu and user interaction.
@@ -2143,8 +3021,6 @@ Menu and user interaction.
 =head3 Returns
 
 Return value depends on the calling context:
-
-=over 4
 
 =over
 
@@ -2158,8 +3034,6 @@ Returns list (empty list if choice cancelled).
 
 =back
 
-=back
-
 =head3 Usage
 
     my $value = undef;
@@ -2170,41 +3044,31 @@ Returns list (empty list if choice cancelled).
         say "Invalid choice. Sorry, please try again.";
     }
 
-=head2 input_ask($prompt, [$default], [$prepend])
+=head2 input_confirm($question, [$prepend])
 
 =head3 Purpose
 
-Obtain input from user.
-
-This method is intended for entering short values. Once the entered text wraps to a new line the user cannot move the cursor back to the previous line.
-
-Use method 'input_large' if the value is likely to be longer than a single line.
+User answers y/n to a question.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item $prompt
+=item $question
 
-User prompt. If user uses 'prepend' option (see below) the script name is prepended to the prompt.
+Question to elicit user response. If user uses 'prepend' option (see below) the script name is prepended to it.
 
-=item $default
+Can be multi-line, i.e., enclose in double quotes and include '\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
 
-Default input.
-
-Optional. Default: none.
+Required.
 
 =item $prepend
 
-Whether to prepend the script name to the prompt.
+Whether to prepend the script name to the question.
 
-Named parameter. Boolean.
+Boolean.
 
 Optional. Default: false.
-
-=back
 
 =back
 
@@ -2212,17 +3076,15 @@ Optional. Default: false.
 
 User interaction.
 
-=head3 Returns
+=head3 Return
 
-User's input (scalar).
+Scalar boolean.
 
 =head3 Usage
 
-    my $value;
-    my $default = 'default';
-    while (1) {
-        $value = $self->input_ask( "Enter value:", $default );
-        last if $value;
+    my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
+    if ( input_confirm($prompt) ) {
+        # do stuff
     }
 
 =head2 input_large($prompt, [$default], [$prepend])
@@ -2239,8 +3101,6 @@ Use method 'input_ask' if the prompt and input will fit on a single line.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
 =item $prompt
@@ -2260,8 +3120,6 @@ Whether to prepend the script name to the prompt.
 Named parameter. Boolean.
 
 Optional. Default: false.
-
-=back
 
 =back
 
@@ -2286,86 +3144,1089 @@ Here is a case where input is required:
         $prompt = "Input is required\nEnter input:";
     }
 
-=head2 input_confirm($question, [$prepend])
+=head2 is_mp3($filepath)
 
 =head3 Purpose
 
-User answers y/n to a question.
+Determine whether file is an mp3 file.
 
 =head3 Parameters
 
-=over 4
-
 =over
 
-=item $question
+=item $filepath
 
-Question to elicit user response. If user uses 'prepend' option (see below) the script name is prepended to it.
+File to analyse.
 
-Can be multi-line, i.e., enclose in double quotes and include '\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
-
-Required.
-
-=item $prepend
-
-Whether to prepend the script name to the question.
-
-Boolean.
-
-Optional. Default: false.
-
-=back
+Required. Method dies if $filepath is not provided or is invalid.
 
 =back
 
 =head3 Prints
 
-User interaction.
+Nil.
 
-=head3 Return
+=head3 Returns
 
 Scalar boolean.
 
-=head3 Usage
-
-    my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
-    if ( input_confirm($prompt) ) {
-        # do stuff
-    }
-
-=head2 display($string)
+=head2 is_mp4($filepath)
 
 =head3 Purpose
 
-Displays text on screen with word wrapping.
+Determine whether file is an mp4 file.
 
 =head3 Parameters
 
-=over 4
+=over
+
+=item $filepath
+
+File to analyse.
+
+Required. Method dies if $filepath is not provided or is invalid.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 listify(@items)
+
+=head3 Purpose
+
+Tries to convert scalar, array and hash references in list to sequences of simple scalars. For other reference types a warning is issued.
+
+=head3 Parameters
 
 =over
 
-=item $string
+=item @items
 
-Test for display.
+Items to convert to simple list.
+
+=back
+
+=head3 Prints
+
+Warning messages for references other than scalar, array and hash.
+
+=head3 Returns
+
+Simple list.
+
+=head2 local_timezone( )
+
+=head3 Purpose
+
+Get local timezone.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 logger($message, [$type])
+
+=head3 Purpose
+
+Display message in system log.
+
+There are four message types: 'debug', 'notice', 'warning' and 'error'. Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
+
+Method dies if invalid message type is provided.
+
+=head3 Parameters
+
+=over
+
+=item $message
+
+Message content.
+
+Required.
+
+=item $type
+
+Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
+
+Method dies if invalid message type is provided.
+
+Optional. Default: 'notice'.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Nil. Note method dies if invalid message type is provided.
+
+=head3 Usage
+
+    $cp->logger('Widget started');
+    $cp->logger( 'Widget died unexpectedly!', 'error' );
+
+=head2 make_dir($dir_path)
+
+=head3 Purpose
+
+Make directory recursively.
+
+=head3 Parameters
+
+=over
+
+=item $dir_path
+
+Directory path to create. 
 
 Required.
 
 =back
 
-=back
+=head3 Prints
 
-=head3 Print
-
-Text for screen display.
+Nil.
 
 =head3 Return
+
+Scalar boolean. If directory already exists returns true.
+
+=head2 msg_box([$msg], [$title])
+
+=head3 Purpose
+
+Display message in gui message box.
+
+=head3 Parameters
+
+=over
+
+=item $msg
+
+Message to display.
+
+Optional. Default: 'Press OK button to proceed'.
+
+=item $title
+
+Title of message box.
+
+Optional. Default: name of calling script.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+N/A.
+
+=head2 notify(@messages, [$prepend])
+
+=head3 Purpose
+
+Display console message.
+
+=head3 Parameters
+
+=over
+
+=item @messages
+
+Message lines. Respects newlines if enclosed in double quotes.
+
+Required.
+
+=item $prepend
+
+Whether to prepend each message line with name of calling script.
+
+Named parameter. Boolean.
+
+Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Messages.
+
+=head3 Returns
 
 Nil.
 
 =head3 Usage
 
-    $cp->display($long_string);
+    $cp->notify('File path is:', $filepath);
+    $cp->notify('File path is:', $filepath, prepend => $TRUE);
+
+=head2 notify_sys_type($type)
+
+=head2 notify_sys_title($title)
+
+=head2 notify_sys_icon($icon)
+
+=head3 Purpose
+
+Set default values for C<notify_sys> method parameters C<type>, C<title> and C<icon>, respectively. Applies to subsequent calls to C<notify_sys>. Overridden by parameters supplied in subsequent C<notify_sys> method calls.
+
+=head2 notify_sys($message, [$title], [$type], [$icon], [$time])
+
+=head3 Purpose
+
+Display message to user in system notification area
+
+=head3 Parameters
+
+=over
+
+=item $message
+
+Message content.
+
+Note there is no guarantee that newlines in message content will be respected.
+
+Required.
+
+=item $title
+
+Message title.
+
+Named parameter. Optional. Defaults to attribute C<notify_sys_title> if available, otherwise to name of calling script.
+
+=item $type
+
+Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
+
+Named parameter. Optional. Defaults to attribute C<notify_sys_type> if available, otherwise to 'info'.
+
+=item $icon
+
+Message box icon filepath.
+
+Named parameter. Optional. Defaults to attribute C<notify_sys_icon> if available, otherwise to a default icon provided for each message type.
+
+=item $time
+
+Message display time (msec).
+
+Named parameter. Optional. Default: 10,000.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean: whether able to display notification.
+
+=head3 Usage
+
+    $cp->notify_sys('Operation successful!', title => 'Outcome')
+
+=head3 Caution
+
+Do not call this method from a spawned child process -- the 'show()' call in the last line of this method causes the child process to hang without any feedback to user.
+
+=head2 now()
+
+=head3 Purpose
+
+Provide current time in format 'HH::MM::SS'.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 number_list(@items)
+
+=head3 Purpose
+
+Prefix each list item with element index. The index base is 1.
+
+The prefix is left padded with spaces so each is the same length.
+
+Example: 'Item' becomes ' 9. Item'.
+
+=head3 Parameters
+
+=over
+
+=item @items
+
+List to be modified. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List.
+
+=head2 offset_date($offset)
+
+=head3 Purpose
+
+Get a date offset from today. The offset can be positive or negative.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Offset in days. Can be positive or negative. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+ISO-formatted date.
+
+=head2 pid_running($pid)
+
+=head3 Purpose
+
+Determines whether process id is running.
+
+Note that the process table is reloaded each time this method is called, so it can be called repeatedly in dynamic situations where processes are starting and stopping.
+
+=head3 Parameters
+
+=over
+
+=item $pid
+
+Process ID to search for. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
+
+=head2 process_running($cmd, [$match_full])
+
+=head3 Purpose
+
+Determines whether process is running. Matches on process command. Can match against part or all of process commands.
+
+Note that the process table is reloaded each time this method is called, so it can be called repeatedly in dynamic situations where processes are starting and stopping.
+
+=head3 Parameters
+
+=over
+
+=item $cmd
+
+Command to search for. 
+
+Required.
+
+=item $match_full
+
+Whether to require match against entire process command.
+
+Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
+
+=head2 prompt([message])
+
+=head3 Purpose
+
+Display message and prompt user to press any key.
+
+=head3 Parameters
+
+=over
+
+=item Message
+
+Message to display.
+
+Optional. Default: 'Press any key to continue'.
+
+=back
+
+=head3 Prints
+
+Message.
+
+=head3 Returns
+
+Nil.
+
+=head2 restore_screensaver([$title])
+
+=head3 Purpose
+
+Restore suspended kde screensaver.
+
+Only works if used by the same process that suspended the screensaver (See method C<suspend_screensaver>. The screensaver is restored automatically is the process that suspended the screensaver exits.
+
+=head3 Parameters
+
+=over
+
+=item $title
+
+Message box title. Note that feedback is given in a popup notification (see method C<notify_sys>).
+
+Optional. Default: name of calling script.
+
+=back
+
+=head3 Prints
+
+User feedback indicating success or failure.
+
+=head3 Returns
+
+Boolean. Whether able to successfully suspend the screensaver.
+
+=head2 retrieve_store($file)
+
+=head3 Purpose
+
+Retrieves function data from storage file.
+
+=head3 Parameters
+
+=over
+
+=item $file
+
+File in which data is stored. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil (except feedback from Storage module).
+
+=head3 Returns
+
+Reference to stored data structure.
+
+=head3 Usage
+
+    my $storage_file = '/path/to/filename';
+    my $ref = $self->retrieve_store($storage_file);
+    my %data = %{$ref};
+
+=head2 save_store($ref, $file)
+
+=head3 Purpose
+
+Store data structure in file.
+
+=head3 Parameters
+
+=over
+
+=item $ref
+
+Reference to data structure (usually hash or array) to be stored.
+
+=item $file
+
+File path in which to store data.
+
+=back
+
+=head3 Prints
+
+Nil (except feedback from Storable module).
+
+=head3 Returns
+
+Boolean.
+
+=head3 Usage
+
+    my $storage_dir = '/path/to/filename';
+    $self->save_store( \%data, $storage_file );
+
+=head2 scriptname( )
+
+=head3 Purpose
+
+Get name of executing script.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 sequential_24h_times($time1, $time2)
+
+=head3 Purpose
+
+Determine whether supplied times are in chronological sequence, i.e., second time occurs after first time. Assume both times are from the same day.
+
+=head3 Parameters
+
+=over
+
+=item $time1
+
+First time to compare. 24 hour time format. 
+
+Required.
+
+=item $time2
+
+Second time to compare. 24 hour time format. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil. (Error if invalid time.)
+
+=head3 Returns
+
+Boolean (Dies if invalid time.)
+
+=head2 sequential_dates($date1, $date2)
+
+=head3 Purpose
+
+Determine whether supplied dates are in chronological sequence.
+
+Both dates must be in ISO format or method will return failure. It is recommended that date formats be checked before calling this method.
+
+=head3 Parameters
+
+=over
+
+=item $date1
+
+First date. ISO format. 
+
+Required.
+
+=item $date2
+
+Second date. ISO format. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil. Error message if dates not in ISO-format.
+
+=head3 Returns
+
+Boolean.
+
+=head2 shared_module_file_milla($dist, $file)
+
+=head3 Purpose
+
+Obtains the path to a file in a module's shared directory. Assumes the module was built using dist-milla and the target file was in the build tree's 'share' directory.
+
+=head3 Parameters
+
+=over
+
+=item $dist
+
+Module name. Uses "dash" format. For example, module My::Module would be C<My-Module>.
+
+Required.
+
+=item $file
+
+Name of file to search for.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar. (If not found returns undef, so can also function as scalar boolean.)
+
+=head2 shell_underline($string)
+
+=head3 Purpose
+
+Underline string using shell escapes.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to underline. Scalar string.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string: string with enclosing shell commands.
+
+=head2 shorten($string, [$limit], [$cont])
+
+=head3 Purpose
+
+Truncate text with ellipsis if too long.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to shorten. 
+
+Required.
+
+=item $length
+
+Length at which to truncate. Must be integer > 10.
+
+Optional. Default: 72.
+
+=item $cont
+
+Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
+
+Optional. Default: '...'.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 suspend_screensaver([$title], [$msg])
+
+=head3 Purpose
+
+Suspend kde screensaver if it is present.
+
+The screensaver is suspended until it is restored (see method C<restore_screensaver>) or the process that suspended the screensaver exits.
+
+=head3 Parameters
+
+=over
+
+=item $title
+
+Message box title. Note that feedback is given in a popup notification (see method C<notify_sys>).
+
+Optional. Default: name of calling script.
+
+=item $msg
+
+Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
+
+Named parameter.
+
+Optional. Default: 'request from $PID'.
+
+=back
+
+=head3 Prints
+
+User feedback indicating success or failure.
+
+=head3 Returns
+
+Boolean. Whether able to successfully suspend the screensaver.
+
+=head3 Usage
+
+    $cp->suspend_screensaver('Playing movie');
+    $cp->suspend_screensaver(
+        'Playing movie', msg => 'requested by my-movie-player'
+    );
+
+=head2 tabify($string, [$tab_size])
+
+=head3 Purpose
+
+Covert tab markers ('\t') in string to spaces. Default tab size is four spaces.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String in which to convert tabs. 
+
+Required.
+
+=item $tab_size
+
+Number of spaces in each tab. Integer.
+
+Optional. Default: 4.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 timezone_from_offset($offset)
+
+=head3 Purpose
+
+Determine timezone for offset. In most cases an offset matches multiple timezones. The first matching Australian timezone is selected if one is present, otherwise the first matching timezone is selected.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Timezone offset to check. Example: '+0930'.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Error message if no offset provided or no matching timezone found.
+
+=head3 Returns
+
+Scalar string (timezone), undef if no match found.
+
+=head2 today( )
+
+=head3 Purpose
+
+Get today as an ISO-formatted date.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+ISO-formatted date.
+
+=head2 trim($string)
+
+=head3 Purpose
+
+Remove leading and trailing whitespace.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to be converted. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 true_path($filepath)
+
+=head3 Purpose
+
+Converts relative to absolute filepaths. Any filepath can be provided to this method -- if an absolute filepath is provided it is returned unchanged. Symlinks will be followed and converted to their true filepaths.
+
+If the directory part of the filepath does not exist the entire filepath is returned unchanged. This is a compromise. There may be times when you want to normalise a non-existent path, i.e, to collapse '../' parent directories. The 'abs_path' function can handle a filepath with a nonexistent file. Unfortunately, however, it will silently return an empty result if an invalid directory is included in the path. Since safety should always take priority, the method will return the supplied filepath unchanged if the directory part does not exist.
+
+WARNING: If passing a variable to this function it should be double quoted. If not, passing a value like './' results in an error as the value is somehow reduced to an empty value.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Path to analyse. If a variable should be double quoted (see above).
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil
+
+=head3 Returns
+
+Scalar filepath.
+
+=head2 valid_24h_time($time)
+
+=head3 Purpose
+
+Determine whether supplied time is valid.
+
+=head3 Parameters
+
+=over
+
+=item $time
+
+Time to evaluate. Must be in 'HH::MM' format (leading zero can be dropped).
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 valid_date($date)
+
+=head3 Purpose
+
+Determine whether date is valid and in ISO format.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Candidate date. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 valid_integer($value)
+
+=head3 Purpose
+
+Determine whether supplied value is a valid integer.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to test. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 valid_timezone_offset($offset)
+
+=head3 Purpose
+
+Determine whether a timezone offset is valid.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Timezone offset to analyse. Example: '+0930'.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 valid_positive_integer($value)
+
+=head3 Purpose
+
+Determine whether supplied value is a valid positive integer (zero or above).
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to test. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 vim_list_print(@messages)
+
+=head3 Purpose
+
+Prints a list of strings to the terminal screen using vim's default colour scheme.
+
+Five styles have been implemented:
+
+             Vim
+             Highlight
+    Style    Group       Foreground    Background
+    -------  ----------  ------------  ----------
+    title    Title       bold magenta  normal
+    error    ErrorMsg    bold white    red
+    warning  WarningMsg  red           normal
+    prompt   MoreMsg     bold green    normal
+    normal   Normal      normal        normal
+
+Supplied strings can contain escaped double quotes.
+
+=head3 Parameters
+
+=over
+
+=item @messages
+
+Each element of the list can be printed in a different style. Element strings need to be prepared using the 'vim_printify' method. See the 'vim_printify' method for an example.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Messages in requested styles.
+
+=head3 Returns
+
+Nil.
 
 =head2 vim_print($type, @messages)
 
@@ -2387,8 +4248,6 @@ Five styles have been implemented:
 
 =head3 Parameters
 
-=over 4
-
 =over
 
 =item $type
@@ -2406,8 +4265,6 @@ Content to display.
 Supplied strings can contain escaped double quotes.
 
 Required.
-
-=back
 
 =back
 
@@ -2443,8 +4300,6 @@ Five styles have been implemented:
 
 =head3 Parameters
 
-=over 4
-
 =over
 
 =item $type
@@ -2465,8 +4320,6 @@ Required.
 
 =back
 
-=back
-
 =head3 Prints
 
 Nil.
@@ -2478,1229 +4331,6 @@ Modified string.
 =head3 Usage
 
     $cp->vim_printify( 't', 'This is a title' );
-
-=head2 vim_list_print(@messages)
-
-=head3 Purpose
-
-Prints a list of strings to the terminal screen using vim's default colour scheme.
-
-Five styles have been implemented:
-
-             Vim
-             Highlight
-    Style    Group       Foreground    Background
-    -------  ----------  ------------  ----------
-    title    Title       bold magenta  normal
-    error    ErrorMsg    bold white    red
-    warning  WarningMsg  red           normal
-    prompt   MoreMsg     bold green    normal
-    normal   Normal      normal        normal
-
-Supplied strings can contain escaped double quotes.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item @messages
-
-Each element of the list can be printed in a different style. Element strings need to be prepared using the 'vim_printify' method. See the 'vim_printify' method for an example.
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Messages in requested styles.
-
-=head3 Returns
-
-Nil.
-
-=head2 listify(@items)
-
-=head3 Purpose
-
-Tries to convert scalar, array and hash references in list to sequences of simple scalars. For other reference types a warning is issued.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item @items
-
-Items to convert to simple list.
-
-=back
-
-=back
-
-=head3 Prints
-
-Warning messages for references other than scalar, array and hash.
-
-=head3 Returns
-
-Simple list.
-
-=head2 browse($title, $text)
-
-=head3 Purpose
-
-Displays large volume of text in default editor and then returns viewer to original screen.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $title
-
-Title is prepended to displayed text (along with some usage instructions) and is used in creating the temporary file displayed in the editor.
-
-Required.
-
-=item $text
-
-Text to display.
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Nil.
-
-
-=head2 prompt([message])
-
-=head3 Purpose
-
-Display message and prompt user to press any key.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item Message
-
-Message to display.
-
-Optional. Default: 'Press any key to continue'.
-
-=back
-
-=back
-
-=head3 Prints
-
-Message.
-
-=head3 Returns
-
-Nil.
-
-=head2 get_path($filepath)
-
-=head3 Purpose
-
-Get path from filepath.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $filepath
-
-File path. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar path.
-
-=head2 executable_path($exe)
-
-=head3 Purpose
-
-Get path of executable.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $exe
-
-Short name of executable. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Return
-
-Scalar filepath: absolute path to executable if executable exists.
-
-Scalar boolean: returns undef If executable does not exist.
-
-=head2 make_dir($dir_path)
-
-=head3 Purpose
-
-Make directory recursively.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $dir_path
-
-Directory path to create. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Return
-
-Scalar boolean. If directory already exists returns true.
-
-=head2 files_list([$directory])
-
-=head3 Purpose
-
-List files in directory. Uses current directory if no directory is supplied.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $directory
-
-Directory path.
-
-Optional. Default: current directory.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-List. Dies if operation fails.
-
-=head2 dirs_list([$directory])
-
-=head3 Purpose
-
-List subdirectories in directory. Uses current directory if no directory is supplied.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $directory
-
-Directory from which to obtain file list.
-
-Optional. Default: current directory.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil (error message if dies).
-
-=head3 Returns
-
-List (dies if operation fails).
-
-=head2 backup_file($file)
-
-=head3 Purpose
-
-Backs up file by renaming it to a unique file name. Will simply add integer to file basename.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $file
-
-File to back up. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head4 Returns
-
-Scalar filename.
-
-=head2 valid_positive_integer($value)
-
-=head3 Purpose
-
-Determine whether supplied value is a valid positive integer (zero or above).
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $value
-
-Value to test. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 valid_positive_integer($value)
-
-=head3 Purpose
-
-Determine whether supplied value is a valid positive integer (zero or above).
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $value
-
-Value to test. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 today()
-
-=head3 Purpose
-
-Get today as an ISO-formatted date.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-ISO-formatted date.
-
-=head2 offset_date($offset)
-
-=head3 Purpose
-
-Get a date offset from today. The offset can be positive or negative.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $offset
-
-Offset in days. Can be positive or negative. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-ISO-formatted date.
-
-=head2 day_of_week([$date])
-
-=head3 Purpose
-
-Get the day of week that the supplied date falls on.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $date
-
-Date to analyse. Must be in ISO format.
-
-Optional. Default: today.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar day name.
-
-=head2 konsolekalendar_date_format([$date])
-
-=head3 Purpose
-
-Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $date
-
-Date to convert. Must be in ISO format.
-
-Optional, Default: today.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar date string.
-
-=head2 valid_date($date)
-
-=head3 Purpose
-
-Determine whether date is valid and in ISO format.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $date
-
-Candidate date. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 sequential_dates($date1, $date2)
-
-=head3 Purpose
-
-Determine whether supplied dates are in chronological sequence.
-
-Both dates must be in ISO format or method will return failure. It is recommended that date formats be checked before calling this method.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $date1
-
-First date. ISO format. 
-
-Required.
-
-=item $date2
-
-Second date. ISO format. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil. Error message if dates not in ISO-format.
-
-=head3 Returns
-
-Boolean.
-
-=head2 future_date($date)
-
-=head3 Purpose
-
-Determine whether supplied date occurs in the future, i.e, today or after today.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $date
-
-Date to compare. Must be ISO format. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil. (Error if invalid date.)
-
-=head3 Return
-
-Boolean. (Dies if invalid date.)
-
-=head2 valid_24h_time($time)
-
-=head3 Purpose
-
-Determine whether supplied time is valid.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $time
-
-Time to evaluate. Must be in 'HH::MM' format (leading zero can be dropped).
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 sequential_24h_times($time1, $time2)
-
-=head3 Purpose
-
-Determine whether supplied times are in chronological sequence, i.e., second time occurs after first time. Assume both times are from the same day.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $time1
-
-First time to compare. 24 hour time format. 
-
-Required.
-
-=item $time2
-
-Second time to compare. 24 hour time format. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil. (Error if invalid time.)
-
-=head3 Returns
-
-Boolean (Dies if invalid time.)
-
-=head2 entitise($string)
-
-=head3 Purpose
-
-Perform standard conversions of reserved characters to HTML entities.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $string
-
-String to analyse. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 deentitise($string)
-
-=head3 Purpose
-
-Perform standard conversions of HTML entities to reserved characters.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $string
-
-String to analyse. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 tabify($string, [$tab_size])
-
-=head3 Purpose
-
-Covert tab markers ('\t') in string to spaces. Default tab size is four spaces.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $string
-
-String in which to convert tabs. 
-
-Required.
-
-=item $tab_size
-
-Number of spaces in each tab. Integer.
-
-Optional. Default: 4.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 trim($string)
-
-=head3 Purpose
-
-Remove leading and trailing whitespace.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $string
-
-String to be converted. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 boolise($value)
-
-=head3 Purpose
-
-Convert value to boolean.
-
-Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and 'off' to 0. Other values are returned unchanged.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $value
-
-Value to analyse. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 is_boolean($value)
-
-=head3 Purpose
-
-Determine whether supplied value is boolean.
-
-Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $value
-
-Value to be analysed. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean. (Undefined if no value provided.)
-
-=head2 save_store($ref, $file)
-
-=head3 Purpose
-
-Store data structure in file.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $ref
-
-Reference to data structure (usually hash or array) to be stored.
-
-=item $file
-
-File path in which to store data.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil (except feedback from Storable module).
-
-=head3 Returns
-
-Boolean.
-
-=head3 Usage
-
-    my $storage_dir = '/path/to/filename';
-    $self->save_store( \%data, $storage_file );
-
-=head2 retrieve_store($file)
-
-=head3 Purpose
-
-Retrieves function data from storage file.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $file
-
-File in which data is stored. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil (except feedback from Storage module).
-
-=head3 Returns
-
-Boolean.
-
-=head3 Usage
-
-    my $storage_file = '/path/to/filename';
-    my $ref = $self->retrieve_store($storage_file);
-    my %data = %{$ref};
-
-=head2 number_list(@items)
-
-=head3 Purpose
-
-Prefix each list item with element index. The index base is 1.
-
-The prefix is left padded with spaces so each is the same length.
-
-Example: 'Item' becomes ' 9. Item'.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item @items
-
-List to be modified. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-List.
-
-=head2 denumber_list(@list)
-
-=head3 Purpose
-
-Remove number prefixes added by method 'number_list'.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item @items
-
-List to modify. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Return
-
-List.
-
-=head2 shorten($string, [$limit], [$cont])
-
-=head3 Purpose
-
-Truncate text with ellipsis if too long.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $string
-
-String to shorten. 
-
-Required.
-
-=item $length
-
-Length at which to truncate. Must be integer > 10.
-
-Optional. Default: 72.
-
-=item $cont
-
-Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
-
-Optional. Default: '...'.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 internet_connection()
-
-=head3 Purpose
-
-Checks to see whether an internet connection can be found.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 cwd()
-
-=head3 Purpose
-
-Provides current directory.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string
-
-=head2 true_path($filepath)
-
-=head3 Purpose
-
-Converts relative to absolute filepaths. Any filepath can be provided to this method -- if an absolute filepath is provided it is returned unchanged. Symlinks will be followed and converted to their true filepaths.
-
-If the directory part of the filepath does not exist the entire filepath is returned unchanged. This is a compromise. There may be times when you want to normalise a non-existent path, i.e, to collapse '../' parent directories. The 'abs_path' function can handle a filepath with a nonexistent file. Unfortunately, however, it will silently return an empty result if an invalid directory is included in the path. Since safety should always take priority, the method will return the supplied filepath unchanged if the directory part does not exist.
-
-WARNING: If passing a variable to this function it should be double quoted. If not, passing a value like './' results in an error as the value is somehow reduced to an empty value.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $filepath
-
-Path to analyse. If a variable should be double quoted (see above).
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil
-
-=head3 Returns
-
-Scalar filepath.
-
-=head2 pid_running($pid)
-
-=head3 Purpose
-
-Determines whether process id is running.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $pid
-
-Process ID to search for. 
-
-Required.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean scalar.
-
-=head2 process_running($cmd, [$match_full])
-
-=head3 Purpose
-
-Determines whether process is running. Matches on process command. Can match against part or all of process commands.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $cmd
-
-Command to search for. 
-
-Required.
-
-=item $match_full
-
-Whether to require match against entire process command.
-
-Optional. Default: false.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean scalar.
-
-=head3 is_mp3($filepath)
-
-=head3 Purpose
-
-Determine whether file is an mp3 file.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $filepath
-
-File to analyse.
-
-Required. Method dies if $filepath is not provided or is invalid.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar boolean.
-
-=head3 is_mp4($filepath)
-
-=head3 Purpose
-
-Determine whether file is an mp4 file.
-
-=head3 Parameters
-
-=over 4
-
-=over
-
-=item $filepath
-
-File to analyse.
-
-Required. Method dies if $filepath is not provided or is invalid.
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar boolean.
-
-
-
-
-
 
 =head1 DEPENDENCIES
 
@@ -3739,6 +4369,16 @@ Debian: provided by package 'libdata-dumper-simple-perl'.
 Used for writing date strings.
 
 Debian: provided by package 'libdate-simple-perl'.
+
+=head2 DateTime
+
+=head2 DateTime::Format::Mail
+
+=head2 DateTime::TimeZone
+
+Used for manipulating dates and times.
+
+Debian: provided by packages 'libdatetime-perl', 'libdatetime-format-mail-perl' and 'libdatetime-timezone-perl', respectively.
 
 =head2 Desktop::Detect
 
@@ -3804,9 +4444,17 @@ Debian: provided by package 'libgtk2-notify-perl'.
 
 Used for converting between html entities and reserved characters. Provides 'encode_entities' and 'decode_entities' methods.
 
-Debian: provided by package: 'libhtml-parser-perl'.
+Debian: provided by package 'libhtml-parser-perl'.
 
-Debian: provided by package 'libnet-ping-external-perl'.
+=head2 IPC::Cmd
+
+=head2 IPC::Open3
+
+=head2 IPC::Run
+
+Enable running of system commands.
+
+Debian: provided by packages 'perl-modules', 'libipc-run-perl' and 'perl-base', respectively.
 
 =head2 Logger::Syslog
 
@@ -3865,6 +4513,8 @@ internet hosts.
 
 Provides the 'ping' function.
 
+Debian: provided by package 'libnet-ping-external-perl'.
+
 =head2 Readonly
 
 Use modern perl.
@@ -3895,7 +4545,7 @@ Provides 'choose', 'ask', 'edit' and 'confirm' functions.
 
 Is configured to not remember responses. To override put this command after this module is called:
 
-    $ENV{'CLUI_DIR'} = "ON";
+    $ENV{'CLUI_DIR'} = 'ON';
 
 Debian: provided by package 'libperl-term-clui'.
 
@@ -3926,6 +4576,12 @@ Debian: provided by package 'perl-base'.
 Used for validating and comparing times.
 
 Debian: not available.
+
+=head2 UI::Dialog
+
+Used for gui dialogs.
+
+Debian: libui-dialog-perl.
 
 head1 BUGS AND LIMITATIONS
 
