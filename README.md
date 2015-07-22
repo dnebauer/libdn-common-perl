@@ -5,8 +5,8 @@ Provides useful methods for use by scripts.
 
 Note that this module has been optimised for clarity of script rather than speed of execution. For example, it uses Mouse.
 
-abort\(@messages, \[$prepend\]\)
----------------------------------
+abort\( @messages, \[\$prepend\] \)
+-----------------------------------
 
 ###Purpose
 
@@ -20,7 +20,7 @@ Message lines. Respects newlines if enclosed in double quotes.
 
 Required.
 
-####$prepend
+####\$prepend
 
 Whether to prepend each message line with name of calling script.
 
@@ -65,7 +65,7 @@ List of device identifiers.
 
 Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
 
-backup\_file\($file\)
+backup\_file\(\$file\)
 ---------------------
 
 ###Purpose
@@ -74,7 +74,7 @@ Backs up file by renaming it to a unique file name. Will simply add integer to f
 
 ###Parameters
 
-####$file
+####\$file
 
 File to back up. 
 
@@ -88,8 +88,8 @@ Nil.
 
 Scalar filename.
 
-boolise\($value\)
----------------
+boolise\(\$value\)
+------------------
 
 ###Purpose
 
@@ -99,7 +99,7 @@ Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and
 
 ###Parameters
 
-####$value
+####\$value
 
 Value to analyse.
 
@@ -113,7 +113,7 @@ Nil.
 
 Boolean.
 
-browse\($title, $text\)
+browse\( \$title, \$text \)
 ---------------------
 
 ###Purpose
@@ -122,13 +122,13 @@ Displays large volume of text in default editor and then returns viewer to origi
 
 ###Parameters
 
-####$title
+####\$title
 
 Title is prepended to displayed text \(along with some usage instructions\) and is used in creating the temporary file displayed in the editor.
 
 Required.
 
-####$text
+####\$text
 
 Text to display.
 
@@ -143,7 +143,7 @@ Nil.
 Nil.
 
 clear\_screen\(\)
---------------
+-----------------
 
 ###Purpose
 
@@ -167,7 +167,7 @@ Nil.
 $cp->clear_screen;
 ```
 
-config\_param\($parameter\)
+config\_param\(\$parameter\)
 ------------------------
 
 ###Configuration file syntax
@@ -191,11 +191,11 @@ key2: value2
 ####ini file
 
 ~~~~~~~~~~~~
-\[block1\]
+[block1]
 key1=value1
 key2=value2
 
-\[block2\]
+[block2]
 key3 = value3
 key4 = value4
 ~~~~~~~~~~~~
@@ -219,7 +219,7 @@ $parameter1 = $cp->config_param('block1.key1');
 
 ###Configuration file locations and names
 
-This method looks in these directories for configuration files in this order \(where FOO is the calling script\): ./, /usr/local/etc, /etc, /etc/FOO, and $HOME.
+This method looks in these directories for configuration files in this order \(where FOO is the calling script\): ./, /usr/local/etc, /etc, /etc/FOO, and \$HOME.
 
 Each directory is searched for these file names in this order \(where FOO is the calling script\): FOOconfig, FOOconf, FOO.config, FOO.conf, FOOrc, and .FOOrc.
 
@@ -250,7 +250,7 @@ This is different to multiple lines in the configuration files defining the same
 As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values -- this can be used to confirm a single parameter result where only one is expected.
 
 cwd\(\)
------
+-------
 
 ###Purpose
 
@@ -268,7 +268,7 @@ Nil.
 
 Scalar string
 
-day\_of\_week\(\[$date\]\)
+day\_of\_week\( \[\$date\] \)
 --------------------
 
 ###Purpose
@@ -277,7 +277,7 @@ Get the day of week that the supplied date falls on.
 
 ###Parameters
 
-####$date
+####\$date
 
 Date to analyse. Must be in ISO format.
 
@@ -291,8 +291,8 @@ Nil.
 
 Scalar day name.
 
-deentitise\($string\)
--------------------
+deentitise\(\$string\)
+----------------------
 
 ###Purpose
 
@@ -300,7 +300,7 @@ Perform standard conversions of HTML entities to reserved characters.
 
 ###Parameters
 
-####$string
+####\$string
 
 String to analyse.
 
@@ -337,8 +337,8 @@ Nil.
 
 List.
 
-dirs\_list\(\[$directory\]\)
------------------------
+dirs\_list\( \[\$directory\] \)
+-------------------------------
 
 ###Purpose
 
@@ -346,7 +346,7 @@ List subdirectories in directory. Uses current directory if no directory is supp
 
 ###Parameters
 
-####$directory
+####\$directory
 
 Directory from which to obtain file list.
 
@@ -360,7 +360,7 @@ Nil \(error message if dies\).
 
 List \(dies if operation fails\).
 
-display\($string\)
+display\(\$string\)
 ----------------
 
 ###Purpose
@@ -369,7 +369,7 @@ Displays text on screen with word wrapping.
 
 ###Parameters
 
-####$string
+####\$string
 
 Test for display.
 
@@ -389,8 +389,8 @@ Nil.
 $cp->display($long_string);
 ```
 
-echo\_e\($string\)
-------------------
+echo\_e\(\$string\)
+-------------------
 
 ###Purpose
 
@@ -398,7 +398,7 @@ Use shell command 'echo -e' to display text in console. Escape sequences are esc
 
 ###Parameters
 
-####$text
+####\$text
 
 Text to display. Scalar string.
 
@@ -412,7 +412,7 @@ Text with shell escape sequences escaped.
 
 Nil.
 
-echo\_en\($string\)
+echo\_en\(\$string\)
 -------------------
 
 ###Purpose
@@ -421,7 +421,7 @@ Use shell command 'echo -en' to display text in console. Escape sequences are es
 
 ###Parameters
 
-####$text
+####\$text
 
 Text to display. Scalar string.
 
@@ -435,8 +435,8 @@ Text with shell escape sequences escaped and no trailing newline.
 
 Nil.
 
-email\_date \([$date], [$time], [$offset]\)
--------------------------------------------
+email\_date \( \[\$date\], \[\$time\], \[\$offset\] \)
+------------------------------------------------------
 
 ###Purpose
 
@@ -444,19 +444,19 @@ Produce a date formatted according to RFC 2822 (Internet Message Format). An exa
 
 ###Parameters
 
-####$date
+####\$date
 
 ISO-formatted date.
 
 Named parameter. Optional. Default: today.
 
-####$time
+####\$time
 
-A time in 24-hour format: 'HH:MM[:SS]'. Note that the following are not required: leading zero for hour, and seconds.
+A time in 24-hour format: 'HH:MM\[:SS\]'. Note that the following are not required: leading zero for hour, and seconds.
 
 Named parameter. Optional. Default: now.
 
-####$offset
+####\$offset
 
 Timezone offset. Example: '+0930'.
 
@@ -470,7 +470,7 @@ Nil routinely. Error message if fatal error encountered.
 
 Scalar string, undef if method fails.
 
-ensure\_no\_trailing\_slash\($dir\)
+ensure\_no\_trailing\_slash\(\$dir\)
 -----------------------------------
 
 ###Purpose
@@ -479,7 +479,7 @@ Remove trailing slash \('/'\), if present, from directory path.
 
 ###Parameters
 
-####$dir
+####\$dir
 
 Directory path to analyse.
 
@@ -495,8 +495,8 @@ Scalar string (directory path).
 
 Undef if no directory path provided.
 
-ensure\_trailing\_slash\($dir\)
-------------------------------
+ensure\_trailing\_slash\(\$dir\)
+--------------------------------
 
 ###Purpose
 
@@ -506,7 +506,7 @@ Ensure directory has a trailing slash \('/'\).
 
 =over
 
-####$dir
+####\$dir
 
 Directory path to analyse.
 
@@ -522,7 +522,7 @@ Scalar string \(directory path\).
 
 Undef if no directory path provided.
 
-entitise\($string\)
+entitise\(\$string\)
 -----------------
 
 ###Purpose
@@ -531,7 +531,7 @@ Perform standard conversions of reserved characters to HTML entities.
 
 ###Parameters
 
-####$string
+####\$string
 
 String to analyse.
 
@@ -545,8 +545,8 @@ Nil.
 
 Scalar string.
 
-executable\_path\($exe\)
----------------------
+executable\_path\(\$exe\)
+-------------------------
 
 ###Purpose
 
@@ -554,7 +554,7 @@ Get path of executable.
 
 ###Parameters
 
-####$exe
+####\$exe
 
 Short name of executable.
 
@@ -570,7 +570,7 @@ Scalar filepath: absolute path to executable if executable exists.
 
 Scalar boolean: returns undef If executable does not exist.
 
-extract\_key\_value\($key, @items\)
+extract\_key\_value\( \$key, @items \)
 -------------------------------
 
 ###Purpose
@@ -579,7 +579,7 @@ Provided with a list that contains a key-value pair as a sequential pair of elem
 
 ###Parameters
 
-####$key
+####\$key
 
 Key of the key-value pair.
 
@@ -605,8 +605,8 @@ List with first element being the target value \(undef if not found\) and subseq
 my ($value, @list) = $cp->($key, @list);
 ```
 
-files\_list\(\[$directory\]\)
-------------------------
+files\_list\( \[\$directory\] \)
+--------------------------------
 
 ###Purpose
 
@@ -614,7 +614,7 @@ List files in directory. Uses current directory if no directory is supplied.
 
 ###Parameters
 
-####$directory
+####\$directory
 
 Directory path.
 
@@ -628,7 +628,7 @@ Nil.
 
 List. Dies if operation fails.
 
-future\_date\($date\)
+future\_date\(\$date\)
 ------------------
 
 ###Purpose
@@ -637,7 +637,7 @@ Determine whether supplied date occurs in the future, i.e, today or after today.
 
 ###Parameters
 
-####$date
+####\$date
 
 Date to compare. Must be ISO format.
 
@@ -651,8 +651,8 @@ Nil. \(Error if invalid date.\)
 
 Boolean. \(Dies if invalid date.\)
 
-get\_filename\($filepath\)
---------------------------
+get\_filename\(\$filepath\)
+---------------------------
 
 ###Purpose
 
@@ -660,11 +660,11 @@ Get filename from filepath.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
-    Filepath to analyse. Assumed to have a filename as the last element in the path.
+Filepath to analyse. Assumed to have a filename as the last element in the path.
 
-    Required.
+Required.
 
 ###Prints
 
@@ -678,7 +678,7 @@ Scalar string \(filename\).
 
 This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle "virtual" filepaths.
 
-get\_path\($filepath\)
+get\_path\(\$filepath\)
 -------------------
 
 ###Purpose
@@ -687,7 +687,7 @@ Get path from filepath.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 File path.
 
@@ -701,8 +701,8 @@ Nil.
 
 Scalar path.
 
-input\_ask\($prompt, \[$default\], \[$prepend\]\)
-------------------------------------------
+input\_ask\( \$prompt, \[\$default\], \[\$prepend\] \)
+------------------------------------------------------
 
 ###Purpose
 
@@ -714,17 +714,17 @@ Use method 'input\_large' if the value is likely to be longer than a single line
 
 ###Parameters
 
-####$prompt
+####\$prompt
 
 User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
 
-####$default
+####\$default
 
 Default input.
 
 Optional. Default: none.
 
-####$prepend
+####\$prepend
 
 Whether to prepend the script name to the prompt.
 
@@ -751,7 +751,7 @@ while (1) {
 }
 ```
 
-input\_choose\($prompt, @options, \[$prepend\]\)
+input\_choose\( \$prompt, @options, \[\$prepend\] \)
 -------------------------------------------
 
 ###Purpose
@@ -760,7 +760,7 @@ User selects option from a menu.
 
 ###Parameters
 
-####$prompt
+####\$prompt
 
 Menu prompt.
 
@@ -772,7 +772,7 @@ Menu options.
 
 Required.
 
-####$prepend
+####\$prepend
 
 Flag indicating whether to prepend script name to prompt.
 
@@ -808,8 +808,8 @@ while (1) {
 }
 ```
 
-input\_confirm\($question, \[$prepend\]\)
-------------------------------------
+input\_confirm\( \$question, \[\$prepend\] \)
+---------------------------------------------
 
 ###Purpose
 
@@ -817,15 +817,15 @@ User answers y/n to a question.
 
 ###Parameters
 
-####$question
+####\$question
 
 Question to elicit user response. If user uses 'prepend' option \(see below\) the script name is prepended to it.
 
-Can be multi-line, i.e., enclose in double quotes and include '\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
+Can be multi-line, i.e., enclose in double quotes and include '\\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
 
 Required.
 
-####$prepend
+####\$prepend
 
 Whether to prepend the script name to the question.
 
@@ -850,32 +850,32 @@ if ( input_confirm($prompt) ) {
 }
 ```
 
-input\_large\($prompt, \[$default\], \[$prepend\]\)
+input\_large\( \$prompt, \[\$default\], \[\$prepend\] \)
 --------------------------------------------
 
 ###Purpose
 
 Obtain input from user.
 
-This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple \(short\) value.  An editor is used to enter the data. The default editor is used. If no default editor is set, vi\(m\) is used.
+This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple \(short\) value. An editor is used to enter the data. The default editor is used. If no default editor is set, vi\(m\) is used.
 
-When the editor opens it displays some boilerplate, the prompt, a horizontal rule \(a line of dashes\), and the default value if provided.  When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
+When the editor opens it displays some boilerplate, the prompt, a horizontal rule \(a line of dashes\), and the default value if provided. When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
 
 Use method 'input\_ask' if the prompt and input will fit on a single line.
 
 ###Parameters
 
-####$prompt
+####\$prompt
 
 User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
 
-####$default
+####\$default
 
 Default input.
 
 Optional. Default: none.
 
-####$prepend
+####\$prepend
 
 Whether to prepend the script name to the prompt.
 
@@ -907,7 +907,7 @@ while (1) {
 ```
 
 internet\_connection\(\)
----------------------
+------------------------
 
 ###Purpose
 
@@ -925,7 +925,7 @@ Nil.
 
 Boolean.
 
-is\_boolean\($value\)
+is\_boolean\(\$value\)
 ------------------
 
 ###Purpose
@@ -936,7 +936,7 @@ Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'fals
 
 ###Parameters
 
-####$value
+####\$value
 
 Value to be analysed.
 
@@ -950,7 +950,7 @@ Nil.
 
 Boolean. \(Undefined if no value provided.\)
 
-###is\_mp3\($filepath\)
+###is\_mp3\(\$filepath\)
 
 ###Purpose
 
@@ -958,11 +958,11 @@ Determine whether file is an mp3 file.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 File to analyse.
 
-Required. Method dies if $filepath is not provided or is invalid.
+Required. Method dies if \$filepath is not provided or is invalid.
 
 ###Prints
 
@@ -972,7 +972,7 @@ Nil.
 
 Scalar boolean.
 
-###is\_mp4\($filepath\)
+###is\_mp4\(\$filepath\)
 
 ###Purpose
 
@@ -980,11 +980,11 @@ Determine whether file is an mp4 file.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 File to analyse.
 
-Required. Method dies if $filepath is not provided or is invalid.
+Required. Method dies if \$filepath is not provided or is invalid.
 
 ###Prints
 
@@ -994,8 +994,8 @@ Nil.
 
 Scalar boolean.
 
-is\_mp3\($filepath\)
---------------------
+is\_mp3\(\$filepath\)
+---------------------
 
 ###Purpose
 
@@ -1003,11 +1003,11 @@ Determine whether file is an mp3 file.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 File to analyse.
 
-Required. Method dies if $filepath is not provided or is invalid.
+Required. Method dies if \$filepath is not provided or is invalid.
 
 ###Prints
 
@@ -1017,7 +1017,7 @@ Nil.
 
 Scalar boolean.
 
-is\_mp4\($filepath\)
+is\_mp4\(\$filepath\)
 --------------------
 
 ###Purpose
@@ -1026,11 +1026,11 @@ Determine whether file is an mp4 file.
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 File to analyse.
 
-Required. Method dies if $filepath is not provided or is invalid.
+Required. Method dies if \$filepath is not provided or is invalid.
 
 ###Prints
 
@@ -1040,16 +1040,16 @@ Nil.
 
 Scalar boolean.
 
-konsolekalendar\_date\_format\(\[$date\]\)
-------------------------------------
+konsolekalendar\_date\_format\( \[\$date\] \)
+---------------------------------------------
 
 ###Purpose
 
-Get date formatted in same manner as konsolekalendar does in its output.  An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
+Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
 
 ###Parameters
 
-####$date
+####\$date
 
 Date to convert. Must be in ISO format.
 
@@ -1085,7 +1085,7 @@ Warning messages for references other than scalar, array and hash.
 Simple list.
 
 local\_timezone\(\)
---------------------
+-------------------
 
 ###Purpose
 
@@ -1103,26 +1103,26 @@ Nil.
 
 Scalar string.
 
-logger\($message, \[$type\]\)
+logger\( \$message, \[\$type\] \)
 -------------------------
 
 ###Purpose
 
 Display message in system log.
 
-There are four message types: 'debug', 'notice', 'warning' and 'error'.  Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
+There are four message types: 'debug', 'notice', 'warning' and 'error'. Not all message types appear in all system logs. On Debian, for example, /var/log/messages records only notice and warning log messages while /var/log/syslog records all log messages.
 
 Method dies if invalid message type is provided.
 
 ###Parameters
 
-####$message
+####\$message
 
 Message content.
 
 Required.
 
-####$type
+####\$type
 
 Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
 
@@ -1145,8 +1145,8 @@ $cp->logger('Widget started');
 $cp->logger( 'Widget died unexpectedly!', 'error' );
 ```
 
-make\_dir\($dir\_path\)
--------------------
+make\_dir\(\$dir\_path\)
+------------------------
 
 ###Purpose
 
@@ -1154,7 +1154,7 @@ Make directory recursively.
 
 ###Parameters
 
-####$dir\_path
+####\$dir\_path
 
 Directory path to create.
 
@@ -1168,7 +1168,7 @@ Nil.
 
 Scalar boolean. If directory already exists returns true.
 
-msg\_box\([$msg], [$title]\)
+msg\_box\( \[\$msg\], \[\$title\] \)
 ----------------------------
 
 ###Purpose
@@ -1177,13 +1177,13 @@ Display message in gui message box.
 
 ###Parameters
 
-####$msg
+####\$msg
 
 Message to display.
 
 Optional. Default: 'Press OK button to proceed'.
 
-####$title
+####\$title
 
 Title of message box.
 
@@ -1197,8 +1197,8 @@ Nil.
 
 N/A.
 
-notify\(@messages, \[$prepend\]\)
-----------------------------------
+notify\( @messages, \[\$prepend\] \)
+------------------------------------
 
 ###Purpose
 
@@ -1212,7 +1212,7 @@ Message lines. Respects newlines if enclosed in double quotes.
 
 Required.
 
-####$prepend
+####\$prepend
 
 Whether to prepend each message line with name of calling script.
 
@@ -1235,21 +1235,21 @@ $cp->notify('File path is:', $filepath);
 $cp->notify('File path is:', $filepath, prepend => 1);
 ```
 
-notify\_sys\_type\($type\)
+notify\_sys\_type\(\$type\)
 --------------------------
 
-notify\_sys\_title\($title\)
--------------------------------
+notify\_sys\_title\(\$title\)
+-----------------------------
 
-notify\_sys\_icon\($icon\)
+notify\_sys\_icon\(\$icon\)
 -----------------------------
 
 ###Purpose
 
 Set default values for 'notify\_sys' method parameters 'type', 'title' and 'icon', respectively. Applies to subsequent calls to 'notify\_sys'. Overridden by parameters supplied in subsequent 'notify\_sys' method calls.
 
-notify\_sys\($message, \[$title\], \[$type\], \[$icon\], \[$time\]\)
----------------------------------------------------------
+notify\_sys\( \$message, \[\$title\], \[\$type\], \[\$icon\], \[\$time\] \)
+---------------------------------------------------------------------------
 
 ###Purpose
 
@@ -1257,7 +1257,7 @@ Display message to user in system notification area
 
 ###Parameters
 
-####$message
+####\$message
 
 Message content.
 
@@ -1265,25 +1265,25 @@ Note there is no guarantee that newlines in message content will be respected.
 
 Required.
 
-####$title
+####\$title
 
 Message title.
 
 Named parameter. Optional. Default: name of calling script.
 
-####$type
+####\$type
 
 Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
 
 Named parameter. Optional. Default: 'info'.
 
-####$icon
+####\$icon
 
 Message box icon filepath.
 
 Named parameter. Optional. A default icon is provided for each message type.
 
-####$time
+####\$time
 
 Message display time \(msec\).
 
@@ -1327,7 +1327,7 @@ Nil.
 Scalar string.
 
 number\_list\(@items\)
--------------------
+----------------------
 
 ###Purpose
 
@@ -1353,7 +1353,7 @@ Nil.
 
 List.
 
-offset\_date\($offset\)
+offset\_date\(\$offset\)
 --------------------
 
 ###Purpose
@@ -1362,7 +1362,7 @@ Get a date offset from today. The offset can be positive or negative.
 
 ###Parameters
 
-####$offset
+####\$offset
 
 Offset in days. Can be positive or negative.
 
@@ -1376,8 +1376,8 @@ Nil.
 
 ISO-formatted date.
 
-pid\_running\($pid\)
------------------
+pid\_running\(\$pid\)
+---------------------
 
 ###Purpose
 
@@ -1385,7 +1385,7 @@ Determines whether process id is running.
 
 ###Parameters
 
-####$pid
+####\$pid
 
 Process ID to search for.
 
@@ -1399,7 +1399,7 @@ Nil.
 
 Boolean scalar.
 
-process\_running\($cmd, \[$match\_full\]\)
+process\_running\( \$cmd, \[\$match\_full\] \)
 ------------------------------------
 
 ###Purpose
@@ -1408,13 +1408,13 @@ Determines whether process is running. Matches on process command. Can match aga
 
 ###Parameters
 
-####$cmd
+####\$cmd
 
 Command to search for.
 
 Required.
 
-####$match\_full
+####\$match\_full
 
 Whether to require match against entire process command.
 
@@ -1428,8 +1428,8 @@ Nil.
 
 Boolean scalar.
 
-prompt\(\[message\]\)
------------------
+prompt\( \[message\] \)
+-----------------------
 
 ###Purpose
 
@@ -1451,7 +1451,7 @@ Message.
 
 Nil.
 
-restore\_screensaver\(\[$title\]\)
+restore\_screensaver\( \[\$title\] \)
 -----------------------------
 
 ###Purpose
@@ -1462,7 +1462,7 @@ Only works if used by the same process that suspended the screensaver \(See meth
 
 ###Parameters
 
-####$title
+####\$title
 
 Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
 
@@ -1476,8 +1476,8 @@ User feedback indicating success or failure.
 
 Boolean. Whether able to successfully suspend the screensaver.
 
-retrieve\_store\($file\)
----------------------
+retrieve\_store\(\$file\)
+-------------------------
 
 ###Purpose
 
@@ -1485,7 +1485,7 @@ Retrieves function data from storage file.
 
 ###Parameters
 
-####$file
+####\$file
 
 File in which data is stored.
 
@@ -1507,7 +1507,7 @@ my $ref = $self->retrieve_store($storage_file);
 my %data = %{$ref};
 ```
 
-save\_store\($ref, $file\)
+save\_store\( \$ref, \$file \)
 -----------------------
 
 ###Purpose
@@ -1516,11 +1516,11 @@ Store data structure in file.
 
 ###Parameters
 
-####$ref
+####\$ref
 
 Reference to data structure \(usually hash or array\) to be stored.
 
-####$file
+####\$file
 
 File path in which to store data.
 
@@ -1540,7 +1540,7 @@ $self->save_store( %data, $storage_file );
 ```
 
 scriptname\(\)
--------------
+--------------
 
 ###Purpose
 
@@ -1558,7 +1558,7 @@ Nil.
 
 Scalar string.
 
-sequential\_24h\_times\($time1, $time2\)
+sequential\_24h\_times\( \$time1, \$time2 \)
 ------------------------------------
 
 ###Purpose
@@ -1567,13 +1567,13 @@ Determine whether supplied times are in chronological sequence, i.e., second tim
 
 ###Parameters
 
-####$time1
+####\$time1
 
 First time to compare. 24 hour time format.
 
 Required.
 
-####$time2
+####\$time2
 
 Second time to compare. 24 hour time format.
 
@@ -1587,8 +1587,8 @@ Nil. \(Error if invalid time.\)
 
 Boolean \(Dies if invalid time.\)
 
-sequential\_dates\($date1, $date2\)
---------------------------------
+sequential\_dates\( \$date1, \$date2 \)
+---------------------------------------
 
 ###Purpose
 
@@ -1598,13 +1598,13 @@ Both dates must be in ISO format or method will return failure. It is recommende
 
 ###Parameters
 
-####$date1
+####\$date1
 
 First date. ISO format.
 
 Required.
 
-####$date2
+####\$date2
 
 Second date. ISO format.
 
@@ -1618,7 +1618,7 @@ Nil. Error message if dates not in ISO-format.
 
 Boolean.
 
-shared\_module\_file\_milla\($dist, $file\)
+shared\_module\_file\_milla\( \$dist, \$file \)
 -------------------------------------------
 
 ###Purpose
@@ -1627,13 +1627,13 @@ Obtains the path to a file in a module's shared directory. Assumes the module wa
 
 ###Parameters
 
-####$dist
+####\$dist
 
 Module name. Uses "dash" format. For example, module My::Module would be 'My-Module'.
 
 Required.
 
-####$file
+####\$file
 
 Name of file to search for.
 
@@ -1647,8 +1647,8 @@ Nil.
 
 Scalar. (If not found returns undef, so can also function as scalar boolean.)
 
-shell\_underline\($string\)
----------------------------
+shell\_underline\(\$string\)
+----------------------------
 
 ###Purpose
 
@@ -1656,7 +1656,7 @@ Underline string using shell escapes.
 
 ###Parameters
 
-####$string
+####\$string
 
 String to underline. Scalar string.
 
@@ -1670,7 +1670,7 @@ Nil.
 
 Scalar string: string with enclosing shell commands.
 
-shorten\($string, \[$limit\], \[$cont\]\)
+shorten\( \$string, \[\$limit\], \[\$cont\] \)
 -----------------------------------
 
 ###Purpose
@@ -1679,19 +1679,19 @@ Truncate text with ellipsis if too long.
 
 ###Parameters
 
-####$string
+####\$string
 
 String to shorten.
 
 Required.
 
-####$length
+####\$length
 
 Length at which to truncate. Must be integer > 10.
 
 Optional. Default: 72.
 
-####$cont
+####\$cont
 
 Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
 
@@ -1705,8 +1705,8 @@ Nil.
 
 Scalar string.
 
-suspend\_screensaver\(\[$title\], \[$msg\]\)
--------------------------------------
+suspend\_screensaver\( \[\$title\], \[\$msg\] \)
+------------------------------------------------
 
 ###Purpose
 
@@ -1716,19 +1716,19 @@ The screensaver is suspended until it is restored \(see method "restore\_screens
 
 ###Parameters
 
-####$title
+####\$title
 
 Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
 
 Optional. Default: name of calling script.
 
-####$msg
+####\$msg
 
 Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
 
 Named parameter.
 
-Optional. Default: 'request from $PID'.
+Optional. Default: 'request from \$PID'.
 
 ###Prints
 
@@ -1748,7 +1748,7 @@ $cp->suspend_screensaver(
 );
 ```
 
-tabify\($string, \[$tab\_size\]\)
+tabify\( \$string, \[\$tab\_size\] \)
 ----------------------------
 
 ###Purpose
@@ -1757,13 +1757,13 @@ Covert tab markers \('\t'\) in string to spaces. Default tab size is four spaces
 
 ###Parameters
 
-####$string
+####\$string
 
 String in which to convert tabs.
 
 Required.
 
-####$tab\_size
+####\$tab\_size
 
 Number of spaces in each tab. Integer.
 
@@ -1777,8 +1777,8 @@ Nil.
 
 Scalar string.
 
-timezone\_from\_offset\($offset\)
----------------------------------
+timezone\_from\_offset\(\$offset\)
+----------------------------------
 
 ###Purpose
 
@@ -1786,7 +1786,7 @@ Determine timezone for offset. In most cases an offset matches multiple timezone
 
 ###Parameters
 
-####$offset
+####\$offset
 
 Timezone offset to check. Example: '+0930'.
 
@@ -1819,8 +1819,8 @@ Nil.
 
 ISO-formatted date.
 
-trim\($string\)
--------------
+trim\(\$string\)
+----------------
 
 ###Purpose
 
@@ -1828,7 +1828,7 @@ Remove leading and trailing whitespace.
 
 ###Parameters
 
-####$string
+####\$string
 
 String to be converted.
 
@@ -1842,7 +1842,7 @@ Nil.
 
 Scalar string.
 
-true\_path\($filepath\)
+true\_path\(\$filepath\)
 --------------------
 
 ###Purpose
@@ -1855,7 +1855,7 @@ WARNING: If passing a variable to this function it should be double quoted. If n
 
 ###Parameters
 
-####$filepath
+####\$filepath
 
 Path to analyse. If a variable should be double quoted \(see above\).
 
@@ -1869,8 +1869,8 @@ Nil
 
 Scalar filepath.
 
-valid\_24h\_time\($time\)
----------------------
+valid\_24h\_time\(\$time\)
+--------------------------
 
 ###Purpose
 
@@ -1878,7 +1878,7 @@ Determine whether supplied time is valid.
 
 ###Parameters
 
-####$time
+####\$time
 
 Time to evaluate. Must be in 'HH::MM' format \(leading zero can be dropped\).
 
@@ -1892,7 +1892,7 @@ Nil.
 
 Boolean.
 
-valid\_date\($date\)
+valid\_date\(\$date\)
 -----------------
 
 ###Purpose
@@ -1901,7 +1901,7 @@ Determine whether date is valid and in ISO format.
 
 ###Parameters
 
-####$date
+####\$date
 
 Candidate date.
 
@@ -1915,8 +1915,8 @@ Nil.
 
 Boolean.
 
-valid\_integer\($value\)
-------------------------------
+valid\_integer\(\$value\)
+-------------------------
 
 ###Purpose
 
@@ -1924,7 +1924,7 @@ Determine whether supplied value is a valid integer.
 
 ###Parameters
 
-####$value
+####\$value
 
 Value to test.
 
@@ -1938,7 +1938,7 @@ Nil.
 
 Boolean.
 
-valid\_positive\_integer\($value\)
+valid\_positive\_integer\(\$value\)
 ------------------------------
 
 ###Purpose
@@ -1947,7 +1947,7 @@ Determine whether supplied value is a valid positive integer \(zero or above\).
 
 ###Parameters
 
-####$value
+####\$value
 
 Value to test.
 
@@ -1961,8 +1961,8 @@ Nil.
 
 Boolean.
 
-valid\_timezone\_offset\($offset\)
-----------------------------------
+valid\_timezone\_offset\(\$offset\)
+-----------------------------------
 
 ###Purpose
 
@@ -1970,7 +1970,7 @@ Determine whether a timezone offset is valid.
 
 ###Parameters
 
-####$offset
+####\$offset
 
 Timezone offset to analyse. Example: '+0930'.
 
@@ -2028,8 +2028,8 @@ Messages in requested styles.
 
 Nil.
 
-vim\_print\($type, @messages\)
----------------------------
+vim\_print\( \$type, @messages \)
+---------------------------------
 
 ###Purpose
 
@@ -2056,7 +2056,7 @@ Five styles have been implemented:
 
 ###Parameters
 
-####$type
+####\$type
 
 Type of text. Determines colour scheme.
 
@@ -2086,7 +2086,7 @@ Nil.
 $cp->vim_print( 't', 'This is a title' );
 ```
 
-vim\_printify\($type, $message\)
+vim\_printify\( \$type, \$message \)
 -----------------------------
 
 ###Purpose
@@ -2114,7 +2114,7 @@ Five styles have been implemented:
 
 ###Parameters
 
-####$type
+####\$type
 
 Type of text. Determines colour scheme.
 
@@ -2122,7 +2122,7 @@ Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensi
 
 Required.
 
-####$message
+####\$message
 
 Content to modify.
 
@@ -2258,14 +2258,14 @@ Provides the 'set\_timeout' and 'show' functions.
 
 Uses this nonstandard invocation recommended by the module man page:
 
-####use Gtk2::Notify -init, "$0";
+####use Gtk2::Notify -init, "\$0";
 
 Debian: provided by package 'libgtk2-notify-perl'.
 
 HTML::Entities
 --------------
 
-Used for converting between html entities and reserved characters.  Provides 'encode\_entities' and 'decode\_entities' methods.
+Used for converting between html entities and reserved characters. Provides 'encode\_entities' and 'decode\_entities' methods.
 
 Debian: provided by package: 'libhtml-parser-perl'.
 
