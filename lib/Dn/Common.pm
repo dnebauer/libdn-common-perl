@@ -2200,7 +2200,7 @@ Required.
 
 Nil.
 
-=head4 Returns
+=head3 Returns
 
 Scalar filename.
 
@@ -2859,78 +2859,6 @@ Nil.
 
 Scalar path.
 
-=head2 internet_connection( )
-
-=head3 Purpose
-
-Checks to see whether an internet connection can be found.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean.
-
-=head2 is_boolean($value)
-
-=head3 Purpose
-
-Determine whether supplied value is boolean.
-
-Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
-
-=head3 Parameters
-
-=over
-
-=item $value
-
-Value to be analysed. 
-
-Required.
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Boolean. (Undefined if no value provided.)
-
-=head2 konsolekalendar_date_format([$date])
-
-=head3 Purpose
-
-Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
-
-=head3 Parameters
-
-=over
-
-=item $date
-
-Date to convert. Must be in ISO format.
-
-Optional, Default: today.
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar date string.
-
 =head2 input_ask($prompt, [$default], [$prepend])
 
 =head3 Purpose
@@ -3144,6 +3072,52 @@ Here is a case where input is required:
         $prompt = "Input is required\nEnter input:";
     }
 
+=head2 internet_connection( )
+
+=head3 Purpose
+
+Checks to see whether an internet connection can be found.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean.
+
+=head2 is_boolean($value)
+
+=head3 Purpose
+
+Determine whether supplied value is boolean.
+
+Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to be analysed. 
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean. (Undefined if no value provided.)
+
 =head2 is_mp3($filepath)
 
 =head3 Purpose
@@ -3195,6 +3169,32 @@ Nil.
 =head3 Returns
 
 Scalar boolean.
+
+=head2 konsolekalendar_date_format([$date])
+
+=head3 Purpose
+
+Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Date to convert. Must be in ISO format.
+
+Optional, Default: today.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar date string.
 
 =head2 listify(@items)
 
@@ -4136,32 +4136,6 @@ Nil.
 
 Boolean.
 
-=head2 valid_timezone_offset($offset)
-
-=head3 Purpose
-
-Determine whether a timezone offset is valid.
-
-=head3 Parameters
-
-=over
-
-=item $offset
-
-Timezone offset to analyse. Example: '+0930'.
-
-Required.
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar boolean.
-
 =head2 valid_positive_integer($value)
 
 =head3 Purpose
@@ -4187,6 +4161,32 @@ Nil.
 =head3 Returns
 
 Boolean.
+
+=head2 valid_timezone_offset($offset)
+
+=head3 Purpose
+
+Determine whether a timezone offset is valid.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Timezone offset to analyse. Example: '+0930'.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
 
 =head2 vim_list_print(@messages)
 
@@ -4575,7 +4575,7 @@ Debian: provided by package 'perl-base'.
 
 Used for validating and comparing times.
 
-Debian: not available.
+Debian: not available from offial repositories, but available in local debian package of this module..
 
 =head2 UI::Dialog
 

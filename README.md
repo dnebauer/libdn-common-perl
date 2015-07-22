@@ -2416,7 +2416,7 @@ Time::Simple
 
 Used for validating and comparing times. May be distributed with this module.
 
-Debian: not available.
+Debian: not available from offial repositories, but available in local debian package of this module.
 
 UI::Dialog
 ----------
