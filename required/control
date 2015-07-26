@@ -8,11 +8,13 @@ Build-Depends-Indep:
  libautodie-perl,
  libconfig-simple-perl,
  libdata-dumper-simple-perl,
+ libdata-validate-uri-perl,
  libdate-simple-perl,
  libdatetime-perl,
  libdatetime-format-mail-perl,
  libdatetime-timezone-perl,
  libdesktop-detect-perl,
+ libemail-valid-perl,
  libexporter-tiny-perl,
  libfile-mimeinfo-perl,
  libfile-util-perl,
@@ -33,10 +35,10 @@ Build-Depends-Indep:
  libterm-clui-perl,
  libterm-readkey-perl,
  libtest-needsdisplay-perl,
- libtry-tiny-perl,
  libtype-tiny-perl,
  libui-dialog-perl,
- perl
+ perl,
+ sudo,
 Standards-Version: 3.9.6
 Homepage: https://metacpan.org/release/Dn-Common
 
@@ -46,11 +48,13 @@ Depends: ${misc:Depends}, ${perl:Depends},
  libautodie-perl,
  libconfig-simple-perl,
  libdata-dumper-simple-perl,
+ libdata-validate-uri-perl,
  libdate-simple-perl,
  libdatetime-perl,
  libdatetime-format-mail-perl,
  libdatetime-timezone-perl,
  libdesktop-detect-perl,
+ libemail-valid-perl,
  libexporter-tiny-perl,
  libfile-mimeinfo-perl,
  libfile-util-perl,
@@ -70,10 +74,10 @@ Depends: ${misc:Depends}, ${perl:Depends},
  libterm-clui-perl,
  libterm-readkey-perl,
  libtest-needsdisplay-perl,
- libtry-tiny-perl,
  libtype-tiny-perl,
  libui-dialog-perl,
- perl
+ perl,
+ sudo,
 Description: common methods for use by perl scripts
  Provides methods used by Perl scripts. Can be used to create a standalone
  object providing these methods; or as base class for derived module or class.

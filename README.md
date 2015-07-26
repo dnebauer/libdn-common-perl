@@ -291,6 +291,31 @@ Nil.
 
 Scalar day name.
 
+debian\_install\_deb\(\$deb\)
+-----------------------------
+
+###Purpose
+
+Install debian package from a deb file.
+
+First tries to install using C<dpkg> as if the user were root. If that fails, tries to install using C<sudo dpkg>. If that fails, finally tries to install using C<su -c dpkg>, which requires entry of the superuser (root) password.
+
+###Parameters
+
+####$deb
+
+Debian package file.
+
+Required.
+
+###Prints
+
+Feedback.
+
+###Returns
+
+Scalar boolean.
+
 deentitise\(\$string\)
 ----------------------
 
@@ -1023,6 +1048,29 @@ is\_mp4\(\$filepath\)
 ###Purpose
 
 Determine whether file is an mp4 file.
+
+###Parameters
+
+####\$filepath
+
+File to analyse.
+
+Required. Method dies if \$filepath is not provided or is invalid.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar boolean.
+
+is\_perl\(\$filepath\)
+--------------------
+
+###Purpose
+
+Determine whether file is a perl file.
 
 ###Parameters
 
@@ -1915,6 +1963,29 @@ Nil.
 
 Boolean.
 
+valid\_email(\$email\)
+-----------------------
+
+###Purpose
+
+Determine validity of an email address.
+
+###Parameters
+
+####$email
+
+Email address to validate.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Return
+
+Scalar boolean.
+
 valid\_integer\(\$value\)
 -------------------------
 
@@ -1960,6 +2031,29 @@ Nil.
 ###Returns
 
 Boolean.
+
+valid\_web\_uri(\$email\)
+-----------------------
+
+###Purpose
+
+Determine validity of a web URI.
+
+###Parameters
+
+####$uri
+
+Web address to validate.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Return
+
+Scalar boolean.
 
 valid\_timezone\_offset\(\$offset\)
 -----------------------------------

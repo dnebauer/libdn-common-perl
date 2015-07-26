@@ -34,11 +34,14 @@ Readonly my $FALSE => 0;
 
 use Config::Simple;
 use Cwd qw(abs_path getcwd);
+use Curses;
+use Data::Validate::URI;
 use Date::Simple;
 use DateTime;
 use DateTime::Format::Mail;
 use DateTime::TimeZone;
 use Desktop::Detect qw(detect_desktop);
+use Email::Valid;
 use File::Basename;
 use File::Copy;
 use File::MimeInfo;
@@ -68,7 +71,7 @@ use experimental 'switch';
 # ATTRIBUTES
 
 # subtype: filepath
-subtype 'FilePath' => as 'Str' => where { -f abs_path($_) } =>
+subtype 'FilePath' => as 'Str' => where { -f Cwd::abs_path($_) } =>
     message {qq[Invalid file '$_']};
 
 # attribute: script
@@ -264,21 +267,34 @@ has 'notify_sys_icon' => (
     documentation => q{Default icon for method 'notify_sys'},
 );
 
-# attribute: _urls
-#            private, array of strings
-#            urls to ping
 has '_urls' => (
     is            => 'rw',
     isa           => 'ArrayRef[Str]',
     traits        => ['Array'],
     builder       => '_build_urls',
     handles       => { _ping_urls => 'elements', },
-    documentation => 'urls to ping',
+    documentation => 'URLs to ping',
 );
 
 method _build_urls () {
     return [ 'www.debian.org', 'www.uq.edu.au' ];
 }
+
+has 'run_command_fatal' => (
+    is            => 'rw',
+    isa           => 'Bool',
+    reader        => '_run_command_fatal',
+    required      => $FALSE,
+    documentation => q{Default fatal setting for method 'run_command'},
+);
+
+has 'run_command_silent' => (
+    is            => 'rw',
+    isa           => 'Bool',
+    reader        => '_run_command_silent',
+    required      => $FALSE,
+    documentation => q{Default silent setting for method 'run_command'},
+);
 
 =begin comment
 
@@ -520,6 +536,96 @@ method day_of_week ($date) {
     my $day        = $day_numbers{$day_number};
     if ( not $day ) { return; }
     return $day;
+}
+
+#   debian_install_deb($deb)
+#
+#   does:   installs debian package from a deb file
+#   params: $deb - deb package file [required]
+#   prints: question and feedback
+#   return: boolean
+method debian_install_deb ($deb) {
+
+    # test filepath
+    if ( not $deb ) {
+        cluck 'No debian package filepath provided';
+        return;
+    }
+    if ( not -r $deb ) {
+        cluck "Invalid filepath '$deb' provided";
+        return;
+    }
+    if ( not $self->is_deb($deb) ) {
+        cluck "File '$deb' is not a valid debian package file";
+        return;
+    }
+
+    # set variables
+    my $installer = 'dpkg';
+    if ( not $self->executable_path($installer) ) {
+        confess "Invalid installer '$installer'";
+    }
+    my $params  = '--install';
+    my $success = $FALSE;
+
+    # play nice with other calling apps
+    my $silent = $self->_run_command_silent;
+    my $fatal  = $self->_run_command_fatal;
+    $self->run_command_silent($FALSE);
+    $self->run_command_fatal($FALSE);
+
+    # try installing as if root
+    my $cmd = [ $installer, $params, $deb ];
+    if ( $self->run_command($cmd) ) {
+        $success = $TRUE;
+        say 'Package installed successfully';
+    }
+    else {
+        warn "\nLooks like you are not root/superuser\n";
+    }
+
+    # try installing with sudo
+    if ( not $success ) {
+        my $cmd = [ 'sudo', $installer, $params, $deb ];
+        if ($self->run_command($cmd)) {
+            $success = $TRUE;
+            say 'Package installed successfully';
+        }
+        else {
+            warn "\nOkay, you do not have root privileges for '$installer'\n";
+        }
+    }
+
+    # lastly, try su
+    # - could not pass command as arrayref
+    #   . if every part is made array element then operation fails with:
+    #       /bin/su: unrecognized option '--install'
+    #   . if pass entire command spanning double quotes (including double
+    #     quotes) as a single array element, then entire command appears
+    #     to be passed to bash as a single unit, and after providing
+    #     password the operation fails with:
+    #       bash: dpkg --install ../build/FILE.deb: No such file or directory
+    if ( not $success ) {
+        my $cmd
+            = [   'su -c' . q{ } . q{"}
+                . $installer . q{ }
+                . $params . q{ }
+                . $deb
+                . q{"} ];
+        say 'The root password is needed';
+        if ($self->run_command($cmd)) {
+            $success = $TRUE;
+            say 'Package installed successfully';
+        }
+        else {
+            warn "\nThat's it, I give up installing this package\n";
+        }
+    }
+
+    # finished trying to install
+    if ( defined $silent ) { $self->run_command_silent($silent); }
+    if ( defined $fatal )  { $self->run_command_fatal($fatal); }
+    return $success;
 }
 
 # deentitise($string)
@@ -867,6 +973,24 @@ method is_boolean ($value) {
     return $value =~ /(^1$|^0$)/xsm;
 }
 
+# is_deb($filepath)
+#
+# does:   determine whether file is a debian package file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_deb ($filepath) {
+    my @mimetypes
+        = ( 'application/x-deb', 'application/vnd.debian.binary-package', );
+    foreach my $mimetype (@mimetypes) {
+        if ( $self->_is_mimetype( $filepath, $mimetype ) ) {
+            return $TRUE;
+        }
+    }
+    return;
+}
+
 # is_mp3($filepath)
 #
 # does:   determine whether file is an mp3 file
@@ -887,6 +1011,17 @@ method is_mp3 ($filepath) {
 # return: scalar boolean
 method is_mp4 ($filepath) {
     return $self->_is_mimetype( $filepath, 'video/mp4' );
+}
+
+# is_perl($filepath)
+#
+# does:   determine whether file is a perl file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_perl ($filepath) {
+    return $self->_is_mimetype( $filepath, 'application/x-perl' );
 }
 
 # konsolekalendar_date_format($date)
@@ -1444,6 +1579,115 @@ method retrieve_store ($file) {
     return Storable::retrieve $file;
 }
 
+#   run_command($cmd, [$silent], [$fatal])
+#
+#   does:   run system command
+#   params: $cmd    - command to run
+#                     [array reference, required]
+#           $silent - suppress output
+#                     if false displays command, shell feedback and,
+#                     if command failed, a failure message
+#                     [named parameter, boolean, optional,
+#                      default to attribute 'run_command_silent' if defined,
+#                      otherwise to false]
+#           $fatal  - whether to die on failed command
+#                     [named parameter, boolean, optional,
+#                      default to attribute 'run_command_fatal' if defined,
+#                      otherwise to false]
+#   prints: display all shell feedback
+#   return: scalar context: boolean
+#           list context: boolean, error message
+#   note:   command feedback, if provided, is displayed after command
+#           execution completes -- for a long-running command this can
+#           result in an apparently unresponsive terminal
+method run_command ($cmd, :$silent, :$fatal) {
+
+    # process arguments
+    # - $cmd
+    if ( not( defined $cmd ) ) { confess 'No command provided'; }
+    my $arg_type = ref $cmd;
+    if ( $arg_type ne 'ARRAY' ) { confess 'Command is not array reference'; }
+    my @cmd_args = @{$cmd};
+    if ( not @cmd_args ) { confess 'No command arguments provided'; }
+
+    # - silent
+    if ( not( defined $silent ) ) {
+        if ( defined $self->_run_command_silent ) {
+            $silent = $self->_run_command_silent;
+        }
+    }
+
+    # - fatal
+    if ( not( defined $fatal ) ) {
+        if ( defined $self->_run_command_fatal ) {
+            $fatal = $self->_run_command_fatal;
+        }
+    }
+
+    # build dividers
+    my ( $div_top, $div_bottom );
+    if ( not $silent ) {
+        my ( $height, $width );
+        my $mwh = Curses->new();
+        $mwh->getmaxyx( $height, $width );    # terminal dimensions
+        endwin();
+        if ( $width > 61 ) {
+            $width = 60;
+        }
+        else {
+            $width--;
+        }
+        $div_top    = q{-} x $width;
+        $div_bottom = q{=} x $width;
+    }
+
+    # provide initial feedback
+    my $cmd_string;
+    if ( not $silent ) {
+        say q{ };
+        $cmd_string = join q{ }, @cmd_args;
+        say "Running '$cmd_string':";
+        say $div_top;
+    }
+
+    # run command
+    my ( $succeed, $err, $full, $stdout, $stderr )
+        = IPC::Cmd::run( command => $cmd );
+
+    # provide final feedback
+    if ( not $silent ) {
+        print @{$full};
+        say $div_bottom;
+        if ( not $succeed ) {
+            my @msg = (
+                "Command '$cmd_string' failed\n",
+                "System reported this error:\n",
+                "$err\n",
+            );
+            cluck @msg;
+        }
+    }
+
+    if ( $fatal and not $succeed ) {
+        my $msg = 'Stopping execution due to error';
+        if ($silent) {    # break silence to explain to user
+            say $err;
+            confess $msg;
+        }
+        else {
+            die "$msg\n";
+        }
+    }
+
+    # return
+    if (wantarray) {
+        return ( $succeed, $err );
+    }
+    else {
+        return $succeed;
+    }
+}
+
 # save_store($ref, $file)
 # does:   store data structure in file
 # params: $ref  - reference to data structure to be stored
@@ -1805,6 +2049,17 @@ method valid_date ($date) {
     return Date::Simple->new($date);
 }
 
+# valid_email($email)
+#
+# does:   determine whether an email address is valid
+# params: $email - address to check [required]
+# prints: nil
+# return: boolean
+method valid_email ($email) {
+    if ( not $email ) { return; }
+    return Email::Valid->address($email);
+}
+
 # valid_integer($value)
 #
 # does:   determine whether a valid integer (can be negative)
@@ -1856,6 +2111,18 @@ method valid_timezone_offset ($offset) {
         }
     }
     return $is_valid_offset{$offset};
+}
+
+# valid_web_url($url)
+#
+# does:   determine whether an email address is valid
+# params: $url - url to check [required]
+# prints: nil
+# return: boolean
+method valid_web_url ($url) {
+    if ( not $url ) { return; }
+    my $validator = Data::Validate::URI->new();
+    return $validator->is_web_uri($url);
 }
 
 # vim_list_print(@messages)
@@ -2406,6 +2673,34 @@ Nil.
 =head3 Returns
 
 Scalar day name.
+
+=head2 debian_install_deb($deb)
+
+=head3 Purpose
+
+Install debian package from a deb file.
+
+First tries to install using C<dpkg> as if the user were root. If that fails, tries to install using C<sudo dpkg>. If that fails, finally tries to install using C<su -c dpkg>, which requires entry of the superuser (root) password.
+
+=head3 Parameters
+
+=over
+
+=item $deb
+
+Debian package file.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Feedback.
+
+=head3 Returns
+
+Scalar boolean.
 
 =head2 deentitise($string)
 
@@ -3118,6 +3413,32 @@ Nil.
 
 Boolean. (Undefined if no value provided.)
 
+=head2 is_deb($filepath)
+
+=head3 Purpose
+
+Determine whether file is a debian package file.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse.
+
+Required. Method dies if $filepath is not provided or is invalid.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
 =head2 is_mp3($filepath)
 
 =head3 Purpose
@@ -3149,6 +3470,32 @@ Scalar boolean.
 =head3 Purpose
 
 Determine whether file is an mp4 file.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse.
+
+Required. Method dies if $filepath is not provided or is invalid.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 is_perl($filepath)
+
+=head3 Purpose
+
+Determine whether file is a perl file.
 
 =head3 Parameters
 
@@ -3670,6 +4017,58 @@ Reference to stored data structure.
     my $ref = $self->retrieve_store($storage_file);
     my %data = %{$ref};
 
+=head2 run_command_silent($silent)
+
+=head2 run_command_fatal($fatal)
+
+=head3 Purpose
+
+Set default values for C<run_command> method parameters C<silent> and C<fatal>, respectively. Applies to subsequent calls to C<run_command>. Overridden by parameters supplied in subsequent C<run_command> method calls.
+
+=head2 run_command(@cmd, [$silent], [$fatal])
+
+=head3 Purpose
+
+Run a system command.
+
+The default behaviour is to display the command, shell feedback between horizontal dividers and, if the command failed, an error message.
+
+Note that shell feedback is displayed only after command execution completes -- for a long-running command this can result in an apparently unresponsive terminal.
+
+=head3 Parameters
+
+=over
+
+=item $cmd
+
+Command to run. Array reference.
+
+Required.
+
+=item $silent
+
+Suppress output of command feedback. If the command fails and 'fatal' is enabled, a traceback is displayed. Boolean.
+
+Named parameter. Optional. Defaults to attribute C<run_command_silent> if defined, otherwise to false.
+
+=item $fatal
+
+Whether to halt script execution if the command fails. Boolean.
+
+Named parameter. Optional. Defaults to attribute C<run_command_fatal> if defined, otherwise to false.
+
+=back
+
+=head3 Prints
+
+Command to be executed, shell output and, if the command failed, an error message. This output can be suppressed by 'silent'. Note that even if 'silent' is selected, if the command fails while 'fatal' is set, an error traceback is displayed.
+
+=head3 Returns
+
+In scalar context: boolean.
+
+In list context: boolean, error message.
+
 =head2 save_store($ref, $file)
 
 =head3 Purpose
@@ -4110,6 +4509,32 @@ Nil.
 
 Boolean.
 
+=head2 valid_email($email)
+
+=head3 Purpose
+
+Determine validity of an email address.
+
+=head3 Parameters
+
+=over
+
+=item $email
+
+Email address to validate.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Return
+
+Scalar boolean.
+
 =head2 valid_integer($value)
 
 =head3 Purpose
@@ -4185,6 +4610,32 @@ Required.
 Nil.
 
 =head3 Returns
+
+Scalar boolean.
+
+=head2 valid_web_url($url)
+
+=head3 Purpose
+
+Determine validity of a web url.
+
+=head3 Parameters
+
+=over
+
+=item $url
+
+Web address to validate.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Return
 
 Scalar boolean.
 
@@ -4348,6 +4799,10 @@ Provides the 'import_from' function.
 
 Debian: provided by package 'libconfig-simple-perl'.
 
+=head2 Curses
+
+Terminal screen handlind.
+
 =head2 Cwd
 
 Used to normalise paths, including following symlinks and collapsing relative
@@ -4363,6 +4818,12 @@ Debian: provided by package 'libfile-spec-perl'.
 Used for displaying variables.
 
 Debian: provided by package 'libdata-dumper-simple-perl'.
+
+=head2 Data::Validate::URI
+
+Used for validating web URIs.
+
+Debian: Provided by 'libdata-validate-uri-perl'.
 
 =head2 Date::Simple
 
@@ -4385,6 +4846,12 @@ Debian: provided by packages 'libdatetime-perl', 'libdatetime-format-mail-perl' 
 Used for detecting KDE desktop. Uses 'detect_desktop' function.
 
 Debian: provided by package 'libdesktop-detect-perl'.
+
+=head2 Email::Valid
+
+Used for validating email addresses.
+
+Debian: provided by package 'libemail-valid-perl'.
 
 =head2 File::Basename
 
