@@ -43,8 +43,11 @@ use DateTime::TimeZone;
 use Desktop::Detect qw(detect_desktop);
 use Email::Valid;
 use File::Basename;
+use File::chdir;    # $CWD and @CWD
 use File::Copy;
+use File::Find::Rule;
 use File::MimeInfo;
+use File::Spec;
 use File::Util;
 use File::Which;
 use Gtk2::Notify -init, "$PROGRAM_NAME";
@@ -457,6 +460,98 @@ method browse ($title, $text) {
     Term::Clui::edit( $title, $text );
 }
 
+# changelog_from_git($dir)
+#
+# does:   get ChangLog content from git repository
+# params: $dir = root file of repository [required]
+#                must contain a '.git' directory
+# prints: nil, feedback on failure
+# return: list, empty on failure
+method changelog_from_git ($dir) {
+
+    # check directory
+    if ( not $dir ) { return; }
+    my $repo_root = $self->true_path($dir);
+    if ( not -d $repo_root ) { cluck "Invalid directory '$dir'"; }
+    my $git_dir = $repo_root . '/.git';
+    if ( not -d $git_dir ) { cluck "'$dir' is not a git repo root"; }
+
+    # operate from repo root dir
+    local $CWD = $repo_root;
+
+    # obtain git log output
+    my @cmd = qw(git log --date-order --date=short);
+    my ( $success, $err, $full, $stdout, $stderr )
+        = IPC::Cmd::run( command => [@cmd] );
+    if ( not $success ) {
+        cluck "Unable to get git log in '$dir'";
+        return;
+    }
+    my @git_output = @{$stdout};
+    chomp @git_output;
+
+    # output contains multiple lines per list item
+    # - don't know why
+    my @output;
+    foreach my $chunk (@git_output) {
+        my @lines = split /\n/xsm, $chunk;
+        push @output, @lines;
+    }
+
+    # process output log entries
+    my ( @log, @entry );
+    my $indent = q{ } x 4;
+    my ( $author, $email, $date );
+    foreach my $line (@output) {
+        next if $line =~ /^commit /xsm;
+        next if $line =~ /^\s*$/xsm;
+        my ( $key, @values ) = split /\s+/xsm, $line;
+        my $value = join q{ }, @values;
+        for ($key) {
+            when ( $_ eq 'Author:' ) {    # start of entry
+                                          # flush previous entry, if any
+                if (@entry) {
+                    push @log, "$date  $author <$email>";
+                    push @log, q{};
+                    foreach my $line (@entry) {
+                        push @log, $indent . q{* } . $line;
+                    }
+                    push @log, q{};
+                    @entry = ();
+                }
+
+                # process current line
+                if ( $value =~ /^([^<]+)\s+<([^>]+)>\s*$/xsm ) {
+                    $author = $1;
+                    $email  = $2;
+                }
+                else {
+                    confess "Bad match on line '$line'";
+                }
+            }
+            when ( $_ eq 'Date:' ) {
+                $date = $value;
+            }
+            default {    # entry detail
+                push @entry, $value;
+            }
+        }
+    }
+
+    # flush final entry
+    if (@entry) {
+        push @log, "$date  $author <$email>";
+        push @log, q{};
+        foreach my $line (@entry) {
+            push @log, $indent . q{* } . $line;
+        }
+        push @log, q{};
+    }
+
+    # return log
+    return @log;
+}
+
 # clear_screen()
 #
 # does:   clear the terminal screen
@@ -466,6 +561,23 @@ method browse ($title, $text) {
 # TODO:   implement changed interface
 method clear_screen () {
     system 'clear';
+}
+
+# concatenate_dir
+#
+# does:   concatenates list of directories in path to string path
+# params: $dir - directory parts (arrayref) [required]
+# prints: nil
+# return: scalar string path
+#         die on error
+# uses: File::Spec
+method concatenate_dir ($dir) {
+    if ( ref $dir ne 'ARRAY' ) {
+        confess "Directory parameter is not an arrayref: $dir";
+    }
+    my @dir_parts = @{$dir};
+    if ( not @dir_parts ) { return; }
+    return File::Spec->catdir(@dir_parts);
 }
 
 # config_param($param)
@@ -538,12 +650,12 @@ method day_of_week ($date) {
     return $day;
 }
 
-#   debian_install_deb($deb)
+# debian_install_deb($deb)
 #
-#   does:   installs debian package from a deb file
-#   params: $deb - deb package file [required]
-#   prints: question and feedback
-#   return: boolean
+# does:   installs debian package from a deb file
+# params: $deb - deb package file [required]
+# prints: question and feedback
+# return: boolean
 method debian_install_deb ($deb) {
 
     # test filepath
@@ -567,6 +679,7 @@ method debian_install_deb ($deb) {
     }
     my $params  = '--install';
     my $success = $FALSE;
+    my $cmd;
 
     # play nice with other calling apps
     my $silent = $self->_run_command_silent;
@@ -575,7 +688,7 @@ method debian_install_deb ($deb) {
     $self->run_command_fatal($FALSE);
 
     # try installing as if root
-    my $cmd = [ $installer, $params, $deb ];
+    $cmd = [ $installer, $params, $deb ];
     if ( $self->run_command($cmd) ) {
         $success = $TRUE;
         say 'Package installed successfully';
@@ -586,8 +699,8 @@ method debian_install_deb ($deb) {
 
     # try installing with sudo
     if ( not $success ) {
-        my $cmd = [ 'sudo', $installer, $params, $deb ];
-        if ($self->run_command($cmd)) {
+        $cmd = [ 'sudo', $installer, $params, $deb ];
+        if ( $self->run_command($cmd) ) {
             $success = $TRUE;
             say 'Package installed successfully';
         }
@@ -606,14 +719,14 @@ method debian_install_deb ($deb) {
     #     password the operation fails with:
     #       bash: dpkg --install ../build/FILE.deb: No such file or directory
     if ( not $success ) {
-        my $cmd
+        $cmd
             = [   'su -c' . q{ } . q{"}
                 . $installer . q{ }
                 . $params . q{ }
                 . $deb
                 . q{"} ];
         say 'The root password is needed';
-        if ($self->run_command($cmd)) {
+        if ( $self->run_command($cmd) ) {
             $success = $TRUE;
             say 'Package installed successfully';
         }
@@ -882,6 +995,29 @@ method files_list ($dir) {
     my @files;
     @files = $f->list_dir( $dir, { files_only => $TRUE } );
     return @files;
+}
+
+# find_files_in_dir($dir, $pattern)
+#
+# does:   finds file in directory matching pattern
+# params: $dir     - directory to search
+#         $pattern - file name pattern to match
+#                    (glob or regular expression)
+# prints: nil
+# return: list of file names
+# note:   does not recurse into subdirectories
+# uses:   Cwd, File::Find::Rule
+method find_files_in_dir ( $dir, $pattern ) {
+    if ( not $pattern ) {
+        cluck 'No file pattern provided';
+        return;
+    }
+    if ( not $dir ) {
+        cluck 'No directory provided';
+        return;
+    }
+    my $dir_path = Cwd::abs_path($dir);
+    return File::Find::Rule->file->maxdepth(1)->name($pattern)->in($dir_path);
 }
 
 # future_date($date)
@@ -1579,27 +1715,28 @@ method retrieve_store ($file) {
     return Storable::retrieve $file;
 }
 
-#   run_command($cmd, [$silent], [$fatal])
+# run_command($cmd, [$silent], [$fatal])
 #
-#   does:   run system command
-#   params: $cmd    - command to run
-#                     [array reference, required]
-#           $silent - suppress output
-#                     if false displays command, shell feedback and,
-#                     if command failed, a failure message
-#                     [named parameter, boolean, optional,
-#                      default to attribute 'run_command_silent' if defined,
-#                      otherwise to false]
-#           $fatal  - whether to die on failed command
-#                     [named parameter, boolean, optional,
-#                      default to attribute 'run_command_fatal' if defined,
-#                      otherwise to false]
-#   prints: display all shell feedback
-#   return: scalar context: boolean
-#           list context: boolean, error message
-#   note:   command feedback, if provided, is displayed after command
-#           execution completes -- for a long-running command this can
-#           result in an apparently unresponsive terminal
+# does:   run system command
+# params: $cmd    - command to run
+#                   [array reference, required]
+#         $silent - suppress output
+#                   if false displays command, shell feedback and,
+#                   if command failed, a failure message
+#                   [named parameter, boolean, optional,
+#                    default to attribute 'run_command_silent' if defined,
+#                    otherwise to false]
+#         $fatal  - whether to die on failed command
+#                   [named parameter, boolean, optional,
+#                    default to attribute 'run_command_fatal' if defined,
+#                    otherwise to false]
+# prints: display all shell feedback
+# return: scalar context: boolean
+#         list context: boolean, error message
+# note:   command feedback, if provided, is displayed after command
+#         execution completes -- for a long-running command this can
+#         result in an apparently unresponsive terminal
+# uses:   Curses, IPC::Cmd
 method run_command ($cmd, :$silent, :$fatal) {
 
     # process arguments
@@ -2531,6 +2668,32 @@ Nil.
 
 Nil.
 
+=head2 changelog_from_git($dir)
+
+=head3 Purpose
+
+Get ChangLog content from git repository.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Root file of repository. Must contain C<.git> subdirectory.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except feedback on failure.
+
+=head3 Returns
+
+List of scalar strings.
+
 =head2 clear_screen( )
 
 =head3 Purpose
@@ -3071,6 +3234,38 @@ Nil.
 =head3 Returns
 
 List. Dies if operation fails.
+
+=head2 find_files_in_dir($dir, $pattern)
+
+=head3 Purpose
+
+Finds file in directory matching a given pattern. Note that only the nominated directory is searched -- the search does not recurse into subdirectories.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory to search.
+
+Required.
+
+=item $pattern
+
+File name pattern to match. It can be a glob or a regular expression.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List of file names.
 
 =head2 future_date($date)
 
@@ -4861,6 +5056,12 @@ Provides the 'fileparse' method.
 
 Debian: provided by package 'perl'.
 
+=head2 File::chdir
+
+Provides $CWD and @CWD for manipulating current directory.
+
+Debian: provided by package 'libfile-chdir-perl'.
+
 =head2 File::Copy
 
 Used for file copying.
@@ -4868,6 +5069,10 @@ Used for file copying.
 Provides the 'copy' and 'move' functions.
 
 Debian: provided by package 'perl-modules'.
+
+=head2 File::Find::Rule
+
+Enables searching for files and directories.
 
 =head2 File::MimeInfo
 
@@ -4879,6 +5084,10 @@ Note: Previously used File::Type and its 'mime_type' method to get file
 mime-type information but that module incorrectly identifies some mp3 files as
 'application/octet-stream'. Other alternatives are File::MMagic and
 File::MMagic:Magic.
+
+=head2 File::Spec
+
+Perform operations on file and directory names.
 
 =head2 File::Util
 

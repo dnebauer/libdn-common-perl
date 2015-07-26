@@ -66,7 +66,7 @@ List of device identifiers.
 Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
 
 backup\_file\(\$file\)
----------------------
+----------------------
 
 ###Purpose
 
@@ -114,7 +114,7 @@ Nil.
 Boolean.
 
 browse\( \$title, \$text \)
----------------------
+---------------------------
 
 ###Purpose
 
@@ -142,6 +142,29 @@ Nil.
 
 Nil.
 
+changelog\_from\_git\(\$dir\)
+-----------------------------
+
+###Purpose
+
+Get ChangLog content from git repository.
+
+###Parameters
+
+####\$dir
+
+Root file of repository. Must contain C<.git> subdirectory.
+
+Required.
+
+###Prints
+
+Nil, except feedback on failure.
+
+###Returns
+
+List of scalar strings.
+
 clear\_screen\(\)
 -----------------
 
@@ -168,7 +191,7 @@ $cp->clear_screen;
 ```
 
 config\_param\(\$parameter\)
-------------------------
+----------------------------
 
 ###Configuration file syntax
 
@@ -269,7 +292,7 @@ Nil.
 Scalar string
 
 day\_of\_week\( \[\$date\] \)
---------------------
+-----------------------------
 
 ###Purpose
 
@@ -302,7 +325,7 @@ First tries to install using C<dpkg> as if the user were root. If that fails, tr
 
 ###Parameters
 
-####$deb
+####\$deb
 
 Debian package file.
 
@@ -340,7 +363,7 @@ Nil.
 Scalar string.
 
 denumber\_list\(@list\)
---------------------
+-----------------------
 
 ###Purpose
 
@@ -386,7 +409,7 @@ Nil \(error message if dies\).
 List \(dies if operation fails\).
 
 display\(\$string\)
-----------------
+-------------------
 
 ###Purpose
 
@@ -438,7 +461,7 @@ Text with shell escape sequences escaped.
 Nil.
 
 echo\_en\(\$string\)
--------------------
+--------------------
 
 ###Purpose
 
@@ -496,7 +519,7 @@ Nil routinely. Error message if fatal error encountered.
 Scalar string, undef if method fails.
 
 ensure\_no\_trailing\_slash\(\$dir\)
------------------------------------
+------------------------------------
 
 ###Purpose
 
@@ -548,7 +571,7 @@ Scalar string \(directory path\).
 Undef if no directory path provided.
 
 entitise\(\$string\)
------------------
+--------------------
 
 ###Purpose
 
@@ -596,7 +619,7 @@ Scalar filepath: absolute path to executable if executable exists.
 Scalar boolean: returns undef If executable does not exist.
 
 extract\_key\_value\( \$key, @items \)
--------------------------------
+--------------------------------------
 
 ###Purpose
 
@@ -653,8 +676,37 @@ Nil.
 
 List. Dies if operation fails.
 
+find\_files\_in\_dir\( \$dir, \$pattern \)
+------------------------------------------
+
+###Purpose
+
+Finds file in directory matching a given pattern. Note that only the nominated directory is searched -- the search does not recurse into subdirectories.
+
+###Parameters
+
+####\$dir
+
+Directory to search.
+
+Required.
+
+####\$pattern
+
+File name pattern to match. It can be a glob or a regular expression.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+List of file names.
+
 future\_date\(\$date\)
-------------------
+----------------------
 
 ###Purpose
 
@@ -704,7 +756,7 @@ Scalar string \(filename\).
 This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle "virtual" filepaths.
 
 get\_path\(\$filepath\)
--------------------
+-----------------------
 
 ###Purpose
 
@@ -777,7 +829,7 @@ while (1) {
 ```
 
 input\_choose\( \$prompt, @options, \[\$prepend\] \)
--------------------------------------------
+----------------------------------------------------
 
 ###Purpose
 
@@ -876,7 +928,7 @@ if ( input_confirm($prompt) ) {
 ```
 
 input\_large\( \$prompt, \[\$default\], \[\$prepend\] \)
---------------------------------------------
+--------------------------------------------------------
 
 ###Purpose
 
@@ -951,7 +1003,7 @@ Nil.
 Boolean.
 
 is\_boolean\(\$value\)
-------------------
+----------------------
 
 ###Purpose
 
@@ -1043,7 +1095,7 @@ Nil.
 Scalar boolean.
 
 is\_mp4\(\$filepath\)
---------------------
+---------------------
 
 ###Purpose
 
@@ -1066,7 +1118,7 @@ Nil.
 Scalar boolean.
 
 is\_perl\(\$filepath\)
---------------------
+----------------------
 
 ###Purpose
 
@@ -1112,7 +1164,7 @@ Nil.
 Scalar date string.
 
 listify\(@items\)
----------------
+-----------------
 
 ###Purpose
 
@@ -1152,7 +1204,7 @@ Nil.
 Scalar string.
 
 logger\( \$message, \[\$type\] \)
--------------------------
+---------------------------------
 
 ###Purpose
 
@@ -1217,7 +1269,7 @@ Nil.
 Scalar boolean. If directory already exists returns true.
 
 msg\_box\( \[\$msg\], \[\$title\] \)
-----------------------------
+------------------------------------
 
 ###Purpose
 
@@ -1284,13 +1336,13 @@ $cp->notify('File path is:', $filepath, prepend => 1);
 ```
 
 notify\_sys\_type\(\$type\)
---------------------------
+---------------------------
 
 notify\_sys\_title\(\$title\)
 -----------------------------
 
 notify\_sys\_icon\(\$icon\)
------------------------------
+---------------------------
 
 ###Purpose
 
@@ -1402,7 +1454,7 @@ Nil.
 List.
 
 offset\_date\(\$offset\)
---------------------
+------------------------
 
 ###Purpose
 
@@ -1448,7 +1500,7 @@ Nil.
 Boolean scalar.
 
 process\_running\( \$cmd, \[\$match\_full\] \)
-------------------------------------
+----------------------------------------------
 
 ###Purpose
 
@@ -1500,7 +1552,7 @@ Message.
 Nil.
 
 restore\_screensaver\( \[\$title\] \)
------------------------------
+-------------------------------------
 
 ###Purpose
 
@@ -1556,7 +1608,7 @@ my %data = %{$ref};
 ```
 
 save\_store\( \$ref, \$file \)
------------------------
+------------------------------
 
 ###Purpose
 
@@ -1607,7 +1659,7 @@ Nil.
 Scalar string.
 
 sequential\_24h\_times\( \$time1, \$time2 \)
-------------------------------------
+--------------------------------------------
 
 ###Purpose
 
@@ -1667,7 +1719,7 @@ Nil. Error message if dates not in ISO-format.
 Boolean.
 
 shared\_module\_file\_milla\( \$dist, \$file \)
--------------------------------------------
+-----------------------------------------------
 
 ###Purpose
 
@@ -1719,7 +1771,7 @@ Nil.
 Scalar string: string with enclosing shell commands.
 
 shorten\( \$string, \[\$limit\], \[\$cont\] \)
------------------------------------
+----------------------------------------------
 
 ###Purpose
 
@@ -1797,7 +1849,7 @@ $cp->suspend_screensaver(
 ```
 
 tabify\( \$string, \[\$tab\_size\] \)
-----------------------------
+-------------------------------------
 
 ###Purpose
 
@@ -1849,7 +1901,7 @@ Error message if no offset provided or no matching timezone found.
 Scalar string \(timezone\), undef if no match found.
 
 today\(\)
--------
+---------
 
 ###Purpose
 
@@ -1891,7 +1943,7 @@ Nil.
 Scalar string.
 
 true\_path\(\$filepath\)
---------------------
+------------------------
 
 ###Purpose
 
@@ -1941,7 +1993,7 @@ Nil.
 Boolean.
 
 valid\_date\(\$date\)
------------------
+---------------------
 
 ###Purpose
 
@@ -1964,7 +2016,7 @@ Nil.
 Boolean.
 
 valid\_email(\$email\)
------------------------
+----------------------
 
 ###Purpose
 
@@ -1972,7 +2024,7 @@ Determine validity of an email address.
 
 ###Parameters
 
-####$email
+####\$email
 
 Email address to validate.
 
@@ -2010,7 +2062,7 @@ Nil.
 Boolean.
 
 valid\_positive\_integer\(\$value\)
-------------------------------
+-----------------------------------
 
 ###Purpose
 
@@ -2033,7 +2085,7 @@ Nil.
 Boolean.
 
 valid\_web\_uri(\$email\)
------------------------
+-------------------------
 
 ###Purpose
 
@@ -2041,7 +2093,7 @@ Determine validity of a web URI.
 
 ###Parameters
 
-####$uri
+####\$uri
 
 Web address to validate.
 
@@ -2079,7 +2131,7 @@ Nil.
 Scalar boolean.
 
 vim\_list\_print\(@messages\)
--------------------------
+-----------------------------
 
 ###Purpose
 
@@ -2181,7 +2233,7 @@ $cp->vim_print( 't', 'This is a title' );
 ```
 
 vim\_printify\( \$type, \$message \)
------------------------------
+------------------------------------
 
 ###Purpose
 
@@ -2248,6 +2300,13 @@ Automated error checking of 'open' and 'close' functions.
 
 Debian: provided by package 'libautodie-perl'.
 
+Carp
+----
+
+Modern error handling.
+
+Debian: provided by package 'perl-base'.
+
 Config::Simple
 --------------
 
@@ -2256,6 +2315,11 @@ Reads and parses configuration files.
 Provides the 'import\_from' function.
 
 Debian: provided by package 'libconfig-simple-perl'.
+
+Curses
+------
+
+Terminal screen handlind.
 
 Cwd
 ---
@@ -2272,6 +2336,13 @@ Data::Dumper::Simple
 Used for displaying variables.
 
 Debian: provided by package 'libdata-dumper-simple-perl'.
+
+Data::Validate::URI
+-------------------
+
+Used for validating web URIs.
+
+Debian: Provided by 'libdata-validate-uri-perl'.
 
 Date::Simple
 ------------
@@ -2300,6 +2371,20 @@ Used for detecting KDE desktop. Uses 'detect\_desktop' function.
 
 Debian: provided by package 'libdesktop-detect-perl'.
 
+Email::Valid
+------------
+
+Used for validating email addresses.
+
+Debian: provided by package 'libemail-valid-perl'.
+
+Env
+---
+
+Import environmental variables.
+
+Debian: provided by package 'perl-modules'.
+
 File::Basename
 --------------
 
@@ -2308,6 +2393,13 @@ Parse file names.
 Provides the 'fileparse' method.
 
 Debian: provided by package 'perl'.
+
+File::chdir
+-----------
+
+Provides $CWD and @CWD for manipulating current directory.
+
+Debian: provided by package 'libfile-chdir-perl'.
 
 File::Copy
 ----------
@@ -2318,6 +2410,13 @@ Provides the 'copy' and 'move' functions.
 
 Debian: provided by package 'perl-modules'.
 
+File::Find::Rule
+----------------
+
+Enables searching for files and directories.
+
+Debian: provided by package 'libfile-find-rule-perl'.
+
 File::MimeInfo
 --------------
 
@@ -2326,6 +2425,13 @@ Provides 'mimetype' method for getting mime-type information about mp3 files.
 Debian: provided by package 'libfile-mimeinfo-perl'.
 
 Note: Previously used File::Type and its 'mime\_type' method to get file mime-type information but that module incorrectly identifies some mp3 files as 'application/octet-stream'. Other alternatives are File::MMagic and File::MMagic:Magic.
+
+File::Spec
+----------
+
+Perform operations on file and directory names.
+
+Debian: provided by package 'perl-base'.
 
 File::Util
 ----------
@@ -2342,6 +2448,13 @@ Used for finding paths to executable files.
 Provides the 'which' function which mimics the bash 'which' utility.
 
 Debian: provided by package 'libfile-which-perl'.
+
+Function::Parameters
+--------------------
+
+Enables use of modern method interface.
+
+Debian: provided by package 'libfunction-parameters-perl',
 
 Gtk2::Notify
 ------------
@@ -2365,17 +2478,6 @@ Debian: provided by package: 'libhtml-parser-perl'.
 
 Debian: provided by package 'libnet-ping-external-perl'.
 
-Logger::Syslog
---------------
-
-Interface to system log.
-
-Provides functions 'debug', 'notice', 'warning' and 'error'.
-
-Some system logs only record some message types. On debian systems, for example, /var/log/messages records only 'notice' and 'warning' message types while /var/log/syslog records all message types.
-
-Debian: provided by package 'liblogger-syslog-perl'.
-
 IPC::Cmd
 --------
 
@@ -2388,6 +2490,17 @@ IPC::Run
 Enable running of system commands.
 
 Debian: provided by packages 'perl-modules', 'libipc-run-perl' and 'perl-base', respectively.
+
+Logger::Syslog
+--------------
+
+Interface to system log.
+
+Provides functions 'debug', 'notice', 'warning' and 'error'.
+
+Some system logs only record some message types. On debian systems, for example, /var/log/messages records only 'notice' and 'warning' message types while /var/log/syslog records all message types.
+
+Debian: provided by package 'liblogger-syslog-perl'.
 
 namespace::autoclean
 --------------------
@@ -2424,6 +2537,13 @@ Used in manipulating DBus services.
 
 Debian: provided by package 'libnet-dbus-perl'.
 
+Net::Ping::External
+-------------------
+
+Cross-platform interface to ICMP "ping" utilities. Enables the pinging of internet hosts.
+
+Provides the 'ping' function.
+
 Proc::ProcessTable
 ------------------
 
@@ -2432,13 +2552,6 @@ Provides access to system process table, i.e., output of 'ps'.
 Provides the 'table' method.
 
 Debian: provided by package 'libproc-processtable-perl'.
-
-Net::Ping::External
--------------------
-
-Cross-platform interface to ICMP "ping" utilities. Enables the pinging of internet hosts.
-
-Provides the 'ping' function.
 
 Readonly
 --------
