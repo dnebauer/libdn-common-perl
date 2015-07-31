@@ -1733,6 +1733,35 @@ Nil.
 
 Boolean scalar.
 
+pluralise\( \$string, \$number \)
+---------------------------------
+
+###Purpose
+
+Adjust string based on provided numerical value. Note that this method is a simple wrapper of Text::Pluralize::pluralize.
+
+###Parameters
+
+####\$string
+
+String to adjust based on the numeric value provided.
+
+Required.
+
+####\$number
+
+Numeric value used in adjusting the string provided. Must be a positive integer (including zero).
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar string.
+
 process\_running\( \$cmd, \[\$match\_full\] \)
 ----------------------------------------------
 

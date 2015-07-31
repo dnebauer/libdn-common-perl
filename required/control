@@ -88,6 +88,9 @@ Depends: ${misc:Depends}, ${perl:Depends},
  libui-dialog-perl,
  perl,
  sudo,
+Provides: 
+ libtime-simple-perl,
+ libtext-pluralize-perl
 Description: common methods for use by perl scripts
  Provides methods used by Perl scripts. Can be used to create a standalone
  object providing these methods; or as base class for derived module or class.
