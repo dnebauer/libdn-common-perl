@@ -33,8 +33,9 @@ Readonly my $FALSE => 0;
 # DEPENDENCIES
 
 use Config::Simple;
-use Cwd qw(abs_path getcwd);
 use Curses;
+use Cwd qw(abs_path getcwd);
+use Data::Structure::Util qw(unbless);
 use Data::Validate::URI;
 use Date::Simple;
 use DateTime;
@@ -45,12 +46,14 @@ use Email::Valid;
 use File::Basename;
 use File::chdir;    # $CWD and @CWD
 use File::Copy;
+use File::Copy::Recursive qw(rcopy);
 use File::Find::Rule;
 use File::MimeInfo;
+use File::Path qw(remove_tree);
 use File::Spec;
 use File::Util;
 use File::Which;
-use Gtk2::Notify -init, "$PROGRAM_NAME";
+use Gtk2::Notify -init, "$PROGRAM_NAME";    # invocation taken from manpage
 use HTML::Entities;
 use IPC::Cmd qw(run);
 use IPC::Open3;
@@ -59,7 +62,8 @@ use Logger::Syslog;
 use Net::DBus;
 use Net::Ping::External qw(ping);
 use Proc::ProcessTable;
-use Storable;
+use Scalar::Util qw(blessed reftype);
+use Storable qw(dclone retrieve store);
 use Term::ANSIColor;
 use Term::Clui;
 $CLUI_DIR = 'OFF';    # do not remember responses
@@ -348,6 +352,27 @@ method abort (@messages) {
     die "${prefix}Aborting\n";
 }
 
+# autoconf_version()
+#
+# does:   gets autoconf version
+# params: nil
+# prints: nil, except error on failure
+# return: scalar version number, die on failure
+method autoconf_version () {
+    my $cmd = [ 'autoconf', '--version', ];
+    my $cmd_str = join q{ }, @{$cmd};
+    my ( $succeed, @output ) = $self->capture_command_output($cmd);
+    if ( not $succeed ) { confess "Command '$cmd_str' failed"; }
+    my $version_line = $output[0];
+    my @version_line_elements = split /\s+/xsm, $version_line;
+    foreach my $element (@version_line_elements) {
+        if ( $element =~ /^ \d+ [ [.]\d+ ]?/xsm ) {
+            return $element;
+        }
+    }
+    confess "Did not find version number in '$version_line'";
+}
+
 # adb_devices()
 #
 # does:   gets all attached adb devices
@@ -375,10 +400,9 @@ method adb_devices () {
     }
 
     # get and parse adb devices report
+    # - ignore failed command and parse output anyway
     my @cmd = ( $adb, 'devices' );
-    my ( $success, $err, $full, $stdout, $stderr )
-        = IPC::Cmd::run( command => [@cmd] );
-    my @output = @{$full};
+    my ( $succeed, @output ) = $self->capture_command_output( [@cmd] );
     my @devices;
     for my $line (@output) {
         my @elements = split /\s+/xsm, $line;
@@ -460,6 +484,48 @@ method browse ($title, $text) {
     Term::Clui::edit( $title, $text );
 }
 
+# capture_command_output($cmd)
+#
+# does:   run system command and capture output
+# params: $cmd    - command to run
+#                   [array reference, required]
+# return: list -  boolean success,
+#                 list of stdout (success) or full output (failure)
+# uses:   IPC::Cmd
+method capture_command_output ($cmd) {
+
+    # process arguments
+    # - $cmd
+    if ( not( defined $cmd ) ) { confess 'No command provided'; }
+    my $arg_type = ref $cmd;
+    if ( $arg_type ne 'ARRAY' ) { confess 'Command is not array reference'; }
+    my @cmd_args = @{$cmd};
+    if ( not @cmd_args ) { confess 'No command arguments provided'; }
+
+    # run command
+    my ( $succeed, $err, $full, $stdout, $stderr )
+        = IPC::Cmd::run( command => $cmd );
+
+    # return output
+    # - IPC::Cmd can return all output as single multiline element of
+    #   an array reference, so extract array reference to list and
+    #   then split each element of that list on newlines
+    my @ipc_cmd_output;
+    if ($succeed) {
+        @ipc_cmd_output = @{$stdout};
+    }
+    else {
+        @ipc_cmd_output = @{$full};
+    }
+    chomp @ipc_cmd_output;
+    my @output;
+    foreach my $item (@ipc_cmd_output) {
+        my @lines = split /\n/xsm, $item;
+        push @output, @lines;
+    }
+    return ( $succeed, @output );
+}
+
 # changelog_from_git($dir)
 #
 # does:   get ChangLog content from git repository
@@ -481,13 +547,11 @@ method changelog_from_git ($dir) {
 
     # obtain git log output
     my @cmd = qw(git log --date-order --date=short);
-    my ( $success, $err, $full, $stdout, $stderr )
-        = IPC::Cmd::run( command => [@cmd] );
-    if ( not $success ) {
+    my ( $succeed, @git_output ) = $self->capture_command_output( [@cmd] );
+    if ( not $succeed ) {
         cluck "Unable to get git log in '$dir'";
         return;
     }
-    my @git_output = @{$stdout};
     chomp @git_output;
 
     # output contains multiple lines per list item
@@ -563,23 +627,6 @@ method clear_screen () {
     system 'clear';
 }
 
-# concatenate_dir
-#
-# does:   concatenates list of directories in path to string path
-# params: $dir - directory parts (arrayref) [required]
-# prints: nil
-# return: scalar string path
-#         die on error
-# uses: File::Spec
-method concatenate_dir ($dir) {
-    if ( ref $dir ne 'ARRAY' ) {
-        confess "Directory parameter is not an arrayref: $dir";
-    }
-    my @dir_parts = @{$dir};
-    if ( not @dir_parts ) { return; }
-    return File::Spec->catdir(@dir_parts);
-}
-
 # config_param($param)
 #
 # does:   get parameter value
@@ -622,6 +669,73 @@ method config_param ($param) {
 #  uses:  Cwd
 method cwd () {
     return Cwd::getcwd();
+}
+
+# date_email ([$date], [$time], [$offset])
+#
+# does:   produce a date formatted according to RFC 2822
+#         (Internet Message Format)
+# params: $date   - iso-format date
+#                   [named parameter, optional, default=today]
+#         $time   - 24 hour time [named parameter, optional, default=now]
+#                   leading hour zero, and seconds, are optional
+#         $offset - timezone offset, e.g., +0930
+#                   [named parameter, optional, default=local timezone offset]
+# prints: message if fatal error
+# return: scalar string (undef if error)
+# note:   example output: 'Mon, 16 Jul 1979 16:45:20 +1000'
+method date_email (:$date, :$time, :$offset) {
+
+    # date
+    if ($date) {
+        if ( not $self->valid_date($date) ) {
+            cluck "Invalid date '$date'\n";
+            return;
+        }
+    }
+    else {
+        $date = $self->today();
+    }
+
+    # time
+    if ($time) {
+        if ( not $self->valid_24h_time($time) ) {
+            cluck "Invalid time '$time'\n";
+            return;
+        }
+    }
+    else {
+        $time = $self->now();
+    }
+
+    # timezone
+    my $timezone;
+    if ($offset) {
+        $timezone = $self->timezone_from_offset($offset);
+        if ( not $timezone ) { return; }    # error shown by previous line
+    }
+    else {
+        $timezone = $self->local_timezone();
+    }
+
+    # get rfc 2822 string
+    my $ds = Date::Simple->new($date);
+    if ( not $ds ) { confess 'Unable to create Date::Simple object'; }
+    my $ts = Time::Simple->new($time);
+    if ( not $ts ) { confess 'Unable to create Time::Simple object'; }
+    my $dt = DateTime->new(
+        year      => $ds->year,
+        month     => $ds->month,
+        day       => $ds->day,
+        hour      => $ts->hour,
+        minute    => $ts->minute,
+        second    => $ts->second,
+        time_zone => $timezone,
+    );
+    if ( not $dt ) { confess 'Unable to create DateTime object'; }
+    my $email_date = DateTime::Format::Mail->format_datetime($dt);
+    if ( not $email_date ) { confess 'Unable to generate RFC2822 date'; }
+    return $email_date;
 }
 
 # day_of_week([$date])
@@ -694,7 +808,7 @@ method debian_install_deb ($deb) {
         say 'Package installed successfully';
     }
     else {
-        warn "\nLooks like you are not root/superuser\n";
+        warn "Looks like you are not root/superuser\n";
     }
 
     # try installing with sudo
@@ -705,7 +819,7 @@ method debian_install_deb ($deb) {
             say 'Package installed successfully';
         }
         else {
-            warn "\nOkay, you do not have root privileges for '$installer'\n";
+            warn "Okay, you do not have root privileges for '$installer'\n";
         }
     }
 
@@ -731,7 +845,7 @@ method debian_install_deb ($deb) {
             say 'Package installed successfully';
         }
         else {
-            warn "\nThat's it, I give up installing this package\n";
+            warn "That's it, I give up installing this package\n";
         }
     }
 
@@ -739,6 +853,30 @@ method debian_install_deb ($deb) {
     if ( defined $silent ) { $self->run_command_silent($silent); }
     if ( defined $fatal )  { $self->run_command_fatal($fatal); }
     return $success;
+}
+
+# debless($object)
+#
+# does:   get underlying data structure of object/blessed reference
+# params: $object - blessed reference to extract data from [required]
+# prints: nil
+# return: hash reference
+# uses:   Data::Structure::Util, Scalar::Util, Storable
+method debless ($object) {
+
+    # check argument
+    if ( not $object ) { confess 'No object provided'; }
+    my $class = Scalar::Util::blessed($object);
+    if ( not( defined($class) ) ) { confess 'Not a blessed object'; }
+    my $ref_type = Scalar::Util::reftype($object);
+    if ( $ref_type ne 'HASH' ) { confess 'Not a blessed hash'; }
+
+    # get underlying data structure
+    my $clone = Storable::dclone($object);
+    my $data  = Data::Structure::Util::unbless($clone);
+
+    return $data;
+
 }
 
 # deentitise($string)
@@ -766,6 +904,54 @@ method _remove_numeric_prefix ($item) {
 
 method denumber_list (@items) {
     map { $self->_remove_numeric_prefix($_) } @items;
+}
+
+# dir_add_dir($dir, $subdir)
+#
+# does:   add subdirectory to directory path
+# params: $dir    - directory path to add to [required]
+#                   need not exist
+#         $subdir - subdirectory to add [required]
+# prints: nil
+# return: scalar directory path
+# uses:   File::Spec
+method dir_add_dir ($dir, $subdir) {
+    if ( not $dir ) { confess 'No directory provided'; }
+    if ( not $subdir ) {
+        cluck 'No subdirectory name provided';
+        return $dir;
+    }
+    my @path = $self->dir_split($dir);
+    push @path, $subdir;
+    return $self->join_dir( [@path] );
+}
+
+# dir_add_file($dir, $file)
+#
+# does:   add file name to directory path
+# params: $dir    - directory path to add to [required]
+#                   need not exist
+#         $subdir - file name to add [required]
+# prints: nil
+# return: scalar file path
+# uses:   File::Spec
+method dir_add_file ($dir, $file) {
+    my @path = $self->dir_split($dir);
+    push @path, $file;
+    return $self->join_dir( [@path] );
+}
+
+# dir_split($dir)
+#
+# does:   split directory path into component subdirectories
+# params: $dir    - directory path to split [required]
+#                   need not exist
+# prints: nil
+# return: list
+# uses:   File::Spec
+method dir_split ($dir) {
+    if ( not $dir ) { confess 'No directory provided'; }
+    return File::Spec->splitdir($dir);
 }
 
 # dirs_list($directory)
@@ -802,6 +988,61 @@ method display ($string) {
     say Text::Wrap::wrap( q{}, q{}, $string );
 }
 
+# do_copy($src, $dest)
+#
+# does:   copy source file or directory to target file or directory
+# params: $src  - source file or directory [required]
+#                 must exist
+#         $dest - destination file or directory [required]
+#                 need not exist
+# prints: nil, except for error message
+# return: boolean success of copy
+#         die if missing argument
+# uses:   File::Copy::Recursive
+# note:   can copy file to file or directory
+#         can copy directory to directory
+#         can not copy directory to existing file
+# note:   F::C::R function rmove tries very hard to perform copy,
+#         creating target directories where necessary
+method do_copy ($src, $dest) {
+
+    # check args - missing argument is fatal
+    if ( not $src )  { confess 'No source provided'; }
+    if ( not $dest ) { confess 'No destination provided'; }
+
+    # convert to true path
+    my $source      = $self->true_path($src);
+    my $destination = $self->true_path($dest);
+
+    # check args - source must exist
+    if ( not -e $source ) {
+        cluck "Source '$src' does not exist";
+        return;
+    }
+
+    # check args - cannot copy directory onto file
+    if ( -d $source and -f $destination ) {
+        cluck "Cannot copy directory '$src' onto file '$dest'";
+        return;
+    }
+
+    # perform copy
+    return File::Copy::Recursive::rcopy( $source, $destination );
+}
+
+# do_rmdir($dir)
+#
+# does:   remove directory recursively (like 'rm -fr')
+# params: $dir - directory to remove [required]
+# prints: nil
+# return: boolean
+# uses:   File::Path
+method do_rmdir ($dir) {
+    if ( not $dir )    { confess 'No directory provided'; }
+    if ( not -d $dir ) { confess "Directory '$dir' is invalid"; }
+    return File::Path::remove_tree($dir);
+}
+
 # echo_e($string)
 #
 # does:   use shell command 'echo -e'
@@ -829,73 +1070,6 @@ method echo_en ($text) {
     }
     my @cmd = ( q{echo}, q{-en}, $text );
     system @cmd;
-}
-
-# email_date ([$date], [$time], [$offset])
-#
-# does:   produce a date formatted according to RFC 2822
-#         (Internet Message Format)
-# params: $date   - iso-format date
-#                   [named parameter, optional, default=today]
-#         $time   - 24 hour time [named parameter, optional, default=now]
-#                   leading hour zero, and seconds, are optional
-#         $offset - timezone offset, e.g., +0930
-#                   [named parameter, optional, default=local timezone offset]
-# prints: message if fatal error
-# return: scalar string (undef if error)
-# note:   example output: 'Mon, 16 Jul 1979 16:45:20 +1000'
-method email_date (:$date, :$time, :$offset) {
-
-    # date
-    if ($date) {
-        if ( not $self->valid_date($date) ) {
-            cluck "Invalid date '$date'\n";
-            return;
-        }
-    }
-    else {
-        $date = $self->today();
-    }
-
-    # time
-    if ($time) {
-        if ( not $self->valid_24h_time($time) ) {
-            cluck "Invalid time '$time'\n";
-            return;
-        }
-    }
-    else {
-        $time = $self->now();
-    }
-
-    # timezone
-    my $timezone;
-    if ($offset) {
-        $timezone = $self->timezone_from_offset($offset);
-        if ( not $timezone ) { return; }    # error shown by previous line
-    }
-    else {
-        $timezone = $self->local_timezone();
-    }
-
-    # get rfc 2822 string
-    my $ds = Date::Simple->new($date);
-    if ( not $ds ) { confess 'Unable to create Date::Simple object'; }
-    my $ts = Time::Simple->new($time);
-    if ( not $ts ) { confess 'Unable to create Time::Simple object'; }
-    my $dt = DateTime->new(
-        year      => $ds->year,
-        month     => $ds->month,
-        day       => $ds->day,
-        hour      => $ts->hour,
-        minute    => $ts->minute,
-        second    => $ts->second,
-        time_zone => $timezone,
-    );
-    if ( not $dt ) { confess 'Unable to create DateTime object'; }
-    my $email_date = DateTime::Format::Mail->format_datetime($dt);
-    if ( not $email_date ) { confess 'Unable to generate RFC2822 date'; }
-    return $email_date;
 }
 
 # ensure_no_trailing_slash($dir)
@@ -1004,7 +1178,7 @@ method files_list ($dir) {
 #         $pattern - file name pattern to match
 #                    (glob or regular expression)
 # prints: nil
-# return: list of file names
+# return: list of absolute file paths
 # note:   does not recurse into subdirectories
 # uses:   Cwd, File::Find::Rule
 method find_files_in_dir ( $dir, $pattern ) {
@@ -1158,6 +1332,23 @@ method is_mp4 ($filepath) {
 # return: scalar boolean
 method is_perl ($filepath) {
     return $self->_is_mimetype( $filepath, 'application/x-perl' );
+}
+
+# join_dir($dir)
+#
+# does:   concatenates list of directories in path to string path
+# params: $dir - directory parts (arrayref) [required]
+# prints: nil
+# return: scalar string path
+#         die on error
+# uses: File::Spec
+method join_dir ($dir) {
+    if ( ref $dir ne 'ARRAY' ) {
+        confess "Directory parameter is not an arrayref: $dir";
+    }
+    my @dir_parts = @{$dir};
+    if ( not @dir_parts ) { return; }
+    return File::Spec->catdir(@dir_parts);
 }
 
 # konsolekalendar_date_format($date)
@@ -1747,12 +1938,13 @@ method run_command ($cmd, :$silent, :$fatal) {
     my @cmd_args = @{$cmd};
     if ( not @cmd_args ) { confess 'No command arguments provided'; }
 
-    # - silent
+    # - silent/verbose
     if ( not( defined $silent ) ) {
         if ( defined $self->_run_command_silent ) {
             $silent = $self->_run_command_silent;
         }
     }
+    my $verbose = not $silent;
 
     # - fatal
     if ( not( defined $fatal ) ) {
@@ -1789,30 +1981,24 @@ method run_command ($cmd, :$silent, :$fatal) {
 
     # run command
     my ( $succeed, $err, $full, $stdout, $stderr )
-        = IPC::Cmd::run( command => $cmd );
+        = IPC::Cmd::run( command => $cmd, verbose => $verbose );
 
     # provide final feedback
-    if ( not $silent ) {
-        print @{$full};
+    if ($verbose) {
         say $div_bottom;
         if ( not $succeed ) {
-            my @msg = (
-                "Command '$cmd_string' failed\n",
-                "System reported this error:\n",
-                "$err\n",
-            );
-            cluck @msg;
+            say "Command failed\n";
         }
     }
 
     if ( $fatal and not $succeed ) {
         my $msg = 'Stopping execution due to error';
-        if ($silent) {    # break silence to explain to user
+        if ($verbose) {    # error displayed at command execution
+            die "$msg\n";
+        }
+        else {             # break silence to explain situation to user
             say $err;
             confess $msg;
-        }
-        else {
-            die "$msg\n";
         }
     }
 
@@ -2582,6 +2768,26 @@ List of attached devices. (Empty list if none.)
 
 Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
 
+=head2 autoconf_version( )
+
+=head3 Purpose
+
+Gets autoconf version. Can be used as value for the autoconf macro 'AC_PREREQ'.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil on successful execution.
+
+Error message on failure.
+
+=head3 Returns
+
+Scalar string. Dies on failure.
+
 =head2 backup_file($file)
 
 =head3 Purpose
@@ -2667,6 +2873,32 @@ Nil.
 =head3 Returns
 
 Nil.
+
+=head2 capture_command_output($cmd)
+
+=head3 Purpose
+
+Run system command and capture output.
+
+=head3 Parameters
+
+=over
+
+=item $cmd
+
+Command to run. Array reference.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List: boolean success, list of stdout (success) or stdout + stderr (failure).
 
 =head2 changelog_from_git($dir)
 
@@ -2811,6 +3043,44 @@ Nil.
 
 Scalar string
 
+=head2 date_email ([$date], [$time], [$offset])
+
+=head3 Purpose
+
+Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+ISO-formatted date.
+
+Named parameter. Optional. Default: today.
+
+=item $time
+
+A time in 24-hour format: 'HH:MM[:SS]'. Note that the following are not required: leading zero for hour, and seconds.
+
+Named parameter. Optional. Default: now.
+
+=item $offset
+
+Timezone offset. Example: '+0930'.
+
+Named parameter. Optional. Default: local timezone offset.
+
+=back
+
+=head3 Prints
+
+Nil routinely. Error message if fatal error encountered.
+
+=head3 Returns
+
+Scalar string, undef if method fails.
+
 =head2 day_of_week([$date])
 
 =head3 Purpose
@@ -2865,6 +3135,32 @@ Feedback.
 
 Scalar boolean.
 
+=head2 debless($object)
+
+=head3 Purpose
+
+Get underlying data structure of object/blessed reference. Will only work on an object containing an underlying data structure that is a hash.
+
+=head3 Parameters
+
+=over
+
+=item $object
+
+Blessed reference to obtain underlying data structure of. Underlying data structure must be a hash.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error message if method fails.
+
+=head3 Returns
+
+Hash. Dies if method fails.
+
 =head2 deentitise($string)
 
 =head3 Purpose
@@ -2914,6 +3210,96 @@ Required.
 Nil.
 
 =head3 Return
+
+List.
+
+=head2 dir_add_dir($dir, $subdir)
+
+=head3 Purpose
+
+Add subdirectory to directory path.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to add to. The directory need not exist.
+
+Required.
+
+=item $subdir
+
+Subdirectory to add to path.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar directory path.
+
+=head2 dir_add_file($dir, $file)
+
+=head3 Purpose
+
+Add file name to directory path.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to add to. The directory need not exist.
+
+Required.
+
+=item $file
+
+File name to add to path.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar file path.
+
+=head2 dir_split($dir)
+
+=head3 Purpose
+
+Split directory path into component subdirectories.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to split. Need not exist.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
 
 List.
 
@@ -2973,6 +3359,74 @@ Nil.
 
     $cp->display($long_string);
 
+=head2 do_copy($src, $dest)
+
+=head3 Purpose
+
+Copy source file or directory to target file or directory.
+
+=head3 Parameters
+
+=over
+
+=item $src
+
+Source file or directory. Must exist.
+
+Required.
+
+=item $dest
+
+Destination file or directory. Need not exist.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil on successful operation.
+
+Error message on failure.
+
+=head3 Returns
+
+Boolean success of copy operation.
+
+Dies if missing argument.
+
+=head3 Notes
+
+Can copy file to file or directory, and directory to directory, but I<not> directory to file.
+
+Uses the File::Copy::Recursive::rcopy function which tries very hard to complete the copy operation, including creating missing subdirectories in the target path.
+
+=head2 do_rmdir($dir)
+
+=head3 Purpose
+
+Removes directory recursively (like 'rm -fr').
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Root of directory tree to remove.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
+
 =head2 echo_e($string)
 
 =head3 Purpose
@@ -3024,44 +3478,6 @@ Text with shell escape sequences escaped and no trailing newline.
 =head3 Returns
 
 Nil.
-
-=head2 email_date ([$date], [$time], [$offset])
-
-=head3 Purpose
-
-Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
-
-=head3 Parameters
-
-=over
-
-=item $date
-
-ISO-formatted date.
-
-Named parameter. Optional. Default: today.
-
-=item $time
-
-A time in 24-hour format: 'HH:MM[:SS]'. Note that the following are not required: leading zero for hour, and seconds.
-
-Named parameter. Optional. Default: now.
-
-=item $offset
-
-Timezone offset. Example: '+0930'.
-
-Named parameter. Optional. Default: local timezone offset.
-
-=back
-
-=head3 Prints
-
-Nil routinely. Error message if fatal error encountered.
-
-=head3 Returns
-
-Scalar string, undef if method fails.
 
 =head2 ensure_no_trailing_slash($dir)
 
@@ -3265,7 +3681,7 @@ Nil.
 
 =head3 Returns
 
-List of file names.
+List of absolute file paths.
 
 =head2 future_date($date)
 
@@ -3711,6 +4127,32 @@ Nil.
 =head3 Returns
 
 Scalar boolean.
+
+=head2 join_dir($dir)
+
+=head3 Purpose
+
+Concatenate list of directories in path to string path.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory parts. Array reference.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string directory path. (Dies on error.
 
 =head2 konsolekalendar_date_format([$date])
 
@@ -4220,7 +4662,7 @@ Reference to stored data structure.
 
 Set default values for C<run_command> method parameters C<silent> and C<fatal>, respectively. Applies to subsequent calls to C<run_command>. Overridden by parameters supplied in subsequent C<run_command> method calls.
 
-=head2 run_command(@cmd, [$silent], [$fatal])
+=head2 run_command($cmd, [$silent], [$fatal])
 
 =head3 Purpose
 
@@ -4980,284 +5422,109 @@ Modified string.
 
 =head1 DEPENDENCIES
 
-=head2 autodie
+=over
 
-Automated error checking of 'open' and 'close' functions.
+=item autodie
 
-Debian: provided by package 'libautodie-perl'.
+=item Carp
 
-=head2 Config::Simple
+=item Config::Simple
 
-Reads and parses configuration files.
+=item Curses
 
-Provides the 'import_from' function.
+=item Cwd
 
-Debian: provided by package 'libconfig-simple-perl'.
+=item Data::Dumper::Simple
 
-=head2 Curses
+=item Data::Structure::Util
 
-Terminal screen handlind.
+=item Data::Validate::URI
 
-=head2 Cwd
+=item Date::Simple
 
-Used to normalise paths, including following symlinks and collapsing relative
-paths. Also used to provide current working directory.
+=item DateTime
 
-Provides the 'abs_path' and 'getcwd' functions for these purposes,
-respectively.
+=item DateTime::Format::Mail
 
-Debian: provided by package 'libfile-spec-perl'.
+=item DateTime::TimeZone
 
-=head2 Data::Dumper::Simple
+=item Desktop::Detect
 
-Used for displaying variables.
+=item Email::Valid
 
-Debian: provided by package 'libdata-dumper-simple-perl'.
+=item English
 
-=head2 Data::Validate::URI
+=item Env
 
-Used for validating web URIs.
+=item File::Basename
 
-Debian: Provided by 'libdata-validate-uri-perl'.
+=item File::chdir
 
-=head2 Date::Simple
+=item File::Copy
 
-Used for writing date strings.
+=item File::Copy::Recursive
 
-Debian: provided by package 'libdate-simple-perl'.
+=item File::Find::Rule
 
-=head2 DateTime
+=item File::MimeInfo
 
-=head2 DateTime::Format::Mail
+=item File::Path
 
-=head2 DateTime::TimeZone
+=item File::Spec
 
-Used for manipulating dates and times.
+=item File::Util
 
-Debian: provided by packages 'libdatetime-perl', 'libdatetime-format-mail-perl' and 'libdatetime-timezone-perl', respectively.
+=item File::Which
 
-=head2 Desktop::Detect
+=item Function::Parameters
 
-Used for detecting KDE desktop. Uses 'detect_desktop' function.
+=item Gtk2::Notify
 
-Debian: provided by package 'libdesktop-detect-perl'.
+=item HTML::Entities
 
-=head2 Email::Valid
+=item IPC::Cmd
 
-Used for validating email addresses.
+=item IPC::Open3
 
-Debian: provided by package 'libemail-valid-perl'.
+=item IPC::Run
 
-=head2 File::Basename
+=item Logger::Syslog
 
-Parse file names.
+=item namespace::autoclean
 
-Provides the 'fileparse' method.
+=item Mouse
 
-Debian: provided by package 'perl'.
+=item Mouse::Util::TypeConstraints
 
-=head2 File::chdir
+=item MouseX::NativeTraits
 
-Provides $CWD and @CWD for manipulating current directory.
+=item Net::DBus
 
-Debian: provided by package 'libfile-chdir-perl'.
+=item Proc::ProcessTable
 
-=head2 File::Copy
+=item Net::Ping::External
 
-Used for file copying.
+=item Readonly
 
-Provides the 'copy' and 'move' functions.
+=item Scalar::Util
 
-Debian: provided by package 'perl-modules'.
+=item Storable
 
-=head2 File::Find::Rule
+=item Term::ANSIColor
 
-Enables searching for files and directories.
+=item Term::Clui
 
-=head2 File::MimeInfo
+=item Term::ReadKey
 
-Provides 'mimetype' method for getting mime-type information about mp3 files.
+=item Test::NeedsDisplay
 
-Debian: provided by package 'libfile-mimeinfo-perl'.
+=item Text::Wrap
 
-Note: Previously used File::Type and its 'mime_type' method to get file
-mime-type information but that module incorrectly identifies some mp3 files as
-'application/octet-stream'. Other alternatives are File::MMagic and
-File::MMagic:Magic.
+=item Time::Simple
 
-=head2 File::Spec
+=item UI::Dialog
 
-Perform operations on file and directory names.
-
-=head2 File::Util
-
-Used for various file and directory operations, including recursive directory
-creation and extracting filename and/or dirpath from a filepath.
-
-Debian: provided by package 'libfile-util-perl'.
-
-=head2 File::Which
-
-Used for finding paths to executable files.
-
-Provides the 'which' function which mimics the bash 'which' utility.
-
-Debian: provided by package 'libfile-which-perl'.
-
-=head2 Gtk2::Notify
-
-Provides access to libnotify.
-
-Provides the 'set_timeout' and 'show' functions.
-
-Uses this nonstandard invocation recommended by the module man page:
-
-    use Gtk2::Notify -init, "$0";
-
-Debian: provided by package 'libgtk2-notify-perl'.
-
-=head2 HTML::Entities
-
-Used for converting between html entities and reserved characters. Provides 'encode_entities' and 'decode_entities' methods.
-
-Debian: provided by package 'libhtml-parser-perl'.
-
-=head2 IPC::Cmd
-
-=head2 IPC::Open3
-
-=head2 IPC::Run
-
-Enable running of system commands.
-
-Debian: provided by packages 'perl-modules', 'libipc-run-perl' and 'perl-base', respectively.
-
-=head2 Logger::Syslog
-
-Interface to system log.
-
-Provides functions 'debug', 'notice', 'warning' and 'error'.
-
-Some system logs only record some message types. On debian systems, for
-example, /var/log/messages records only 'notice' and 'warning' message types
-while /var/log/syslog records all message types.
-
-Debian: provided by package 'liblogger-syslog-perl'.
-
-=head2 namespace::autoclean
-
-Used to optimise Mouse.
-
-Debian: provided by package 'libnamespace::autoclean'.
-
-=head2 Mouse
-
-Use modern perl.
-
-Debian: provided by 'libmouse-perl'.
-
-=head2 Mouse::Util::TypeConstraints
-
-Used to enhance Mouse.
-
-Debian: provided by 'libmouse-perl'.
-
-=head2 MouseX::NativeTraits
-
-Used to enhance Mouse.
-
-Debian: provided by package 'libmousex-nativetraits-perl'.
-
-=head2 Net::DBus
-
-Used in manipulating DBus services.
-
-Debian: provided by package 'libnet-dbus-perl'.
-
-=head2 Proc::ProcessTable
-
-Provides access to system process table, i.e., output of 'ps'.
-
-Provides the 'table' method.
-
-Debian: provided by package 'libproc-processtable-perl'.
-
-=head2 Net::Ping::External
-
-Cross-platform interface to ICMP "ping" utilities. Enables the pinging of
-internet hosts.
-
-Provides the 'ping' function.
-
-Debian: provided by package 'libnet-ping-external-perl'.
-
-=head2 Readonly
-
-Use modern perl.
-
-Debian: provided by package 'libreadonly-perl'
-
-=head2 Storable
-
-Used for storing and retrieving persistent data.
-
-Provides the 'store' and 'retrieve' functions.
-
-Debian: provided by package 'perl'.
-
-=head2 Term::ANSIColor
-
-Used for user input.
-
-Provides the 'colored' function.
-
-Debian: provided by package 'perl-modules'.
-
-=head2 Term::Clui
-
-Used for user input.
-
-Provides 'choose', 'ask', 'edit' and 'confirm' functions.
-
-Is configured to not remember responses. To override put this command after this module is called:
-
-    $ENV{'CLUI_DIR'} = 'ON';
-
-Debian: provided by package 'libperl-term-clui'.
-
-=head2 Term::ReadKey
-
-Used for reading single characters from keyboard.
-
-Provides the 'ReadMode' and 'ReadKey' functions.
-
-Debian: provided by package 'libterm-readkey-perl'.
-
-=head2 Test::NeedsDisplay
-
-Prevents build error caused by Gtk2::Notify. The module tests require a display but cannot find one. Test::NeedsDisplay provides a fake display.
-
-Debian: provided by package 'libtest-needsdisplay-perl'.
-
-=head2 Text::Wrap
-
-Used for formatting text into readable paragraphs.
-
-Provides the 'wrap' function.
-
-Debian: provided by package 'perl-base'.
-
-=head2 Time::Simple
-
-Used for validating and comparing times.
-
-Debian: not available from offial repositories, but available in local debian package of this module..
-
-=head2 UI::Dialog
-
-Used for gui dialogs.
-
-Debian: libui-dialog-perl.
+=back
 
 head1 BUGS AND LIMITATIONS
 

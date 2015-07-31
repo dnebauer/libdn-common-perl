@@ -42,6 +42,7 @@ Nil.
 $cp->abort('We failed');
 $cp->abort('We failed', prepend => 1);
 ```
+
 adb_devices\(\)
 ---------------
 
@@ -64,6 +65,27 @@ List of device identifiers.
 ###Note
 
 Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
+
+autoconf\_version\(\)
+--------------
+
+###Purpose
+
+Gets autoconf version. Can be used as value for the autoconf macro 'AC_PREREQ'.
+
+###Parameters
+
+Nil.
+
+###Prints
+
+Nil on successful execution.
+
+Error message on failure.
+
+###Returns
+
+Scalar string. Dies on failure.
 
 backup\_file\(\$file\)
 ----------------------
@@ -141,6 +163,29 @@ Nil.
 ###Returns
 
 Nil.
+
+capture\_command\_output\(\$cmd\)
+---------------------------------
+
+###Purpose
+
+Run system command and capture output.
+
+###Parameters
+
+####\$cmd
+
+Command to run. Array reference.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+List: boolean success, list of stdout (success) or stdout + stderr (failure).
 
 changelog\_from\_git\(\$dir\)
 -----------------------------
@@ -291,6 +336,41 @@ Nil.
 
 Scalar string
 
+date\_email\( \[\$date\], \[\$time\], \[\$offset\] \)
+------------------------------------------------------
+
+###Purpose
+
+Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
+
+###Parameters
+
+####\$date
+
+ISO-formatted date.
+
+Named parameter. Optional. Default: today.
+
+####\$time
+
+A time in 24-hour format: 'HH:MM\[:SS\]'. Note that the following are not required: leading zero for hour, and seconds.
+
+Named parameter. Optional. Default: now.
+
+####\$offset
+
+Timezone offset. Example: '+0930'.
+
+Named parameter. Optional. Default: local timezone offset.
+
+###Prints
+
+Nil routinely. Error message if fatal error encountered.
+
+###Returns
+
+Scalar string, undef if method fails.
+
 day\_of\_week\( \[\$date\] \)
 -----------------------------
 
@@ -339,6 +419,29 @@ Feedback.
 
 Scalar boolean.
 
+debless\(\$object\)
+-------------------
+
+###Purpose
+
+Get underlying data structure of object/blessed reference. Will only work on an object containing an underlying data structure that is a hash.
+
+###Parameters
+
+####\$object
+
+Blessed reference to obtain underlying data structure of. Underlying data structure must be a hash.
+
+Required.
+
+###Prints
+
+Nil, except error message if method fails.
+
+###Returns
+
+Hash. Dies if method fails.
+
 deentitise\(\$string\)
 ----------------------
 
@@ -382,6 +485,87 @@ Required.
 Nil.
 
 ###Return
+
+List.
+
+dir\_add\_dir\(\$dir, \$subdir\)
+-------------------------------
+
+###Purpose
+
+Add subdirectory to directory path.
+
+###Parameters
+
+####\$dir
+
+Directory path to add to. The directory need not exist.
+
+Required.
+
+####\$subdir
+
+Subdirectory to add to path.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar directory path.
+
+dir\_add\_file\(\$dir, \$file\)
+-------------------------------
+
+###Purpose
+
+Add file name to directory path.
+
+###Parameters
+
+####\$dir
+
+Directory path to add to. The directory need not exist.
+
+Required.
+
+####\$file
+
+File name to add to path.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar file path.
+
+dir\_split\(\$dir\)
+-------------------
+
+###Purpose
+
+Split directory path into component subdirectories.
+
+###Parameters
+
+####\$dir
+
+Directory path to split. Need not exist.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
 
 List.
 
@@ -437,6 +621,68 @@ Nil.
 $cp->display($long_string);
 ```
 
+do\_copy\( \$src, \$dest \)
+-----------------------
+
+###Purpose
+
+Copy source file or directory to target file or directory.
+
+###Parameters
+
+####\$src
+
+Source file or directory. Must exist.
+
+Required.
+
+####\$dest
+
+Destination file or directory. Need not exist.
+
+Required.
+
+###Prints
+
+Nil on successful operation.
+
+Error message on failure.
+
+###Returns
+
+Boolean success of copy operation.
+
+Dies if missing argument.
+
+###Notes
+
+Can copy file to file or directory, and directory to directory, but not directory to file.
+
+Uses the File::Copy::Recursive::rcopy function which tries very hard to complete the copy operation, including creating missing subdirectories in the target path.
+
+do\_rmdir\(\$dir\)
+------------------
+
+###Purpose
+
+Removes directory recursively (like 'rm -fr').
+
+###Parameters
+
+####\$dir
+
+Root of directory tree to remove.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean scalar.
+
 echo\_e\(\$string\)
 -------------------
 
@@ -482,41 +728,6 @@ Text with shell escape sequences escaped and no trailing newline.
 ###Returns
 
 Nil.
-
-email\_date \( \[\$date\], \[\$time\], \[\$offset\] \)
-------------------------------------------------------
-
-###Purpose
-
-Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
-
-###Parameters
-
-####\$date
-
-ISO-formatted date.
-
-Named parameter. Optional. Default: today.
-
-####\$time
-
-A time in 24-hour format: 'HH:MM\[:SS\]'. Note that the following are not required: leading zero for hour, and seconds.
-
-Named parameter. Optional. Default: now.
-
-####\$offset
-
-Timezone offset. Example: '+0930'.
-
-Named parameter. Optional. Default: local timezone offset.
-
-###Prints
-
-Nil routinely. Error message if fatal error encountered.
-
-###Returns
-
-Scalar string, undef if method fails.
 
 ensure\_no\_trailing\_slash\(\$dir\)
 ------------------------------------
@@ -703,7 +914,7 @@ Nil.
 
 ###Returns
 
-List of file names.
+List of absolute file paths.
 
 future\_date\(\$date\)
 ----------------------
@@ -1139,6 +1350,29 @@ Nil.
 ###Returns
 
 Scalar boolean.
+
+join\_dir\(\$dir\)
+------------------
+
+###Purpose
+
+Concatenate list of directories in path to string path.
+
+###Parameters
+
+####\$dir
+
+Directory parts. Array reference.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar string directory path. (Dies on error.
 
 konsolekalendar\_date\_format\( \[\$date\] \)
 ---------------------------------------------
