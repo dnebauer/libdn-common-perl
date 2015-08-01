@@ -22,6 +22,7 @@ requires 'File::Find::Rule';
 requires 'File::MimeInfo';
 requires 'File::Path';
 requires 'File::Spec';
+requires 'File::Temp';
 requires 'File::Util';
 requires 'File::Which';
 requires 'Function::Parameters';

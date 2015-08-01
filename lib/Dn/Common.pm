@@ -51,6 +51,7 @@ use File::Find::Rule;
 use File::MimeInfo;
 use File::Path qw(remove_tree);
 use File::Spec;
+use File::Temp qw(tempdir);
 use File::Util;
 use File::Which;
 use Gtk2::Notify -init, "$PROGRAM_NAME";    # invocation taken from manpage
@@ -68,6 +69,7 @@ use Term::ANSIColor;
 use Term::Clui;
 $CLUI_DIR = 'OFF';    # do not remember responses
 use Term::ReadKey;
+use Text::Pluralize;
 use Text::Wrap;
 use Time::Simple;
 use Time::Zone;
@@ -914,7 +916,6 @@ method denumber_list (@items) {
 #         $subdir - subdirectory to add [required]
 # prints: nil
 # return: scalar directory path
-# uses:   File::Spec
 method dir_add_dir ($dir, $subdir) {
     if ( not $dir ) { confess 'No directory provided'; }
     if ( not $subdir ) {
@@ -934,7 +935,6 @@ method dir_add_dir ($dir, $subdir) {
 #         $subdir - file name to add [required]
 # prints: nil
 # return: scalar file path
-# uses:   File::Spec
 method dir_add_file ($dir, $file) {
     my @path = $self->dir_split($dir);
     push @path, $file;
@@ -2268,6 +2268,17 @@ method tabify ($string = q//, $tab_size = 4) {
     # convert tabs
     $string =~ s/\\t/$tab/gxsm;
     return $string;
+}
+
+# temp_dir()
+#
+# does:   create temporary directory
+# params: nil
+# prints: nil
+# return: scalar directory path
+# uses:   File::Temp
+method temp_dir () {
+    return File::Temp::tempdir( CLEANUP => $TRUE );
 }
 
 # timezone_from_offset($offset)
@@ -5048,6 +5059,24 @@ Nil.
 
 Scalar string.
 
+=head2 temp_dir( )
+
+=head3 Purpose
+
+Create a temporary directory.
+
+=head3 Parmeters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar directory path.
+
 =head2 timezone_from_offset($offset)
 
 =head3 Purpose
@@ -5524,6 +5553,8 @@ Modified string.
 
 =item File::Path
 
+=item File::Temp
+
 =item File::Spec
 
 =item File::Util
@@ -5571,6 +5602,8 @@ Modified string.
 =item Term::ReadKey
 
 =item Test::NeedsDisplay
+
+=item Text::Pluralize
 
 =item Text::Wrap
 

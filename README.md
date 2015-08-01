@@ -2140,6 +2140,25 @@ Nil.
 
 Scalar string.
 
+temp\_dir\(\)
+-------------
+
+###Purpose
+
+Create a temporary directory.
+
+###Parmeters
+
+Nil.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar directory path.
+
 timezone\_from\_offset\(\$offset\)
 ----------------------------------
 
