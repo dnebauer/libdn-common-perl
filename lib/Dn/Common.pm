@@ -1,6 +1,6 @@
 package Dn::Common;
 
-use Mouse;
+use Moose;
 use 5.014_002;
 use version; our $VERSION = qv('1.0.5');
 
@@ -15,17 +15,16 @@ use version; our $VERSION = qv('1.0.5');
 #   will be resent through to the script again."
 use Test::NeedsDisplay;
 
-use namespace::autoclean;
-use Mouse::Util::TypeConstraints;
-use MooseX::MakeImmutable;
-use MouseX::NativeTraits;
-use Function::Parameters;
-use Carp qw(cluck croak);
-use Env qw(CLUI_DIR HOME PWD);
-use Readonly;
 use autodie qw(open close);
-use English qw(-no_match_vars);
+use Carp qw(cluck croak);
 use Data::Dumper::Simple;
+use English qw(-no_match_vars);
+use Env qw(CLUI_DIR HOME PWD);
+use Function::Parameters;
+use Moose::Util::TypeConstraints;
+use MooseX::MakeImmutable;
+use namespace::autoclean;
+use Readonly;
 
 Readonly my $TRUE  => 1;
 Readonly my $FALSE => 0;
@@ -73,59 +72,52 @@ use Text::Pluralize;
 use Text::Wrap;
 use Time::Simple;
 use Time::Zone;
+use Type::Utils qw(declare);   # as|where|message apparently already declared!
+use Types::Dn qw(File);
+use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
 use UI::Dialog;
 
 use experimental 'switch';
 
 # ATTRIBUTES
 
-# subtype: filepath
-subtype 'FilePath' => as 'Str' => where { -f Cwd::abs_path($_) } =>
-    message {qq[Invalid file '$_']};
-
-# attribute: script
-#            public, scalar
-#            basename of calling script
 has '_script' => (
-    is      => 'ro',
-    isa     => 'Str',
-    default => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
+    is            => 'ro',
+    isa           => Types::Standard::Str,
+    default       => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
+    documentation => q{Basename of calling script},
 );
 
-# attribute: kde_running
-#            public, boolean
-#            whether kde is running
 has 'kde_running' => (
     is      => 'ro',
-    isa     => 'Bool',
+    isa     => Types::Standard::Bool,
     default => sub {
         ( Desktop::Detect->detect_desktop()->{desktop} eq 'kde-plasma' )
             ? $TRUE
             : $FALSE;
     },
+    documentation => q{Whether KDE is running},
 );
 
-# attribute: _screensaver
-#           private, Net::DBus::RemoteObject object
-#           used in suspending and restoring screensaver
-# note:     use lazy+builder because if use default sub
-#           then other modules that use this one can fail
-#           their build with this error:
-#               perl Build test --verbose
-#               t/basic.t ...............
-#               # No DISPLAY. Looking for xvfb-run...
-#               # Restarting with xvfb-run...
-#               Xlib:  extension "RANDR" missing on display ":99".
-#               org.freedesktop.DBus.Error.ServiceUnknown: The name \
-#                   org.freedesktop.ScreenSaver was not provided by \
-#                   any .service files
-#               Compilation failed in require at t/basic.t line 3.
-#               ...
 has '_screensaver' => (
-    is      => 'rw',
-    isa     => 'Net::DBus::RemoteObject',
-    lazy    => $TRUE,
-    builder => '_build_screensaver',
+    is            => 'rw',
+    isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
+    lazy          => $TRUE,
+    builder       => '_build_screensaver',
+    documentation => q{KDE screensaver object},
+
+    # use lazy+builder because if use default sub then other modules
+    # that use this one can fail their build with this error:
+    #     perl Build test --verbose
+    #     t/basic.t ...............
+    #     # No DISPLAY. Looking for xvfb-run...
+    #     # Restarting with xvfb-run...
+    #     Xlib:  extension "RANDR" missing on display ":99".
+    #     org.freedesktop.DBus.Error.ServiceUnknown: The name \
+    #         org.freedesktop.ScreenSaver was not provided by \
+    #         any .service files
+    #     Compilation failed in require at t/basic.t line 3.
+    #     ...
 );
 
 method _build_screensaver () {
@@ -133,33 +125,28 @@ method _build_screensaver () {
         ->get_object('/org/freedesktop/ScreenSaver');
 }
 
-# attribute: _screensaver_cookie
-#            private, scalar integer
-#            cookie tracking inhibit (suspend) requests
 has '_screensaver_cookie' => (
-    is  => 'rw',
-    isa => 'Int',
+    is            => 'rw',
+    isa           => Types::Standard::Int,
+    documentation => q{Cookie used to track suspend requests},
 );
 
-# attribute: _screensaver_attempt_suspend
-#            private, boolean
-#            whether there is a kde screensaver to suspend
 has '_screensaver_attempt_suspend' => (
     is      => 'rw',
-    isa     => 'Bool',
+    isa     => Types::Standard::Bool,
     default => sub {
         ( Desktop::Detect->detect_desktop()->{desktop} eq 'kde-plasma' )
             ? $TRUE
             : $FALSE;
     },
+    documentation => q{Whether to attempt to suspend KDE screensaver},
 );
 
-# attribute: _configuration_files
-#            private, array of Config::Simple objects
-#            configuration files to search
 has '_configuration_files' => (
-    is      => 'rw',
-    isa     => 'ArrayRef[Config::Simple]',
+    is  => 'rw',
+    isa => Types::Standard::ArrayRef [
+        Types::Standard::InstanceOf ['Config::Simple']
+    ],
     traits  => ['Array'],
     default => sub { [] },
     handles => {
@@ -167,90 +154,81 @@ has '_configuration_files' => (
         _add_config_file        => 'push',       # ($obj) -> void
         _processed_config_files => 'count',      # () -> $boolean
     },
-    documentation => 'hold configuration file objects',
+    documentation => q{Details from configuration files},
 );
 
-# attribute: _processes
-#            private, procsses
 has '_processes' => (
-    traits  => ['Hash'],
     is      => 'rw',
-    isa     => 'HashRef[Str]',
+    isa     => Types::Standard::HashRef [Types::Standard::Str],
+    traits  => ['Hash'],
     lazy    => $TRUE,
-    builder => sub { {} },
+    default => sub { {} },
     handles => {
-        _add_process         => 'set',       # ($pid, $cmd)->void
-        _command             => 'get',       # ($pid)->$cmd
-        _clear_processes     => 'clear',     # ()->void
-        _pids                => 'keys',      # ()->@pids
-        _commands            => 'values',    # ()->@commands
-        _processes_pair_list => 'kv',        # ()->([$pid,$cmd],...)
-        _has_processes       => 'count',     # ()->$boolean
+        _add_process         => 'set',           # ($pid, $cmd)->void
+        _command             => 'get',           # ($pid)->$cmd
+        _clear_processes     => 'clear',         # ()->void
+        _pids                => 'keys',          # ()->@pids
+        _commands            => 'values',        # ()->@commands
+        _processes_pair_list => 'kv',            # ()->([$pid,$cmd],...)
+        _has_processes       => 'count',         # ()->$boolean
     },
+    documentation => q{Running processes},
 );
 
-# attribute: _icon_error
-#            private, FilePath subtype
-#            error icon
 has '_icon_error' => (
-    is      => 'rw',
-    isa     => 'FilePath',
-    lazy    => $TRUE,
-    builder => '_build_icon_error',
+    is            => 'rw',
+    isa           => Types::Dn::File,
+    lazy          => $TRUE,
+    builder       => '_build_icon_error',
+    documentation => q{Error icon file path},
 );
 
 method _build_icon_error () {
     return $self->_get_icon('error.xpm');
 }
 
-# attribute: _icon_warn
-#            private, FilePath subtype
-#            warn icon
 has '_icon_warn' => (
-    is      => 'rw',
-    isa     => 'FilePath',
-    lazy    => $TRUE,
-    builder => '_build_icon_warn',
+    is            => 'rw',
+    isa           => Types::Dn::File,
+    lazy          => $TRUE,
+    builder       => '_build_icon_warn',
+    documentation => q{Warning icon file path},
 );
 
 method _build_icon_warn () {
     return $self->_get_icon('warn.xpm');
 }
 
-# attribute: _icon_question
-#            private, FilePath subtype
-#            question icon
 has '_icon_question' => (
-    is      => 'rw',
-    isa     => 'FilePath',
-    lazy    => $TRUE,
-    builder => '_build_icon_question',
+    is            => 'rw',
+    isa           => Types::Dn::File,
+    lazy          => $TRUE,
+    builder       => '_build_icon_question',
+    documentation => q{Question icon file path},
 );
 
 method _build_icon_question () {
     return $self->_get_icon('question.xpm');
 }
 
-# attribute: _icon_info
-#            private, FilePath subtype
-#            info icon
 has '_icon_info' => (
-    is      => 'rw',
-    isa     => 'FilePath',
-    lazy    => $TRUE,
-    builder => '_build_icon_info',
+    is            => 'rw',
+    isa           => Types::Dn::File,
+    lazy          => $TRUE,
+    builder       => '_build_icon_info',
+    documentation => q{Information icon file path},
 );
 
 method _build_icon_info () {
     return $self->_get_icon('info.xpm');
 }
 
-# subtype: NotifySysType
-subtype 'NotifySysType' => as 'Str' => where {
+Type::Utils::declare 'NotifySysType', Type::Utils::as Types::Standard::Str,
+    Type::Utils::where {
     my $val = $_;
     my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
     return ( $val and $is_valid_type{$val} );
-} => message {qq[Invalid file '$_']};
+    }, Type::Utils::message {qq[Invalid file '$_']};
 
 has 'notify_sys_type' => (
     is            => 'rw',
@@ -262,7 +240,7 @@ has 'notify_sys_type' => (
 
 has 'notify_sys_title' => (
     is            => 'rw',
-    isa           => 'Str',
+    isa           => Types::Standard::Str,
     reader        => '_notify_sys_title',
     required      => $FALSE,
     documentation => q{Default title for method 'notify_sys'},
@@ -270,7 +248,7 @@ has 'notify_sys_title' => (
 
 has 'notify_sys_icon' => (
     is            => 'rw',
-    isa           => 'FilePath',
+    isa           => Types::Dn::File,
     reader        => '_notify_sys_icon',
     required      => $FALSE,
     documentation => q{Default icon for method 'notify_sys'},
@@ -278,11 +256,11 @@ has 'notify_sys_icon' => (
 
 has '_urls' => (
     is            => 'rw',
-    isa           => 'ArrayRef[Str]',
+    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
     traits        => ['Array'],
     builder       => '_build_urls',
     handles       => { _ping_urls => 'elements', },
-    documentation => 'URLs to ping',
+    documentation => q{URLs to ping},
 );
 
 method _build_urls () {
@@ -291,7 +269,7 @@ method _build_urls () {
 
 has 'run_command_fatal' => (
     is            => 'rw',
-    isa           => 'Bool',
+    isa           => Types::Standard::Bool,
     reader        => '_run_command_fatal',
     required      => $FALSE,
     documentation => q{Default fatal setting for method 'run_command'},
@@ -299,7 +277,7 @@ has 'run_command_fatal' => (
 
 has 'run_command_silent' => (
     is            => 'rw',
-    isa           => 'Bool',
+    isa           => Types::Standard::Bool,
     reader        => '_run_command_silent',
     required      => $FALSE,
     documentation => q{Default silent setting for method 'run_command'},
@@ -2471,7 +2449,7 @@ method valid_timezone_offset ($offset) {
 
 # valid_web_url($url)
 #
-# does:   determine whether an email address is valid
+# does:   determine whether a web address is valid
 # params: $url - url to check [required]
 # prints: nil
 # return: boolean
@@ -3152,11 +3130,15 @@ First tries to install using C<dpkg> as if the user were root. If that fails, tr
 
 =over
 
+=over
+
 =item $deb
 
 Debian package file.
 
 Required.
+
+=back
 
 =back
 
@@ -5613,7 +5595,11 @@ Modified string.
 
 =back
 
-head1 BUGS AND LIMITATIONS
+=head2 Debian packaging
+
+Two of the modules that Dn::Common depends on are not available from the standard debian repository: F<Text::Pluralize> and F<Time::Simple>. For that reason the debian package of Dn::Common also provides these two modules.
+
+=head1 BUGS AND LIMITATIONS
 
 Report to module author.
 
