@@ -21,7 +21,6 @@ use Data::Dumper::Simple;
 use English qw(-no_match_vars);
 use Env qw(CLUI_DIR HOME PWD);
 use Function::Parameters;
-use Moose::Util::TypeConstraints;
 use MooseX::MakeImmutable;
 use namespace::autoclean;
 use Readonly;
