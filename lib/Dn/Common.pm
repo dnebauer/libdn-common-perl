@@ -72,7 +72,7 @@ use Text::Wrap;
 use Time::Simple;
 use Time::Zone;
 use Type::Utils qw(declare);   # as|where|message apparently already declared!
-use Types::Dn qw(File);
+use Types::Path::Tiny qw(AbsFile);
 use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
 use UI::Dialog;
 
@@ -174,52 +174,92 @@ has '_processes' => (
     documentation => q{Running processes},
 );
 
-has '_icon_error' => (
+has '_icon_error_path' => (
     is            => 'rw',
-    isa           => Types::Dn::File,
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
     lazy          => $TRUE,
-    builder       => '_build_icon_error',
+    builder       => '_build_icon_error_path',
     documentation => q{Error icon file path},
 );
 
-method _build_icon_error () {
+method _build_icon_error_path () {
     return $self->_get_icon('error.xpm');
 }
 
-has '_icon_warn' => (
+method _icon_error () {
+    if ( $self->_icon_error_path ) {
+        return $self->_icon_error_path->realpath()->canonpath();
+    }
+    else {
+        return;
+    }
+}
+
+has '_icon_warn_path' => (
     is            => 'rw',
-    isa           => Types::Dn::File,
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
     lazy          => $TRUE,
-    builder       => '_build_icon_warn',
+    builder       => '_build_icon_warn_path',
     documentation => q{Warning icon file path},
 );
 
-method _build_icon_warn () {
+method _build_icon_warn_path () {
     return $self->_get_icon('warn.xpm');
 }
 
-has '_icon_question' => (
+method _icon_warn () {
+    if ( $self->_icon_warn_path ) {
+        return $self->_icon_warn_path->realpath()->canonpath();
+    }
+    else {
+        return;
+    }
+}
+
+has '_icon_question_path' => (
     is            => 'rw',
-    isa           => Types::Dn::File,
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
     lazy          => $TRUE,
-    builder       => '_build_icon_question',
+    builder       => '_build_icon_question_path',
     documentation => q{Question icon file path},
 );
 
-method _build_icon_question () {
+method _build_icon_question_path () {
     return $self->_get_icon('question.xpm');
 }
 
-has '_icon_info' => (
+method _icon_question () {
+    if ( $self->_icon_question_path ) {
+        return $self->_icon_question_path->realpath()->canonpath();
+    }
+    else {
+        return;
+    }
+}
+
+has '_icon_info_path' => (
     is            => 'rw',
-    isa           => Types::Dn::File,
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
     lazy          => $TRUE,
-    builder       => '_build_icon_info',
+    builder       => '_build_icon_info_path',
     documentation => q{Information icon file path},
 );
 
-method _build_icon_info () {
+method _build_icon_info_path () {
     return $self->_get_icon('info.xpm');
+}
+
+method _icon_info () {
+    if ( $self->_icon_info_path ) {
+        return $self->_icon_info_path->realpath()->canonpath();
+    }
+    else {
+        return;
+    }
 }
 
 Type::Utils::declare 'NotifySysType', Type::Utils::as Types::Standard::Str,
@@ -245,13 +285,23 @@ has 'notify_sys_title' => (
     documentation => q{Default title for method 'notify_sys'},
 );
 
-has 'notify_sys_icon' => (
+has 'notify_sys_icon_path' => (
     is            => 'rw',
-    isa           => Types::Dn::File,
-    reader        => '_notify_sys_icon',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    reader        => '_notify_sys_icon_path',
     required      => $FALSE,
     documentation => q{Default icon for method 'notify_sys'},
 );
+
+method _notify_sys_icon () {
+    if ( $self->_notify_sys_icon_path ) {
+        return $self->_notify_sys_icon_path->realpath()->canonpath();
+    }
+    else {
+        return;
+    }
+}
 
 has '_urls' => (
     is            => 'rw',
@@ -885,22 +935,24 @@ method denumber_list (@items) {
     map { $self->_remove_numeric_prefix($_) } @items;
 }
 
-# dir_add_dir($dir, $subdir)
+# dir_add_dir($dir, @subdirs)
 #
-# does:   add subdirectory to directory path
-# params: $dir    - directory path to add to [required]
-#                   need not exist
-#         $subdir - subdirectory to add [required]
+# does:   add subdirectories to directory path
+# params: $dir     - directory path to add to [required]
+#                    need not exist
+#         @subdirs - subdirectories to add [required]
 # prints: nil
 # return: scalar directory path
-method dir_add_dir ($dir, $subdir) {
+method dir_add_dir ($dir, @subdirs) {
     if ( not $dir ) { confess 'No directory provided'; }
-    if ( not $subdir ) {
-        cluck 'No subdirectory name provided';
+    if ( not @subdirs ) {
+        cluck 'No subdirectory names provided';
         return $dir;
     }
     my @path = $self->dir_split($dir);
-    push @path, $subdir;
+    foreach my $subdir (@subdirs) {
+        push @path, $subdir;
+    }
     return $self->join_dir( [@path] );
 }
 
@@ -1644,7 +1696,7 @@ method notify (@messages) {
 #                   'notify_sys_type' then falls back to 'info']
 #         $icon  - message icon filepath
 #                  [named parameter, optional, falls back to attribute
-#                   'notify_sys_icon', otherwise no default]
+#                   'notify_sys_icon_path', otherwise no default]
 #         $time  - message display time (msec)
 #                  [named parameter, optional, default=10,000]
 # return: boolean, whether able to display notification
@@ -1761,6 +1813,20 @@ method offset_date ($offset) {
     if ( not( $offset and $self->valid_integer($offset) ) ) { return; }
     my $date = Date::Simple->today() + $offset;
     return $date->format('%Y-%m-%d');
+}
+
+# parent_dir($dir)
+#
+# does:   return parent directory
+# params: $dir - directory path to analyse [required]
+# prints: nil
+# return: scalar (absolute directory path)
+# note:   converts to, and returns, absolute path
+method parent_dir ($dir) {
+    if ( not $dir ) { confess 'No path provided'; }
+    my @dir_path = $self->dir_split( $self->true_path($dir) );
+    pop @dir_path;         # remove current dir to get parent
+    return $self->join_dir( [@dir_path] );
 }
 
 # pid_running($pid)
@@ -3227,7 +3293,7 @@ Nil.
 
 List.
 
-=head2 dir_add_dir($dir, $subdir)
+=head2 dir_add_dir($dir, @subdirs)
 
 =head3 Purpose
 
@@ -3243,9 +3309,9 @@ Directory path to add to. The directory need not exist.
 
 Required.
 
-=item $subdir
+=item @subdirs
 
-Subdirectory to add to path.
+Subdirectories to add to path.
 
 Required.
 
@@ -4380,7 +4446,7 @@ Nil.
 
 =head2 notify_sys_title($title)
 
-=head2 notify_sys_icon($icon)
+=head2 notify_sys_icon_path($icon)
 
 =head3 Purpose
 
@@ -4420,7 +4486,7 @@ Named parameter. Optional. Defaults to attribute C<notify_sys_type> if available
 
 Message box icon filepath.
 
-Named parameter. Optional. Defaults to attribute C<notify_sys_icon> if available, otherwise to a default icon provided for each message type.
+Named parameter. Optional. Defaults to attribute C<notify_sys_icon_path> if available, otherwise to a default icon provided for each message type.
 
 =item $time
 
@@ -4519,6 +4585,34 @@ Nil.
 =head3 Returns
 
 ISO-formatted date.
+
+=head2 parent_dir($dir)
+
+=head3 Purpose
+
+Get parent directory of a directory path.
+
+Whether the provided directory path is absolute or relative, the returned parent directory path is absolute.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to analyse. May be relative or absolute.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar (absolute directory path).
 
 =head2 pid_running($pid)
 

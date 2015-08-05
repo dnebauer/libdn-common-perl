@@ -488,12 +488,12 @@ Nil.
 
 List.
 
-dir\_add\_dir\(\$dir, \$subdir\)
+dir\_add\_dir\(\$dir, \@subdirs\)
 -------------------------------
 
 ###Purpose
 
-Add subdirectory to directory path.
+Add subdirectories to directory path.
 
 ###Parameters
 
@@ -503,9 +503,9 @@ Directory path to add to. The directory need not exist.
 
 Required.
 
-####\$subdir
+####@subdirs
 
-Subdirectory to add to path.
+Subdirectories to add to path.
 
 Required.
 
@@ -1709,6 +1709,31 @@ Nil.
 ###Returns
 
 ISO-formatted date.
+
+parent\_dir\(\$dir\)
+--------------------
+
+###Purpose
+
+Get parent directory of a directory path.
+
+Whether the provided directory path is absolute or relative, the returned parent directory path is absolute.
+
+###Parameters
+
+####\$dir
+
+Directory path to analyse. May be relative or absolute.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar (absolute directory path).
 
 pid\_running\(\$pid\)
 ---------------------

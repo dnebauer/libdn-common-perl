@@ -50,6 +50,7 @@ requires 'Text::Wrap';
 requires 'Time::Simple';
 requires 'Time::Zone';
 requires 'Type::Utils';
+requires 'Types::Path::Tiny';
 requires 'Types::Standard';
 requires 'UI::Dialog';
 
