@@ -18,16 +18,12 @@ use Test::NeedsDisplay;
 
 use MooX::HandlesVia;
 use autodie qw(open close);
-use Carp qw(cluck confess);
+use Carp qw(cluck croak);
 use Data::Dumper::Simple;
 use English qw(-no_match_vars);
 use Env qw(CLUI_DIR HOME PWD);
 use Function::Parameters;
 use Readonly;
-use Type::Utils qw(declare);   # as|where|message apparently already declared!
-use Dn::Common::Types qw(NotifySysType);
-use Types::Path::Tiny qw(AbsFile);
-use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
 
 Readonly my $TRUE  => 1;
 Readonly my $FALSE => 0;
@@ -75,6 +71,9 @@ use Text::Pluralize;
 use Text::Wrap;
 use Time::Simple;
 use Time::Zone;
+use Type::Utils qw(declare);   # as|where|message apparently already declared!
+use Types::Path::Tiny qw(AbsFile);
+use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
 use UI::Dialog;
 
 use experimental 'switch';
@@ -147,9 +146,9 @@ has '_configuration_files' => (
     isa => Types::Standard::ArrayRef [
         Types::Standard::InstanceOf ['Config::Simple']
     ],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
+    default => sub { [] },
+    handles_via  => 'Array',
+    handles => {
         _config_files           => 'elements',
         _add_config_file        => 'push',       # ($obj) -> void
         _processed_config_files => 'count',      # () -> $boolean
@@ -158,12 +157,12 @@ has '_configuration_files' => (
 );
 
 has '_processes' => (
-    is          => 'rw',
-    isa         => Types::Standard::HashRef [Types::Standard::Str],
-    lazy        => $TRUE,
-    default     => sub { {} },
-    handles_via => 'Hash',
-    handles     => {
+    is      => 'rw',
+    isa     => Types::Standard::HashRef [Types::Standard::Str],
+    lazy    => $TRUE,
+    default => sub { {} },
+    handles_via  => 'Hash',
+    handles => {
         _add_process         => 'set',           # ($pid, $cmd)->void
         _command             => 'get',           # ($pid)->$cmd
         _clear_processes     => 'clear',         # ()->void
@@ -263,9 +262,16 @@ method _icon_info () {
     }
 }
 
+Type::Utils::declare 'NotifySysType', Type::Utils::as Types::Standard::Str,
+    Type::Utils::where {
+    my $val = $_;
+    my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
+    return ( $val and $is_valid_type{$val} );
+    }, Type::Utils::message {qq[Invalid file '$_']};
+
 has 'notify_sys_type' => (
     is            => 'rw',
-    isa           => Dn::Common::Types::NotifySysType,
+    isa           => 'NotifySysType',
     reader        => '_notify_sys_type',
     required      => $FALSE,
     documentation => q{Default type for method 'notify_sys'},

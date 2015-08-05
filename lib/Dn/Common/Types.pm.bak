@@ -1,0 +1,113 @@
+package Dn::Common::Types;
+
+use 5.014_002;
+use strict;
+use warnings;
+use version; our $VERSION = qv('0.1');
+
+use Type::Library -base, -declare => qw(NotifySysType);
+use Type::Utils qw(declare as where message);
+use Types::Standard qw(Str);
+
+declare 'NotifySysType', as Str,
+    where {
+        my $val = $_;
+        my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
+        return ( $val and $is_valid_type{$val} );
+    },
+    message {qq[notify_sys type '$_' is invalid]};
+
+1;
+
+__END__
+
+=encoding utf-8
+
+=head1 NAME
+
+Dn::Types - library of custom moo(se) types
+
+=head1 SYNOPSIS
+
+    package Foo;
+    use Dn::Types QW(Dn::File);
+
+    has 'file',
+        isa => Dn::File,    # must NOT quote, i.e., 'Dn::File'
+        is  => 'rw';
+
+=head1 DESCRIPTION
+
+Dn::Types is a library of custom Moose types. In the following explanations of each type the error message may include the variable '$_', which represents the value provided to the attribute.
+
+=over
+
+=item I<Dn::Directory>
+
+Valid path, either absolute or relative to the current working directory.
+
+Error message: "Invalid directory '$_'".
+
+Uses C<Cwd::abs_path> to obtain an absolute directory path, and perl's inbuilt C<-d> operator to determine whether it exists.
+
+=item I<Dn::EmailAddress>
+
+An email address in valid format. Note that the email address does not have to exist -- no internet connection is required for this check.
+
+Error message: "Invalid email address '$_'".
+
+Uses C<Email::Valid-E<gt>address> to check email validity.
+
+=item I<Dn::File>
+
+Requires the value to be a valid file path when expanded using C<Cwd::abs_path>. For that reason the value needs to needs to be either an existing absolute file path or an existing file path relative to the current directory.
+
+Error message: "Invalid file '$_'".
+
+Uses C<Cwd::abs_path> to obtain an absolute file path, and perl's inbuilt C<-f> operator to determine whether it exists.
+
+=item I<Dn::WebURL>
+
+A web address in valid format. Note that the web address does not need to be reachable -- no internet connection is required for this check.
+
+Error message: "Invalid web address '$_'".
+
+Uses C<Data::Validate::URI-E<gt>>is_web_uri> to check address validity.
+
+=back
+
+=head1 DEPENDENCES
+
+=over
+
+=item Cwd
+
+=item Data::Validate::URI
+
+=item Email::Valid
+
+=item Type::Library
+
+=item Type::Utils
+
+=item Types::Standard
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs to the author.
+
+=head1 AUTHOR
+
+David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2015 David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+
+This script is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
