@@ -44,6 +44,7 @@ use DateTime;
 use DateTime::Format::Mail;
 use DateTime::TimeZone;
 use Desktop::Detect qw(detect_desktop);
+use Dn::Common::TermSize;
 use Email::Valid;
 use File::Basename;
 use File::chdir;    # $CWD and @CWD
@@ -58,6 +59,7 @@ use File::Util;
 use File::Which;
 use Gtk2::Notify -init, "$PROGRAM_NAME";    # invocation taken from manpage
 use HTML::Entities;
+use IO::Pager;
 use IPC::Cmd qw(run);
 use IPC::Open3;
 use IPC::Run;
@@ -1814,6 +1816,40 @@ method offset_date ($offset) {
     if ( not( $offset and $self->valid_integer($offset) ) ) { return; }
     my $date = Date::Simple->today() + $offset;
     return $date->format('%Y-%m-%d');
+}
+
+# pager($lines)
+#
+# does:   display list of lines in terminal using pager
+# params: $lines - array reference [required]
+# prints: formatted and paged lines
+# return: n/a, die on failure
+# note:   pager used depends on IO::Pager algorithm
+# note:   does not matter whether lines have terminal newlines or not
+# uses:   Text::Wrap, IO::Pager
+method pager ($lines) {
+
+    # check arg
+    if ( not $lines ) { confess 'No lines provided'; }
+    my $ref_type = ref $lines;
+    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+
+    # wrap lines
+    my @original_lines = @{$lines};
+    chomp @original_lines;
+    my @wrapped_lines;
+    local $Text::Wrap::columns = $self->term_size->width;
+    foreach my $line (@original_lines) {
+        my $wrapped_line = Text::Wrap::wrap( q{}, q{}, $line );
+        my @new_lines = split /\n/xsm, $wrapped_line;
+        push @wrapped_lines, @new_lines;
+    }
+
+    # display wrapped lines
+    my $pager = IO::Pager->new();
+    foreach my $line (@wrapped_lines) {
+        $pager->print("$line\n");
+    }
 }
 
 # parent_dir($dir)
@@ -4628,6 +4664,38 @@ Nil.
 
 ISO-formatted date.
 
+=head2 pager($lines)
+
+=head3 Purpose
+
+Display list of lines in terminal using pager.
+
+It does not matter whether ot not the lines have terminal newlines or not.
+
+The pager used is determined by C<IO::Pager>.
+
+=head3 Parameters
+
+=over
+
+=item $lines
+
+Content to display. Array reference.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Provided content, each line begins on a new line and is intelligently wrapped.
+
+The content is paged. See L<IO::Pager> for details on the algorithm used to determine the pager used.
+
+=head3 Return
+
+N/A.
+
 =head2 parent_dir($dir)
 
 =head3 Purpose
@@ -5709,6 +5777,8 @@ Modified string.
 =item Gtk2::Notify
 
 =item HTML::Entities
+
+=item IO::Pager
 
 =item IPC::Cmd
 

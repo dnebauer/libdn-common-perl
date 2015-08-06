@@ -1735,6 +1735,33 @@ Nil.
 
 ISO-formatted date.
 
+pager\(\$lines\)
+----------------
+
+###Purpose
+
+Display list of lines in terminal using pager.
+
+It does not matter whether ot not the lines have terminal newlines or not.
+
+The content is paged. See the IO::Pager manpage for details on the algorithm used to determine the pager used.
+
+###Parameters
+
+####\$lines
+
+Content to display. Array reference.
+
+Required.
+
+###Prints
+
+Provided content, each line begins on a new line and is intelligently wrapped.
+
+###Return
+
+N/A.
+
 parent\_dir\(\$dir\)
 --------------------
 

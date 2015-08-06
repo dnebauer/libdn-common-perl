@@ -7,11 +7,15 @@ use version; our $VERSION = qv('0.1');
 use namespace::clean;
 use Curses;
 use Function::Parameters;
+use Readonly;
 use Types::Standard qw(Int);
+
+Readonly my $TRUE  => 1;
+Readonly my $FALSE => 0;
 
 has 'height' => (
     is            => 'ro',
-    isa           => Str,
+    isa           => Int,
     required      => $TRUE,
     builder       => '_build_height',
     documentation => 'Terminal height',
@@ -27,7 +31,7 @@ method _build_height () {
 
 has 'width' => (
     is            => 'ro',
-    isa           => Str,
+    isa           => Int,
     required      => $TRUE,
     builder       => '_build_width',
     documentation => 'Terminal width',
@@ -87,6 +91,8 @@ Designed to be run in a terminal. Not sure what would happen if run outside a te
 =item namespace::clean
 
 =item strictures
+
+=item Readonly
 
 =item Types::Standard
 
