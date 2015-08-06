@@ -1502,6 +1502,31 @@ Nil.
 
 Scalar boolean. If directory already exists returns true.
 
+moox\_option\_bool\_is\_true\(\$value\)
+---------------------------------------
+
+###Purpose
+
+Determine whether a boolean MooX::Option is true.
+
+A simple truth check on such a value does not work because the value when false, an empty array reference, evaluates as true.
+
+###Parameters
+
+####\$value
+
+Option value.
+
+Required.
+
+###Prints
+
+Nil, except error message on failure.
+
+###Returns
+
+N/A, dies on failure.
+
 msg\_box\( \[\$msg\], \[\$title\] \)
 ------------------------------------
 
@@ -2183,6 +2208,37 @@ Nil.
 ###Returns
 
 Scalar directory path.
+
+term\_size\(\)
+--------------
+
+###Purpose
+
+Get dimensions of current terminal.
+
+###Parameters
+
+Nil.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Hash reference with keys C<height> and C<width>
+
+###Usage
+
+```perl
+my $height = $cp->term_size->height;
+my $width = $cp->term_size->width;
+```
+
+```perl
+my $ts = $cp->term_size;
+my ( $height, $width ) = ( $ts->height, $ts->width );
+```
 
 timezone\_from\_offset\(\$offset\)
 ----------------------------------

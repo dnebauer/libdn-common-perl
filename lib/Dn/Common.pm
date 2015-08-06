@@ -1625,6 +1625,23 @@ method make_dir ($dir_path) {
         or confess "Unable to create '$dir_path'";
 }
 
+# moox_option_bool_is_true($value)
+#
+# does:   determine whether boolean MooX::Option option value is true
+# params: $value - value of option [required]
+# prints: nil, except error
+# return: boolean, dies on failure
+# note:   when true value is '1'
+#         when false value is '[]', which evaluates as true
+method moox_option_bool_is_true ($value) {
+    if ( not( defined $value ) ) { confess 'No option value provided'; }
+    for ( ref $value ) {
+        when ( $_ eq q{} )     { return $value; }       # scalar
+        when ( $_ eq 'ARRAY' ) { return @{$value}; }    # array ref
+        default { confess "Value is a $_ reference"; }  # neither
+    }
+}
+
 # msg_box([$msg], [$title])
 #
 # does:   display message in gui dialog
@@ -2306,6 +2323,21 @@ method tabify ($string = q//, $tab_size = 4) {
 # uses:   File::Temp
 method temp_dir () {
     return File::Temp::tempdir( CLEANUP => $TRUE );
+}
+
+# term_size()
+#
+# does:   get terminal size
+# params: nil
+# prints: nil
+# return: Dn::Common::TermSize instance
+# usage:  my $height = $cp->term_size->height;
+#         my $width = $cp->term_size->width;
+# usage:  my $ts = $cp->term_size;
+#         my ( $height, $width ) = ( $ts->height, $ts->width );
+# uses:   Curses
+method term_size () {
+    return Dn::Common::TermSize->new();
 }
 
 # timezone_from_offset($offset)
@@ -4353,6 +4385,34 @@ Nil.
 
 Scalar boolean. If directory already exists returns true.
 
+=head2 moox_option_bool_is_true($value)
+
+=head3 Purpose
+
+Determine whether a boolean MooX::Option is true.
+
+A simple truth check on such a value does not work because the value when false, an empty array reference, evaluates as true.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Option value.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error message on failure.
+
+=head3 Returns
+
+N/A, dies on failure.
+
 =head2 msg_box([$msg], [$title])
 
 =head3 Purpose
@@ -5133,6 +5193,32 @@ Nil.
 =head3 Returns
 
 Scalar directory path.
+
+=head2 term_size( )
+
+=head3 Purpose
+
+Get dimensions of current terminal.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+A Dn::Common::TermSize object.
+
+=head3 Usage
+
+    my $height = $cp->term_size->height;
+    my $width = $cp->term_size->width;
+    
+    my $ts = $cp->term_size;
+    my ( $height, $width ) = ( $ts->height, $ts->width );
 
 =head2 timezone_from_offset($offset)
 
