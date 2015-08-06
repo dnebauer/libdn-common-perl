@@ -1840,8 +1840,14 @@ method pager ($lines) {
     my @wrapped_lines;
     local $Text::Wrap::columns = $self->term_size->width;
     foreach my $line (@original_lines) {
-        my $wrapped_line = Text::Wrap::wrap( q{}, q{}, $line );
-        my @new_lines = split /\n/xsm, $wrapped_line;
+        my @new_lines;
+        if ( $line =~ /^\s*\z/xsm ) {    # empty line, otherwise dropped
+            push @new_lines, q{};
+        }
+        else {
+            my $wrapped_line = Text::Wrap::wrap( q{}, q{}, $line );
+            @new_lines = split /\n/xsm, $wrapped_line;
+        }
         push @wrapped_lines, @new_lines;
     }
 
