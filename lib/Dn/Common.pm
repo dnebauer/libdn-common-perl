@@ -192,9 +192,7 @@ method _icon_error () {
     if ( $self->_icon_error_path ) {
         return $self->_icon_error_path->realpath()->canonpath();
     }
-    else {
-        return;
-    }
+    return;
 }
 
 has '_icon_warn_path' => (
@@ -214,9 +212,7 @@ method _icon_warn () {
     if ( $self->_icon_warn_path ) {
         return $self->_icon_warn_path->realpath()->canonpath();
     }
-    else {
-        return;
-    }
+    return;
 }
 
 has '_icon_question_path' => (
@@ -236,9 +232,7 @@ method _icon_question () {
     if ( $self->_icon_question_path ) {
         return $self->_icon_question_path->realpath()->canonpath();
     }
-    else {
-        return;
-    }
+    return;
 }
 
 has '_icon_info_path' => (
@@ -258,9 +252,7 @@ method _icon_info () {
     if ( $self->_icon_info_path ) {
         return $self->_icon_info_path->realpath()->canonpath();
     }
-    else {
-        return;
-    }
+    return;
 }
 
 has 'notify_sys_type' => (
@@ -292,9 +284,7 @@ method _notify_sys_icon () {
     if ( $self->_notify_sys_icon_path ) {
         return $self->_notify_sys_icon_path->realpath()->canonpath();
     }
-    else {
-        return;
-    }
+    return;
 }
 
 has '_urls' => (
