@@ -51,6 +51,7 @@ Depends: ${misc:Depends}, ${perl:Depends},
  perl,
  sudo,
 Provides: 
+ libsys-runalone-perl,
  libtime-simple-perl,
  libtext-pluralize-perl
 Description: common methods for use by perl scripts

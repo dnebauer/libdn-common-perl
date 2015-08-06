@@ -5834,6 +5834,8 @@ Modified string.
 
 Two of the modules that Dn::Common depends on are not available from the standard debian repository: F<Text::Pluralize> and F<Time::Simple>. For that reason the debian package of Dn::Common also provides these two modules.
 
+The F<Sys::RunAlone> module is not available from the standard debian repository. While it is not required by Dn::Common it is useful, and for that reason the debian package of Dn::Common also provides this module.
+
 =head1 BUGS AND LIMITATIONS
 
 Report to module author.
