@@ -559,7 +559,8 @@ method changelog_from_git ($dir) {
     if ( not -d $git_dir ) { cluck "'$dir' is not a git repo root"; }
 
     # operate from repo root dir
-    local $CWD = $repo_root;
+    local $File::chdir::CWD = $File::chdir::CWD;
+    $File::chdir::CWD = $repo_root;
 
     # obtain git log output
     my @cmd = qw(git log --date-order --date=short);
@@ -883,7 +884,7 @@ method debless ($object) {
     # check argument
     if ( not $object ) { confess 'No object provided'; }
     my $class = Scalar::Util::blessed($object);
-    if ( not( defined($class) ) ) { confess 'Not a blessed object'; }
+    if ( not( defined $class ) ) { confess 'Not a blessed object'; }
     my $ref_type = Scalar::Util::reftype($object);
     if ( $ref_type ne 'HASH' ) { confess 'Not a blessed hash'; }
 
@@ -1343,6 +1344,14 @@ method is_boolean ($value) {
 # prints: nil
 # return: scalar boolean
 method is_deb ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
     my @mimetypes
         = ( 'application/x-deb', 'application/vnd.debian.binary-package', );
     foreach my $mimetype (@mimetypes) {
@@ -1361,6 +1370,14 @@ method is_deb ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_mp3 ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
     return $self->_is_mimetype( $filepath, 'audio/mpeg' );
 }
 
@@ -1372,6 +1389,14 @@ method is_mp3 ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_mp4 ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
     return $self->_is_mimetype( $filepath, 'video/mp4' );
 }
 
@@ -1383,7 +1408,35 @@ method is_mp4 ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_perl ($filepath) {
-    return $self->_is_mimetype( $filepath, 'application/x-perl' );
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
+
+    # check for mimetype match
+    if ( $self->_is_mimetype( $filepath, 'application/x-perl' ) ) {
+        return $TRUE;
+    }
+
+    # mimetype detection can fail if filename has no extension
+    # look for shebang and see if it is a perl interpreter
+    open my $fh, '<', $filepath;
+    my @lines = <$fh>;
+    close $fh;
+    chomp @lines;
+    foreach my $line (@lines) {
+        if ( $line =~ /^ \s* [#] [!] (\S+) /xsm ) {
+            my $interpreter = $1;
+            my $executable  = $self->get_filename($interpreter);
+            return $TRUE if $executable eq 'perl';
+            last;
+        }
+    }
+    return;
 }
 
 # join_dir($dir)
@@ -1904,10 +1957,12 @@ method pager ($lines) {
     if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
 
     # wrap lines
+    # - localise package variable as per Perl Best Practice (pp. 77-79)
     my @original_lines = @{$lines};
     chomp @original_lines;
     my @wrapped_lines;
-    local $Text::Wrap::columns = $self->term_size->width;
+    local $Text::Wrap::columns = $Text::Wrap::columns;
+    $Text::Wrap::columns = $self->term_size->width;
     foreach my $line (@original_lines) {
         my @new_lines;
         if ( $line =~ /^\s*\z/xsm ) {    # empty line, otherwise dropped
@@ -4888,7 +4943,7 @@ ISO-formatted date.
 
 Display list of lines in terminal using pager.
 
-It does not matter whether ot not the lines have terminal newlines or not.
+It does not matter whether or not the lines have terminal newlines or not.
 
 The pager used is determined by C<IO::Pager>.
 
@@ -4908,7 +4963,7 @@ Required.
 
 Provided content, each line begins on a new line and is intelligently wrapped.
 
-The content is paged. See L<IO::Pager> for details on the algorithm used to determine the pager used.
+The content is paged. See L</"IO::Pager"> for details on the algorithm used to determine the pager used.
 
 =head3 Return
 
@@ -5546,7 +5601,7 @@ Scalar string.
 
 Create a temporary directory.
 
-=head3 Parmeters
+=head3 Parameters
 
 Nil.
 
