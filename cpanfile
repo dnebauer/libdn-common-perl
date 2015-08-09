@@ -47,6 +47,7 @@ requires 'Term::Clui';
 requires 'Term::ReadKey';
 requires 'Test::NeedsDisplay';
 requires 'Text::Wrap';
+requires 'Time::HiRes';
 requires 'Time::Simple';
 requires 'Time::Zone';
 requires 'Type::Utils';

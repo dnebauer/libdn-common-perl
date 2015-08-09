@@ -75,6 +75,7 @@ $CLUI_DIR = 'OFF';    # do not remember responses
 use Term::ReadKey;
 use Text::Pluralize;
 use Text::Wrap;
+use Time::HiRes qw(usleep);
 use Time::Simple;
 use Time::Zone;
 use UI::Dialog;
@@ -1167,6 +1168,42 @@ method extract_key_value ($key, @items) {
     return ( $value, @remainder );
 }
 
+# file_used_by($file)
+#
+# does:   get processes using file
+# params: $file - file/filepath, relative or absolute [required]
+# prints: nil, except errors
+# return: list of pids
+method file_used_by ($file) {
+
+    # check arg
+    if ( not $file )    { confess 'No file provided'; }
+    if ( not -f $file ) { confess "Cannot find file '$file'"; }
+
+    # check for fuser
+    my $fuser = 'fuser';
+    if ( not $self->executable_path($fuser) ) {
+        confess "$fuser not available";
+    }
+
+    # okay, let's investigate who is locking
+    my $cmd = [ $fuser, $file ];
+    my ( $success, @lines ) = $self->capture_command_output($cmd);
+    if ( not $success ) {
+        foreach my $line (@lines) {
+            warn "$line\n";
+        }
+        my $cmd_string = join q{ }, @{$cmd};
+        confess "Command '$cmd' failed unexpectedly";
+    }
+    my $output = join q{ }, @lines;
+    $output = $self->trim($output);
+    my @pids = split /\s+/xsm, $output;
+
+    # return results
+    return @pids;
+}
+
 # files_list([$dir_path])
 #
 # does:   list files in directory
@@ -1527,6 +1564,38 @@ method input_large ($prompt, $default, @options) {
     return;
 }
 
+# kill_process($pid)
+#
+# does:   kill process
+# params: $pid - process id [required]
+# prints: nil, except if fails
+# return: list ($success, $err)
+method kill_process ($pid) {
+
+    # check arg
+    if ( not $pid ) { confess 'No pid provided'; }
+    if ( not $self->pid_running($pid) ) {
+        cluck "PID $pid is not running";
+        return ( $FALSE, "PID $pid was not running" );
+    }
+
+    # attempt to kill process
+    my @signals = qw(TERM INT HUP KILL);    # 15, 2, 1, 9
+    foreach my $signal (@signals) {
+        kill $signal, $pid;
+        last if not $self->pid_running($pid);
+        Time::HiRes::usleep(250);
+    }
+
+    # report success
+    if ( $self->pid_running($pid) ) {
+        return ( $FALSE, "Unable to kill process $pid" );
+    }
+    else {
+        return ($TRUE);
+    }
+}
+
 # listify(@items)
 #
 # does:   tries to convert scalar, array and hash references to scalars
@@ -1651,13 +1720,13 @@ method moox_option_bool_is_true ($value) {
 #         $title - dialog title [optional, default=scriptname]
 # prints: nil
 # return: nil
+# uses:   UI::Dialog
 method msg_box ($msg, $title) {
     if ( not $title ) { $title = $self->scriptname(); }
     if ( not $msg )   { $msg   = 'Press OK button to proceed'; }
-    my @widget_preference = grep { File::Which::which $_ }
-        qw/kdialog zenity gdialog cdialog whiptail ascii/;
+    my @widget_preference = $self->_ui_dialog_widget_preference();
     my $ui = UI::Dialog->new( order => [@widget_preference] );
-    $ui->msgbox( title => $title, text => $msg );
+    return $ui->msgbox( title => $title, text => $msg );
 }
 
 # notify(@messages, [$prepend])
@@ -1872,6 +1941,21 @@ method parent_dir ($dir) {
     return $self->join_dir( [@dir_path] );
 }
 
+# pid_command($pid)
+#
+# does:   get command for given process id
+# params: $pid - process id [required]
+# prints: nil, except error messages
+# return: scalar string (process command)
+method pid_command ($pid) {
+    if ( not $pid ) { confess 'No pid providede'; }
+    if ( not $self->pid_running($pid) ) {
+        warn "PID $pid is not running\n";
+        return;
+    }
+    return $self->_command($pid);
+}
+
 # pid_running($pid)
 #
 # does:   determines whether process id is running
@@ -1906,6 +1990,49 @@ method pluralise ($string, $number) {
 
     # use Text::Pluralize
     return Text::Pluralize::pluralize( $string, $number );
+}
+
+# process_children($pid)
+#
+# does:   gets child processes of a specified pid
+# params: $pid - pid to analyse [required]
+# prints: nil, except errors
+# return: list of pids
+method process_children ($pid) {
+
+    # check arg
+    if ( not $pid ) { confess 'No pid provided'; }
+    if ( not $self->pid_running($pid) ) {
+        confess "PID '$pid' is not running";
+    }
+
+    # get child processes
+    my $t = Proc::ProcessTable->new();
+    return map { $_->pid() } grep { $_->ppid() == $pid } @{ $t->table() };
+}
+
+# process_parent($pid)
+#
+# does:   gets parent process of a specified pid
+# params: $pid - pid to analyse [required]
+# prints: nil, except errors
+# return: scalar int (pid)
+method process_parent ($pid) {
+
+    # check arg
+    if ( not $pid ) { confess 'No pid provided'; }
+    if ( not $self->pid_running($pid) ) {
+        confess "PID '$pid' is not running";
+    }
+
+    # get parent process
+    my $t = Proc::ProcessTable->new();
+    my @parents
+        = map { $_->ppid() } grep { $_->pid() == $pid } @{ $t->table() };
+    my $parent_count = scalar @parents;
+    if ( $parent_count == 0 ) { confess 'No parent PIDs found'; }
+    if ( $parent_count > 1 )  { confess 'Multiple parent PIDs found'; }
+    return $parents[0];
 }
 
 # process_running($cmd, [$match_full])
@@ -2693,6 +2820,23 @@ method vim_printify ($type, $message) {
     return "$token$message";
 }
 
+# yesno($question, [$title])
+#
+# does:   ask yes/no question in gui dialog
+# params: $question - question [required]
+#         $title    - dialog title [optional, default=scriptname]
+# prints: nil
+# return: boolean
+# note:   aborting dialog with Esc returns false
+# uses:   UI::Dialog
+method yesno ($question, $title) {
+    if ( not $title ) { $title = $self->scriptname(); }
+    if ( not $question ) { confess 'No question provided'; }
+    my @widget_preference = $self->_ui_dialog_widget_preference();
+    my $ui = UI::Dialog->new( order => [@widget_preference] );
+    return $ui->yesno( title => $title, text => $question );
+}
+
 # _file_mime_type($filepath)
 #
 # does:   determine mime type of file
@@ -2793,6 +2937,18 @@ method _process_config_files () {
 # return: nil
 method _reload_processes () {
     $self->_load_processes;
+}
+
+# _ui_dialog_widget_preference()
+#
+# does:   provide widget preferences for UI::Dialog
+# params: nil
+# prints: nil
+# return: list
+# uses:   File::Which
+method _ui_dialog_widget_preference () {
+    my @widgets = qw(kdialog zenity gdialog cdialog whiptail ascii);
+    return grep { File::Which::which $_ } @widgets;
 }
 
 1;
@@ -3761,6 +3917,36 @@ List with first element being the target value (undef if not found) and subseque
 
     my ($value, @list) = $cp->($key, @list);
 
+=head2 file_used_by($file)
+
+=head3 Purpose
+
+Get ids of processes using a specified file.
+
+=head3 Parameters
+
+=over
+
+=item $file
+
+File or filepath. Can be relative or absolute.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+List of pids.
+
+=head3 Note
+
+Uses shell utility C<fuser>.
+
 =head2 files_list([$directory])
 
 =head3 Purpose
@@ -4316,6 +4502,32 @@ Nil.
 
 Scalar date string.
 
+=head2 kill_process($pid)
+
+=head3 Purpose
+
+Kill a specified process.
+
+=head3 Parameters
+
+=over
+
+=item $pid
+
+Id of process to kill.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+List ($success, $error_message).
+
 =head2 listify(@items)
 
 =head3 Purpose
@@ -4730,6 +4942,32 @@ Nil.
 
 Scalar (absolute directory path).
 
+=head2 pid_command($pid)
+
+=head3 Purpose
+
+Get command for a specified process id.
+
+=head3 Parameters
+
+=over
+
+=item $pid
+
+Process id for which to obtain command.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Scalar string (process command).
+
 =head2 pid_running($pid)
 
 =head3 Purpose
@@ -4789,6 +5027,58 @@ Nil.
 =head3 Returns
 
 Scalar string.
+
+=head2 process_children($pid)
+
+=head3 Purpose
+
+Get child processes of a specified pid.
+
+=head3 Parameters
+
+=over
+
+=item $pid
+
+PID to analyse.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+List of pids.
+
+=head2 process_parent($pid)
+
+=head3 Purpose
+
+Get parent process of a specified pid.
+
+=head3 Parameters
+
+=over
+
+=item $pid
+
+PID to analyse.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Scalar integer (PID).
 
 =head2 process_running($cmd, [$match_full])
 
@@ -5720,6 +6010,40 @@ Modified string.
 
     $cp->vim_printify( 't', 'This is a title' );
 
+=head2 yesno($question, [$title])
+
+=head3 Purpose
+
+Ask yes/no question in gui dialog.
+
+Note that aborting the dialog (by pressing Escape) has the same effect as selecting 'No' -- returning false.
+
+=head3 Parameters
+
+=over
+
+=item $question
+
+Question to be answered. Is displayed unaltered, i.e., include terminal question mark.
+
+Required.
+
+=item $title
+
+Dialog title.
+
+Optional. Default: script name.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
 =head1 DEPENDENCIES
 
 =over
@@ -5824,6 +6148,8 @@ Modified string.
 
 =item Text::Wrap
 
+=item Time::HiRes
+
 =item Time::Simple
 
 =item UI::Dialog
@@ -5833,8 +6159,6 @@ Modified string.
 =head2 Debian packaging
 
 Two of the modules that Dn::Common depends on are not available from the standard debian repository: F<Text::Pluralize> and F<Time::Simple>. For that reason the debian package of Dn::Common also provides these two modules.
-
-The F<Sys::RunAlone> module is not available from the standard debian repository. While it is not required by Dn::Common it is useful, and for that reason the debian package of Dn::Common also provides this module.
 
 =head1 BUGS AND LIMITATIONS
 

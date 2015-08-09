@@ -49,9 +49,9 @@ Depends: ${misc:Depends}, ${perl:Depends},
  libtypes-path-tiny-perl,
  libui-dialog-perl,
  perl,
+ psmisc,
  sudo,
 Provides: 
- libsys-runalone-perl,
  libtime-simple-perl,
  libtext-pluralize-perl
 Description: common methods for use by perl scripts

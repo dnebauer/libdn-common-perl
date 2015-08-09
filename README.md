@@ -864,6 +864,33 @@ List with first element being the target value \(undef if not found\) and subseq
 my ($value, @list) = $cp->($key, @list);
 ```
 
+file\_used\_by\(\$file\)
+------------------------
+
+###Purpose
+
+Get ids of processes using a specified file.
+
+###Parameters
+
+####\$file
+
+File or filepath. Can be relative or absolute.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+List of pids.
+
+###Note
+
+Uses shell utility 'fuser'.
+
 files\_list\( \[\$directory\] \)
 --------------------------------
 
@@ -1397,6 +1424,29 @@ Nil.
 
 Scalar date string.
 
+kill\_process\(\$pid\)
+----------------------
+
+###Purpose
+
+Kill a specified process.
+
+###Parameters
+
+####\$pid
+
+Id of process to kill.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+List ($success, $error_message).
+
 listify\(@items\)
 -----------------
 
@@ -1787,6 +1837,29 @@ Nil.
 
 Scalar (absolute directory path).
 
+pid\_command\(\$pid\)
+---------------------
+
+###Purpose
+
+Get command for a specified process id.
+
+###Parameters
+
+####\$pid
+
+Process id for which to obtain command.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Scalar string (process command).
+
 pid\_running\(\$pid\)
 ---------------------
 
@@ -1838,6 +1911,52 @@ Nil.
 ###Returns
 
 Scalar string.
+
+process\_children\(\$pid\)
+--------------------------
+
+###Purpose
+
+Get child processes of a specified pid.
+
+###Parameters
+
+####\$pid
+
+PID to analyse.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+List of pids.
+
+process\_parent\(\$pid\)
+------------------------
+
+###Purpose
+
+Get parent process of a specified pid.
+
+###Parameters
+
+####\$pid
+
+PID to analyse.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Scalar integer (PID).
 
 process\_running\( \$cmd, \[\$match\_full\] \)
 ----------------------------------------------
@@ -2679,6 +2798,37 @@ Modified string.
 ```perl
 $cp->vim_printify( 't', 'This is a title' );
 ```
+
+yesno\(\$question, \[\$title\]\)
+--------------------------------
+
+###Purpose
+
+Ask yes/no question in gui dialog.
+
+Note that aborting the dialog (by pressing Escape) has the same effect as selecting 'No' -- returning false.
+
+###Parameters
+
+####\$question
+
+Question to be answered. Is displayed unaltered, i.e., include terminal question mark.
+
+Required.
+
+####\$title
+
+Dialog title.
+
+Optional. Default: script name.
+
+###Prints
+
+Nil.
+
+###Returns
+
+Scalar boolean.
 
 Dependencies
 ============
