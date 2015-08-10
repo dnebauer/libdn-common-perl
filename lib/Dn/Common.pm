@@ -84,11 +84,171 @@ use experimental 'switch';
 
 # ATTRIBUTES
 
-has '_script' => (
-    is            => 'ro',
+has '_configuration_files' => (
+    is  => 'rw',
+    isa => Types::Standard::ArrayRef [
+        Types::Standard::InstanceOf ['Config::Simple']
+    ],
+    lazy          => $TRUE,
+    default     => sub { [] },
+    handles_via => 'Array',
+    handles     => {
+        _config_files           => 'elements',
+        _add_config_file        => 'push',       # ($obj) -> void
+        _processed_config_files => 'count',      # () -> $boolean
+    },
+    documentation => q{Details from configuration files},
+);
+
+has '_icon_error_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    builder       => '_build_icon_error_path',
+    documentation => q{Error icon file path},
+);
+
+method _build_icon_error_path () {
+    return $self->_get_icon('error.xpm');
+}
+
+method _icon_error () {
+    if ( $self->_icon_error_path ) {
+        return $self->_icon_error_path->realpath()->canonpath();
+    }
+    return;
+}
+
+has '_icon_info_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    builder       => '_build_icon_info_path',
+    documentation => q{Information icon file path},
+);
+
+method _build_icon_info_path () {
+    return $self->_get_icon('info.xpm');
+}
+
+method _icon_info () {
+    if ( $self->_icon_info_path ) {
+        return $self->_icon_info_path->realpath()->canonpath();
+    }
+    return;
+}
+
+has '_icon_question_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    builder       => '_build_icon_question_path',
+    documentation => q{Question icon file path},
+);
+
+method _build_icon_question_path () {
+    return $self->_get_icon('question.xpm');
+}
+
+method _icon_question () {
+    if ( $self->_icon_question_path ) {
+        return $self->_icon_question_path->realpath()->canonpath();
+    }
+    return;
+}
+
+has '_icon_warn_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    builder       => '_build_icon_warn_path',
+    documentation => q{Warning icon file path},
+);
+
+method _build_icon_warn_path () {
+    return $self->_get_icon('warn.xpm');
+}
+
+method _icon_warn () {
+    if ( $self->_icon_warn_path ) {
+        return $self->_icon_warn_path->realpath()->canonpath();
+    }
+    return;
+}
+
+has 'notify_sys_icon_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    reader        => '_notify_sys_icon_path',
+    required      => $FALSE,
+    documentation => q{Default icon for method 'notify_sys'},
+);
+
+method _notify_sys_icon () {
+    if ( $self->_notify_sys_icon_path ) {
+        return $self->_notify_sys_icon_path->realpath()->canonpath();
+    }
+    return;
+}
+
+has 'notify_sys_title' => (
+    is            => 'rw',
     isa           => Types::Standard::Str,
-    default       => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
-    documentation => q{Basename of calling script},
+    lazy          => $TRUE,
+    reader        => '_notify_sys_title',
+    required      => $FALSE,
+    documentation => q{Default title for method 'notify_sys'},
+);
+
+has 'notify_sys_type' => (
+    is            => 'rw',
+    isa           => Dn::Common::Types::NotifySysType,
+    lazy          => $TRUE,
+    reader        => '_notify_sys_type',
+    required      => $FALSE,
+    documentation => q{Default type for method 'notify_sys'},
+);
+
+has '_processes' => (
+    is          => 'rw',
+    isa         => Types::Standard::HashRef [Types::Standard::Str],
+    lazy        => $TRUE,
+    default     => sub { {} },
+    handles_via => 'Hash',
+    handles     => {
+        _add_process         => 'set',           # ($pid, $cmd)->void
+        _command             => 'get',           # ($pid)->$cmd
+        _clear_processes     => 'clear',         # ()->void
+        _pids                => 'keys',          # ()->@pids
+        _commands            => 'values',        # ()->@commands
+        _processes_pair_list => 'kv',            # ()->([$pid,$cmd],...)
+        _has_processes       => 'count',         # ()->$boolean
+    },
+    documentation => q{Running processes},
+);
+
+has 'run_command_fatal' => (
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    lazy          => $TRUE,
+    reader        => '_run_command_fatal',
+    required      => $FALSE,
+    documentation => q{Default fatal setting for method 'run_command'},
+);
+
+has 'run_command_silent' => (
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    lazy          => $TRUE,
+    reader        => '_run_command_silent',
+    required      => $FALSE,
+    documentation => q{Default silent setting for method 'run_command'},
 );
 
 has '_screensaver' => (
@@ -117,15 +277,10 @@ method _build_screensaver () {
         ->get_object('/org/freedesktop/ScreenSaver');
 }
 
-has '_screensaver_cookie' => (
-    is            => 'rw',
-    isa           => Types::Standard::Int,
-    documentation => q{Cookie used to track suspend requests},
-);
-
 has '_screensaver_attempt_suspend' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
+    lazy          => $TRUE,
     builder       => '_build_screensaver_attempt_suspend',
     documentation => q{Whether to attempt to suspend KDE screensaver},
 );
@@ -134,154 +289,25 @@ method _build_screensaver_attempt_suspend () {
     return $self->kde_desktop();
 }
 
-has '_configuration_files' => (
-    is  => 'rw',
-    isa => Types::Standard::ArrayRef [
-        Types::Standard::InstanceOf ['Config::Simple']
-    ],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _config_files           => 'elements',
-        _add_config_file        => 'push',       # ($obj) -> void
-        _processed_config_files => 'count',      # () -> $boolean
-    },
-    documentation => q{Details from configuration files},
-);
-
-has '_processes' => (
-    is          => 'rw',
-    isa         => Types::Standard::HashRef [Types::Standard::Str],
-    lazy        => $TRUE,
-    default     => sub { {} },
-    handles_via => 'Hash',
-    handles     => {
-        _add_process         => 'set',           # ($pid, $cmd)->void
-        _command             => 'get',           # ($pid)->$cmd
-        _clear_processes     => 'clear',         # ()->void
-        _pids                => 'keys',          # ()->@pids
-        _commands            => 'values',        # ()->@commands
-        _processes_pair_list => 'kv',            # ()->([$pid,$cmd],...)
-        _has_processes       => 'count',         # ()->$boolean
-    },
-    documentation => q{Running processes},
-);
-
-has '_icon_error_path' => (
+has '_screensaver_cookie' => (
     is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
+    isa           => Types::Standard::Int,
     lazy          => $TRUE,
-    builder       => '_build_icon_error_path',
-    documentation => q{Error icon file path},
+    documentation => q{Cookie used to track suspend requests},
 );
 
-method _build_icon_error_path () {
-    return $self->_get_icon('error.xpm');
-}
-
-method _icon_error () {
-    if ( $self->_icon_error_path ) {
-        return $self->_icon_error_path->realpath()->canonpath();
-    }
-    return;
-}
-
-has '_icon_warn_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_warn_path',
-    documentation => q{Warning icon file path},
-);
-
-method _build_icon_warn_path () {
-    return $self->_get_icon('warn.xpm');
-}
-
-method _icon_warn () {
-    if ( $self->_icon_warn_path ) {
-        return $self->_icon_warn_path->realpath()->canonpath();
-    }
-    return;
-}
-
-has '_icon_question_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_question_path',
-    documentation => q{Question icon file path},
-);
-
-method _build_icon_question_path () {
-    return $self->_get_icon('question.xpm');
-}
-
-method _icon_question () {
-    if ( $self->_icon_question_path ) {
-        return $self->_icon_question_path->realpath()->canonpath();
-    }
-    return;
-}
-
-has '_icon_info_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_info_path',
-    documentation => q{Information icon file path},
-);
-
-method _build_icon_info_path () {
-    return $self->_get_icon('info.xpm');
-}
-
-method _icon_info () {
-    if ( $self->_icon_info_path ) {
-        return $self->_icon_info_path->realpath()->canonpath();
-    }
-    return;
-}
-
-has 'notify_sys_type' => (
-    is            => 'rw',
-    isa           => Dn::Common::Types::NotifySysType,
-    reader        => '_notify_sys_type',
-    required      => $FALSE,
-    documentation => q{Default type for method 'notify_sys'},
-);
-
-has 'notify_sys_title' => (
-    is            => 'rw',
+has '_script' => (
+    is            => 'ro',
     isa           => Types::Standard::Str,
-    reader        => '_notify_sys_title',
-    required      => $FALSE,
-    documentation => q{Default title for method 'notify_sys'},
+    lazy          => $TRUE,
+    default       => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
+    documentation => q{Basename of calling script},
 );
-
-has 'notify_sys_icon_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    reader        => '_notify_sys_icon_path',
-    required      => $FALSE,
-    documentation => q{Default icon for method 'notify_sys'},
-);
-
-method _notify_sys_icon () {
-    if ( $self->_notify_sys_icon_path ) {
-        return $self->_notify_sys_icon_path->realpath()->canonpath();
-    }
-    return;
-}
 
 has '_urls' => (
     is            => 'rw',
     isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+    lazy          => $TRUE,
     builder       => '_build_urls',
     handles_via   => 'Array',
     handles       => { _ping_urls => 'elements', },
@@ -291,22 +317,6 @@ has '_urls' => (
 method _build_urls () {
     return [ 'www.debian.org', 'www.uq.edu.au' ];
 }
-
-has 'run_command_fatal' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    reader        => '_run_command_fatal',
-    required      => $FALSE,
-    documentation => q{Default fatal setting for method 'run_command'},
-);
-
-has 'run_command_silent' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    reader        => '_run_command_silent',
-    required      => $FALSE,
-    documentation => q{Default silent setting for method 'run_command'},
-);
 
 =begin comment
 
