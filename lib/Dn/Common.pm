@@ -16,16 +16,16 @@ use version; our $VERSION = qv('1.0.5');
 #   will be resent through to the script again."
 use Test::NeedsDisplay;
 
-use MooX::HandlesVia;
 use autodie qw(open close);
 use Carp qw(cluck confess);
 use Data::Dumper::Simple;
+use Dn::Common::Types qw(NotifySysType);
 use English qw(-no_match_vars);
 use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PWD);
 use Function::Parameters;
+use MooX::HandlesVia;
 use Readonly;
 use Type::Utils qw(declare);   # as|where|message apparently already declared!
-use Dn::Common::Types qw(NotifySysType);
 use Types::Path::Tiny qw(AbsFile);
 use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
 
