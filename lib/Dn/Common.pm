@@ -89,7 +89,7 @@ has '_configuration_files' => (
     isa => Types::Standard::ArrayRef [
         Types::Standard::InstanceOf ['Config::Simple']
     ],
-    lazy          => $TRUE,
+    lazy        => $TRUE,
     default     => sub { [] },
     handles_via => 'Array',
     handles     => {
@@ -222,13 +222,13 @@ has '_processes' => (
     default     => sub { {} },
     handles_via => 'Hash',
     handles     => {
-        _add_process         => 'set',           # ($pid, $cmd)->void
-        _command             => 'get',           # ($pid)->$cmd
-        _clear_processes     => 'clear',         # ()->void
-        _pids                => 'keys',          # ()->@pids
-        _commands            => 'values',        # ()->@commands
-        _processes_pair_list => 'kv',            # ()->([$pid,$cmd],...)
-        _has_processes       => 'count',         # ()->$boolean
+        _add_process         => 'set',       # ($pid, $cmd)->void
+        _command             => 'get',       # ($pid)->$cmd
+        _clear_processes     => 'clear',     # ()->void
+        _pids                => 'keys',      # ()->@pids
+        _commands            => 'values',    # ()->@commands
+        _processes_pair_list => 'kv',        # ()->([$pid,$cmd],...)
+        _has_processes       => 'count',     # ()->$boolean
     },
     documentation => q{Running processes},
 );
