@@ -1401,6 +1401,25 @@ Nil.
 
 Scalar string directory path. (Dies on error.
 
+kde\_desktop\(\)
+----------------
+
+###Purpose
+
+Determine whether the KDE desktop is running.
+
+###Parameters
+
+Nil
+
+###Prints
+
+Nil.
+
+###Returns
+
+Boolean scalar.
+
 konsolekalendar\_date\_format\( \[\$date\] \)
 ---------------------------------------------
 

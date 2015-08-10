@@ -21,7 +21,7 @@ use autodie qw(open close);
 use Carp qw(cluck confess);
 use Data::Dumper::Simple;
 use English qw(-no_match_vars);
-use Env qw(CLUI_DIR HOME PWD);
+use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PWD);
 use Function::Parameters;
 use Readonly;
 use Type::Utils qw(declare);   # as|where|message apparently already declared!
@@ -91,17 +91,6 @@ has '_script' => (
     documentation => q{Basename of calling script},
 );
 
-has 'kde_running' => (
-    is      => 'ro',
-    isa     => Types::Standard::Bool,
-    default => sub {
-        ( Desktop::Detect->detect_desktop()->{desktop} eq 'kde-plasma' )
-            ? $TRUE
-            : $FALSE;
-    },
-    documentation => q{Whether KDE is running},
-);
-
 has '_screensaver' => (
     is            => 'rw',
     isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
@@ -135,15 +124,15 @@ has '_screensaver_cookie' => (
 );
 
 has '_screensaver_attempt_suspend' => (
-    is      => 'rw',
-    isa     => Types::Standard::Bool,
-    default => sub {
-        ( Desktop::Detect->detect_desktop()->{desktop} eq 'kde-plasma' )
-            ? $TRUE
-            : $FALSE;
-    },
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    builder       => '_build_screensaver_attempt_suspend',
     documentation => q{Whether to attempt to suspend KDE screensaver},
 );
+
+method _build_screensaver_attempt_suspend () {
+    return $self->kde_desktop();
+}
 
 has '_configuration_files' => (
     is  => 'rw',
@@ -1454,6 +1443,26 @@ method join_dir ($dir) {
     my @dir_parts = @{$dir};
     if ( not @dir_parts ) { return; }
     return File::Spec->catdir(@dir_parts);
+}
+
+# kde_desktop()
+#
+# does:   determine whether running KDE
+# params: nil
+# prints: nil
+# return: scalar boolean
+# uses:   Desktop::Detect
+method kde_desktop () {
+
+    # try Desktop::Detect module (currently does not work on kde5)
+    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
+    if ( $desktop eq 'kde-plasma' ) { return $TRUE; }
+
+    # directly inspect $DESKTOP_SESSION (for kde5)
+    if ( $DESKTOP_SESSION eq 'plasma' ) { return $TRUE; }
+
+    # if those tests failed, then presumably not kde
+    return;
 }
 
 # konsolekalendar_date_format($date)
@@ -4530,6 +4539,24 @@ Nil.
 =head3 Returns
 
 Scalar string directory path. (Dies on error.
+
+=head2 kde_desktop( )
+
+=head3 Purpose
+
+Determine whether the KDE desktop is running.
+
+=head3 Parameters
+
+Nil
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
 
 =head2 konsolekalendar_date_format([$date])
 
