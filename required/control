@@ -10,6 +10,7 @@ Homepage: https://metacpan.org/release/Dn-Common
 Package: libdn-common-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
+ android-tools-adb | dn-fb-adb,
  autoconf,
  libautodie-perl,
  libconfig-simple-perl,

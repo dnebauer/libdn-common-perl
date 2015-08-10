@@ -16,6 +16,7 @@ use version; our $VERSION = qv('1.0.5');
 #   will be resent through to the script again."
 use Test::NeedsDisplay;
 
+use namespace::clean;
 use autodie qw(open close);
 use Carp qw(cluck confess);
 use Data::Dumper::Simple;
@@ -77,7 +78,6 @@ use Text::Pluralize;
 use Text::Wrap;
 use Time::HiRes qw(usleep);
 use Time::Simple;
-use Time::Zone;
 use UI::Dialog;
 
 use experimental 'switch';
@@ -6138,6 +6138,8 @@ Scalar boolean.
 
 =head1 DEPENDENCIES
 
+=head2 Perl modules
+
 =over
 
 =item autodie
@@ -6166,11 +6168,15 @@ Scalar boolean.
 
 =item Desktop::Detect
 
+=item Dn::Common::Types
+
 =item Email::Valid
 
 =item English
 
 =item Env
+
+=item experimental
 
 =item File::Basename
 
@@ -6210,7 +6216,7 @@ Scalar boolean.
 
 =item Logger::Syslog
 
-=item namespace::autoclean
+=item namespace::clean
 
 =item Moo
 
@@ -6218,15 +6224,17 @@ Scalar boolean.
 
 =item Net::DBus
 
-=item Proc::ProcessTable
-
 =item Net::Ping::External
+
+=item Proc::ProcessTable
 
 =item Readonly
 
 =item Scalar::Util
 
 =item Storable
+
+=item strictures
 
 =item Term::ANSIColor
 
@@ -6244,7 +6252,33 @@ Scalar boolean.
 
 =item Time::Simple
 
+=item Type::Utils
+
+=item Types::Path::Tiny
+
+=item Types::Standard
+
 =item UI::Dialog
+
+=item version
+
+=back
+
+=head2 Utilities
+
+=over
+
+=item adb | fb-adb
+
+=item autoconf
+
+=item echo
+
+=item fuser
+
+=item su
+
+=item sudo
 
 =back
 

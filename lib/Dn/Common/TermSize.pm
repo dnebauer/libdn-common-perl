@@ -82,6 +82,8 @@ Designed to be run in a terminal. Not sure what would happen if run outside a te
 
 =head1 DEPENDENCIES
 
+=over
+
 =item Curses
 
 =item Function::Parameters
@@ -97,6 +99,8 @@ Designed to be run in a terminal. Not sure what would happen if run outside a te
 =item Types::Standard
 
 =item version
+
+=back
 
 =head1 BUGS AND LIMITATIONS
 
