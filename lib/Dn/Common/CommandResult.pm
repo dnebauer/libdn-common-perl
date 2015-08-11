@@ -88,7 +88,7 @@ Captures results of running a command with the C<Dn::Command> method C<capture_c
 
 =head1 METHODS
 
-=head2 success
+=head2 succeed
 
 Whether command succeeded. Scalar boolean.
 

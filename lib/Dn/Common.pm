@@ -526,6 +526,12 @@ method capture_command_output ($cmd) {
         = IPC::Cmd::run( command => $cmd );
 
     # return output
+    if ( defined $err ) { 
+        chomp $err;
+    }
+    else {
+        $err = q{};    # prevent undef which fails type constraint
+    }
     my @full = @{$full_ref};
     chomp @full;
     my @stdout = @{$stdout_ref};
@@ -533,7 +539,7 @@ method capture_command_output ($cmd) {
     my @stderr = @{$stderr_ref};
     chomp @stderr;
     return Dn::Common::CommandResult->new(
-        success      => $succeed,
+        succeed      => $succeed,
         error        => $err,
         full_output  => [@full],
         standard_out => [@stdout],
