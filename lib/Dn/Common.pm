@@ -45,6 +45,7 @@ use DateTime;
 use DateTime::Format::Mail;
 use DateTime::TimeZone;
 use Desktop::Detect qw(detect_desktop);
+use Dn::Common::CommandResult;
 use Dn::Common::TermSize;
 use Email::Valid;
 use File::Basename;
@@ -376,9 +377,9 @@ method abort (@messages) {
 method autoconf_version () {
     my $cmd = [ 'autoconf', '--version', ];
     my $cmd_str = join q{ }, @{$cmd};
-    my ( $succeed, @output ) = $self->capture_command_output($cmd);
-    if ( not $succeed ) { confess "Command '$cmd_str' failed"; }
-    my $version_line = $output[0];
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->succeed ) { confess "Command '$cmd_str' failed"; }
+    my $version_line = ( $result->stdout )[0];
     my @version_line_elements = split /\s+/xsm, $version_line;
     foreach my $element (@version_line_elements) {
         if ( $element =~ /^ \d+ [ [.]\d+ ]?/xsm ) {
@@ -416,10 +417,10 @@ method adb_devices () {
 
     # get and parse adb devices report
     # - ignore failed command and parse output anyway
-    my @cmd = ( $adb, 'devices' );
-    my ( $succeed, @output ) = $self->capture_command_output( [@cmd] );
+    my $cmd = [ $adb, 'devices' ];
+    my $result = $self->capture_command_output($cmd);
     my @devices;
-    for my $line (@output) {
+    for my $line ( $result->stdout ) {
         my @elements = split /\s+/xsm, $line;
         if ( scalar @elements == 2 ) {
             my $device = $elements[0];
@@ -502,43 +503,42 @@ method browse ($title, $text) {
 # capture_command_output($cmd)
 #
 # does:   run system command and capture output
-# params: $cmd    - command to run
-#                   [array reference, required]
-# return: list -  boolean success,
-#                 list of stdout (success) or full output (failure)
+# params: $cmd - command to run
+#                [string or array reference, required]
+# return: hash reference { succeed => $bool, error => $bool, full => @list,
+#                          stdout => @list, stderr => @list, }
 # uses:   IPC::Cmd
 method capture_command_output ($cmd) {
 
-    # process arguments
-    # - $cmd
+    # process arg
     if ( not( defined $cmd ) ) { confess 'No command provided'; }
     my $arg_type = ref $cmd;
-    if ( $arg_type ne 'ARRAY' ) { confess 'Command is not array reference'; }
-    my @cmd_args = @{$cmd};
-    if ( not @cmd_args ) { confess 'No command arguments provided'; }
+    if ( $arg_type eq 'ARRAY' ) {
+        my @cmd_args = @{$cmd};
+        if ( not @cmd_args ) { confess 'No command arguments provided'; }
+    }
+    elsif ( $arg_type ne q{} ) {       # if not array ref must be string
+        confess 'Command is not a string or array reference';
+    }
 
     # run command
-    my ( $succeed, $err, $full, $stdout, $stderr )
+    my ( $succeed, $err, $full_ref, $stdout_ref, $stderr_ref )
         = IPC::Cmd::run( command => $cmd );
 
     # return output
-    # - IPC::Cmd can return all output as single multiline element of
-    #   an array reference, so extract array reference to list and
-    #   then split each element of that list on newlines
-    my @ipc_cmd_output;
-    if ($succeed) {
-        @ipc_cmd_output = @{$stdout};
-    }
-    else {
-        @ipc_cmd_output = @{$full};
-    }
-    chomp @ipc_cmd_output;
-    my @output;
-    foreach my $item (@ipc_cmd_output) {
-        my @lines = split /\n/xsm, $item;
-        push @output, @lines;
-    }
-    return ( $succeed, @output );
+    my @full = @{$full_ref};
+    chomp @full;
+    my @stdout = @{$stdout_ref};
+    chomp @stdout;
+    my @stderr = @{$stderr_ref};
+    chomp @stderr;
+    return Dn::Common::CommandResult->new(
+        success      => $succeed,
+        error        => $err,
+        full_output  => [@full],
+        standard_out => [@stdout],
+        standard_err => [@stderr],
+    );
 }
 
 # changelog_from_git($dir)
@@ -562,18 +562,17 @@ method changelog_from_git ($dir) {
     $File::chdir::CWD = $repo_root;
 
     # obtain git log output
-    my @cmd = qw(git log --date-order --date=short);
-    my ( $succeed, @git_output ) = $self->capture_command_output( [@cmd] );
-    if ( not $succeed ) {
+    my $cmd = [ 'git', 'log', '--date-order', '--date=short' ];
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->succeed ) {
         cluck "Unable to get git log in '$dir'";
         return;
     }
-    chomp @git_output;
 
     # output contains multiple lines per list item
     # - don't know why
     my @output;
-    foreach my $chunk (@git_output) {
+    foreach my $chunk ( $result->stdout ) {
         my @lines = split /\n/xsm, $chunk;
         push @output, @lines;
     }
@@ -1188,15 +1187,15 @@ method file_used_by ($file) {
 
     # okay, let's investigate who is locking
     my $cmd = [ $fuser, $file ];
-    my ( $success, @lines ) = $self->capture_command_output($cmd);
-    if ( not $success ) {
-        foreach my $line (@lines) {
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->succeed ) {
+        foreach my $line ( $result->full ) {
             warn "$line\n";
         }
         my $cmd_string = join q{ }, @{$cmd};
         confess "Command '$cmd' failed unexpectedly";
     }
-    my $output = join q{ }, @lines;
+    my $output = join q{ }, $result->stdout;
     $output = $self->trim($output);
     my @pids = split /\s+/xsm, $output;
 
