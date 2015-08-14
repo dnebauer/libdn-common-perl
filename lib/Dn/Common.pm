@@ -1,6 +1,6 @@
 package Dn::Common;
 
-use 5.014_002;
+use 5.014_002;    #                                                    {{{1
 use Moo;
 use strictures 2;
 use version; our $VERSION = qv('1.0.5');
@@ -81,10 +81,69 @@ use Time::HiRes qw(usleep);
 use Time::Simple;
 use UI::Dialog;
 
-use experimental 'switch';
+use experimental 'switch';    #                                        }}}1
 
-# ATTRIBUTES
+# Attributes
 
+# has notify_sys_icon_path                                             {{{1
+has 'notify_sys_icon_path' => (
+    is            => 'rw',
+    isa           => Types::Path::Tiny::AbsFile,
+    coerce        => $TRUE,
+    lazy          => $TRUE,
+    reader        => '_notify_sys_icon_path',
+    required      => $FALSE,
+    documentation => q{Default icon for method 'notify_sys'},
+);
+
+method _notify_sys_icon () {
+    if ( $self->_notify_sys_icon_path ) {
+        return $self->_notify_sys_icon_path->realpath()->canonpath();
+    }
+    return;
+}
+
+# has notify_sys_title                                                 {{{1
+has 'notify_sys_title' => (
+    is            => 'rw',
+    isa           => Types::Standard::Str,
+    lazy          => $TRUE,
+    reader        => '_notify_sys_title',
+    required      => $FALSE,
+    documentation => q{Default title for method 'notify_sys'},
+);
+
+# has notify_sys_type                                                  {{{1
+has 'notify_sys_type' => (
+    is            => 'rw',
+    isa           => Dn::Common::Types::NotifySysType,
+    lazy          => $TRUE,
+    reader        => '_notify_sys_type',
+    required      => $FALSE,
+    documentation => q{Default type for method 'notify_sys'},
+);
+
+# has run_command_fatal                                                {{{1
+has 'run_command_fatal' => (
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    lazy          => $TRUE,
+    reader        => '_run_command_fatal',
+    required      => $FALSE,
+    documentation => q{Default fatal setting for method 'run_command'},
+);
+
+# has run_command_silent                                               {{{1
+has 'run_command_silent' => (
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    lazy          => $TRUE,
+    reader        => '_run_command_silent',
+    required      => $FALSE,
+    documentation => q{Default silent setting for method 'run_command'},
+);
+
+# has _configuration_files                                             {{{1
 has '_configuration_files' => (
     is  => 'rw',
     isa => Types::Standard::ArrayRef [
@@ -101,6 +160,7 @@ has '_configuration_files' => (
     documentation => q{Details from configuration files},
 );
 
+# has _icon_error_path                                                 {{{1
 has '_icon_error_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -121,6 +181,7 @@ method _icon_error () {
     return;
 }
 
+# has _icon_info_path                                                  {{{1
 has '_icon_info_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -141,6 +202,7 @@ method _icon_info () {
     return;
 }
 
+# has _icon_question_path                                              {{{1
 has '_icon_question_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -161,6 +223,7 @@ method _icon_question () {
     return;
 }
 
+# has _icon_warn_path                                                  {{{1
 has '_icon_warn_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -181,41 +244,7 @@ method _icon_warn () {
     return;
 }
 
-has 'notify_sys_icon_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_icon_path',
-    required      => $FALSE,
-    documentation => q{Default icon for method 'notify_sys'},
-);
-
-method _notify_sys_icon () {
-    if ( $self->_notify_sys_icon_path ) {
-        return $self->_notify_sys_icon_path->realpath()->canonpath();
-    }
-    return;
-}
-
-has 'notify_sys_title' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_title',
-    required      => $FALSE,
-    documentation => q{Default title for method 'notify_sys'},
-);
-
-has 'notify_sys_type' => (
-    is            => 'rw',
-    isa           => Dn::Common::Types::NotifySysType,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_type',
-    required      => $FALSE,
-    documentation => q{Default type for method 'notify_sys'},
-);
-
+# has _processes                                                       {{{1
 has '_processes' => (
     is          => 'rw',
     isa         => Types::Standard::HashRef [Types::Standard::Str],
@@ -234,24 +263,7 @@ has '_processes' => (
     documentation => q{Running processes},
 );
 
-has 'run_command_fatal' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    lazy          => $TRUE,
-    reader        => '_run_command_fatal',
-    required      => $FALSE,
-    documentation => q{Default fatal setting for method 'run_command'},
-);
-
-has 'run_command_silent' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    lazy          => $TRUE,
-    reader        => '_run_command_silent',
-    required      => $FALSE,
-    documentation => q{Default silent setting for method 'run_command'},
-);
-
+# has _screensaver                                                     {{{1
 has '_screensaver' => (
     is            => 'rw',
     isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
@@ -278,6 +290,7 @@ method _build_screensaver () {
         ->get_object('/org/freedesktop/ScreenSaver');
 }
 
+# has _screensaver_attempt_suspend                                     {{{1
 has '_screensaver_attempt_suspend' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
@@ -290,6 +303,7 @@ method _build_screensaver_attempt_suspend () {
     return $self->kde_desktop();
 }
 
+# has _screensaver_cookie                                              {{{1
 has '_screensaver_cookie' => (
     is            => 'rw',
     isa           => Types::Standard::Int,
@@ -297,6 +311,7 @@ has '_screensaver_cookie' => (
     documentation => q{Cookie used to track suspend requests},
 );
 
+# has _script                                                          {{{1
 has '_script' => (
     is            => 'ro',
     isa           => Types::Standard::Str,
@@ -305,6 +320,7 @@ has '_script' => (
     documentation => q{Basename of calling script},
 );
 
+# has _urls                                                            {{{1
 has '_urls' => (
     is            => 'rw',
     isa           => Types::Standard::ArrayRef [Types::Standard::Str],
@@ -317,8 +333,11 @@ has '_urls' => (
 
 method _build_urls () {
     return [ 'www.debian.org', 'www.uq.edu.au' ];
-}
+}    #                                                                 }}}1
 
+# Methods
+
+# Style notes                                                          {{{1
 =begin comment
 
 STYLE NOTES
@@ -339,10 +358,9 @@ eval
 =end comment
 
 =cut
+#                                                                      }}}1
 
-# METHODS
-
-# abort(@messages, [$prepend])
+# abort(@messages, [$prepend])                                         {{{1
 #
 # does:   abort script with error message
 # params: @messages - message lines [required]
@@ -368,28 +386,7 @@ method abort (@messages) {
     die "${prefix}Aborting\n";
 }
 
-# autoconf_version()
-#
-# does:   gets autoconf version
-# params: nil
-# prints: nil, except error on failure
-# return: scalar version number, die on failure
-method autoconf_version () {
-    my $cmd = [ 'autoconf', '--version', ];
-    my $cmd_str = join q{ }, @{$cmd};
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) { confess "Command '$cmd_str' failed"; }
-    my $version_line = ( $result->stdout )[0];
-    my @version_line_elements = split /\s+/xsm, $version_line;
-    foreach my $element (@version_line_elements) {
-        if ( $element =~ /^ \d+ [ [.]\d+ ]?/xsm ) {
-            return $element;
-        }
-    }
-    confess "Did not find version number in '$version_line'";
-}
-
-# adb_devices()
+# adb_devices()                                                        {{{1
 #
 # does:   gets all attached adb devices
 # params: nil
@@ -433,7 +430,28 @@ method adb_devices () {
     return @devices;
 }
 
-# backup_file($file)
+# autoconf_version()                                                   {{{1
+#
+# does:   gets autoconf version
+# params: nil
+# prints: nil, except error on failure
+# return: scalar version number, die on failure
+method autoconf_version () {
+    my $cmd = [ 'autoconf', '--version', ];
+    my $cmd_str = join q{ }, @{$cmd};
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->success ) { confess "Command '$cmd_str' failed"; }
+    my $version_line = ( $result->stdout )[0];
+    my @version_line_elements = split /\s+/xsm, $version_line;
+    foreach my $element (@version_line_elements) {
+        if ( $element =~ /^ \d+ [ [.]\d+ ]?/xsm ) {
+            return $element;
+        }
+    }
+    confess "Did not find version number in '$version_line'";
+}
+
+# backup_file($file)                                                   {{{1
 #
 # does:   backs up file by renaming it to a unique file name
 # params: $file - file to back up [required]
@@ -460,7 +478,7 @@ method backup_file ($file) {
     say "Existing file '$file' renamed to '$backup'";
 }
 
-# boolise($value)
+# boolise($value)                                                      {{{1
 #
 # does:   convert value to boolean
 # detail: convert 'yes', 'true' and 'on' to 1
@@ -478,7 +496,7 @@ method boolise ($value) {
     }
 }
 
-# browse($title, $text)
+# browse($title, $text)                                                {{{1
 #
 # does:   displays a large volume of text in default editor
 # params: $title - title applied to editor temporary file
@@ -500,7 +518,7 @@ method browse ($title, $text) {
     Term::Clui::edit( $title, $text );
 }
 
-# capture_command_output($cmd)
+# capture_command_output($cmd)                                         {{{1
 #
 # does:   run system command and capture output
 # params: $cmd - command to run
@@ -566,7 +584,7 @@ method capture_command_output ($cmd) {
     );
 }
 
-# changelog_from_git($dir)
+# changelog_from_git($dir)                                             {{{1
 #
 # does:   get ChangLog content from git repository
 # params: $dir = root file of repository [required]
@@ -648,7 +666,7 @@ method changelog_from_git ($dir) {
     return @log;
 }
 
-# clear_screen()
+# clear_screen()                                                       {{{1
 #
 # does:   clear the terminal screen
 # params: nil
@@ -659,7 +677,7 @@ method clear_screen () {
     system 'clear';
 }
 
-# config_param($param)
+# config_param($param)                                                 {{{1
 #
 # does:   get parameter value
 # params: $param - configuration parameter name
@@ -692,7 +710,7 @@ method config_param ($param) {
     return @values;
 }
 
-# cwd()
+# cwd()                                                                {{{1
 #
 # does:   get current directory
 # params: nil
@@ -703,7 +721,7 @@ method cwd () {
     return Cwd::getcwd();
 }
 
-# date_email ([$date], [$time], [$offset])
+# date_email ([$date], [$time], [$offset])                             {{{1
 #
 # does:   produce a date formatted according to RFC 2822
 #         (Internet Message Format)
@@ -770,7 +788,7 @@ method date_email (:$date, :$time, :$offset) {
     return $email_date;
 }
 
-# day_of_week([$date])
+# day_of_week([$date])                                                 {{{1
 #
 # does:   day of week the supplied date falls on
 # params: $date - date in ISO format [optional, default=today]
@@ -796,7 +814,7 @@ method day_of_week ($date) {
     return $day;
 }
 
-# debian_install_deb($deb)
+# debian_install_deb($deb)                                             {{{1
 #
 # does:   installs debian package from a deb file
 # params: $deb - deb package file [required]
@@ -887,7 +905,7 @@ method debian_install_deb ($deb) {
     return $success;
 }
 
-# debless($object)
+# debless($object)                                                     {{{1
 #
 # does:   get underlying data structure of object/blessed reference
 # params: $object - blessed reference to extract data from [required]
@@ -911,7 +929,7 @@ method debless ($object) {
 
 }
 
-# deentitise($string)
+# deentitise($string)                                                  {{{1
 #
 # does:   convert HTML entities to reserved characters
 # params: $string - string to analyse [required]
@@ -922,23 +940,23 @@ method deentitise ($string = q//) {
     return HTML::Entities::decode_entities($string);
 }
 
-# denumber_list(@list)
+# denumber_list(@list)                                                 {{{1
 #
 # does:   remove number prefixes added by method 'number_list'
 # params: @items - list to modify [required]
 # prints: nil
 # return: list
 # note:   map operation extracted to method as per Perl Best Practice
+method denumber_list (@items) {
+    map { $self->_remove_numeric_prefix($_) } @items;
+}
+
 method _remove_numeric_prefix ($item) {
     $item =~ s/^\s*\d+[.]\s+//xsm;
     $item;
 }
 
-method denumber_list (@items) {
-    map { $self->_remove_numeric_prefix($_) } @items;
-}
-
-# dir_add_dir($dir, @subdirs)
+# dir_add_dir($dir, @subdirs)                                          {{{1
 #
 # does:   add subdirectories to directory path
 # params: $dir     - directory path to add to [required]
@@ -959,7 +977,7 @@ method dir_add_dir ($dir, @subdirs) {
     return $self->join_dir( [@path] );
 }
 
-# dir_add_file($dir, $file)
+# dir_add_file($dir, $file)                                            {{{1
 #
 # does:   add file name to directory path
 # params: $dir    - directory path to add to [required]
@@ -973,7 +991,7 @@ method dir_add_file ($dir, $file) {
     return $self->join_dir( [@path] );
 }
 
-# dirs_list($directory)
+# dirs_list($directory)                                                {{{1
 #
 # does:   list subdirectories in directory
 # params: $directory - directory path [optional, default=cwd]
@@ -995,7 +1013,7 @@ method dirs_list ($dir) {
     return @dirs;
 }
 
-# display($string)
+# display($string)                                                     {{{1
 #
 # does:   displays screen text with word wrapping
 # params: $string - text to display [required]
@@ -1007,7 +1025,7 @@ method display ($string) {
     say Text::Wrap::wrap( q{}, q{}, $string );
 }
 
-# do_copy($src, $dest)
+# do_copy($src, $dest)                                                 {{{1
 #
 # does:   copy source file or directory to target file or directory
 # params: $src  - source file or directory [required]
@@ -1049,7 +1067,7 @@ method do_copy ($src, $dest) {
     return File::Copy::Recursive::rcopy( $source, $destination );
 }
 
-# do_rmdir($dir)
+# do_rmdir($dir)                                                       {{{1
 #
 # does:   remove directory recursively (like 'rm -fr')
 # params: $dir - directory to remove [required]
@@ -1062,7 +1080,7 @@ method do_rmdir ($dir) {
     return File::Path::remove_tree($dir);
 }
 
-# echo_e($string)
+# echo_e($string)                                                      {{{1
 #
 # does:   use shell command 'echo -e'
 # params: $text - text to print [required]
@@ -1076,7 +1094,7 @@ method echo_e ($text) {
     system @cmd;
 }
 
-# echo_en($string)
+# echo_en($string)                                                     {{{1
 #
 # does:   use shell command 'echo -en'
 # params: $text - text to print [required]
@@ -1091,7 +1109,7 @@ method echo_en ($text) {
     system @cmd;
 }
 
-# ensure_no_trailing_slash($dir)
+# ensure_no_trailing_slash($dir)                                       {{{1
 #
 # does:   removes trailing slash from directory path
 # params: $dir - directory path to analyse [required]
@@ -1105,7 +1123,7 @@ method ensure_no_trailing_slash ($dir) {
     return $dir;
 }
 
-# ensure_trailing_slash($dir)
+# ensure_trailing_slash($dir)                                          {{{1
 #
 # does:   ensures directory has trailing slash
 # params: $dir - directory path to analyse [required]
@@ -1120,7 +1138,7 @@ method ensure_trailing_slash ($dir) {
     return $dir;
 }
 
-# entitise($string)
+# entitise($string)                                                    {{{1
 #
 # does:   convert reserved characters to HTML entities
 # params: $string - string to analyse [required]
@@ -1131,7 +1149,7 @@ method entitise ($string = q//) {
     return HTML::Entities::encode_entities($string);
 }
 
-# executable_path($exe)
+# executable_path($exe)                                                {{{1
 #
 # does:   find path to executable
 # params: $exe - short name of executable [requiered]
@@ -1144,7 +1162,7 @@ method executable_path ($exe) {
     scalar File::Which::which($exe);
 }
 
-# extract_key_value($key, @items)
+# extract_key_value($key, @items)                                      {{{1
 #
 # does:   extract key value from list
 #         assumes key and value are pair of elements in list
@@ -1171,7 +1189,7 @@ method extract_key_value ($key, @items) {
     return ( $value, @remainder );
 }
 
-# file_used_by($file)
+# file_used_by($file)                                                  {{{1
 #
 # does:   get processes using file
 # params: $file - file/filepath, relative or absolute [required]
@@ -1207,7 +1225,7 @@ method file_used_by ($file) {
     return @pids;
 }
 
-# files_list([$dir_path])
+# files_list([$dir_path])                                              {{{1
 #
 # does:   list files in directory
 # params: $directory - directory path [optional, default=cwd]
@@ -1226,7 +1244,7 @@ method files_list ($dir) {
     return @files;
 }
 
-# find_files_in_dir($dir, $pattern)
+# find_files_in_dir($dir, $pattern)                                    {{{1
 #
 # does:   finds file in directory matching pattern
 # params: $dir     - directory to search
@@ -1249,7 +1267,7 @@ method find_files_in_dir ( $dir, $pattern ) {
     return File::Find::Rule->file->maxdepth(1)->name($pattern)->in($dir_path);
 }
 
-# future_date($date)
+# future_date($date)                                                   {{{1
 #
 # does:   determine whether supplied date occurs in the future,
 #         i.e, today or after today
@@ -1276,7 +1294,7 @@ method future_date ($date) {
 # return: scalar filename
 # uses:   File::Basename
 # note:   returns last element in path, which may be dir in dirpath
-# get_filename($filepath)
+# get_filename($filepath)                                              {{{1
 #
 # does:   get filename from filepath.
 # params: $filepath - file path [required]
@@ -1289,7 +1307,7 @@ method get_filename ($filepath) {
     return File::Basename::fileparse($filepath);
 }
 
-# get_path($filepath)
+# get_path($filepath)                                                  {{{1
 #
 # does:   get path from filepath.
 # params: $filepath - file path [required]
@@ -1305,224 +1323,7 @@ method get_path ($filepath) {
     return $path;
 }
 
-# internet_connection([$verbose])
-#
-# does:   determine whether an internet connection can be found
-# params: $verbose - whether to provide feedback [optional, default=false]
-# prints: feedback if requested
-# return: boolean
-# uses:   Net::Ping::External
-method internet_connection ($verbose = $FALSE) {
-    my $connected;
-    my @urls         = $self->_ping_urls;
-    my $max_attempts = scalar @urls;
-    my $timeout      = 1;                        # seconds
-    if ($verbose) {
-        say "Checking internet connection (maximum $max_attempts attempts):";
-    }
-    while ( my ( $index, $url ) = each @urls ) {
-        my $attempt_number = $index + 1;
-        if ($verbose) { print "  Attempt $attempt_number... "; }
-        if (Net::Ping::External::ping(
-                hostname => $url,
-                timeout  => $timeout,            # appears to be ignored
-            )
-            )
-        {
-            $connected = $TRUE;
-            if ($verbose) { say 'OK'; }
-            last;
-        }
-        else {
-            if ($verbose) { say 'Failed'; }
-        }
-    }
-    if ($connected) {
-        if ($verbose) { say 'Internet connection detected'; }
-        return $TRUE;
-    }
-    else {
-        if ($verbose) { say 'No internet connection detected'; }
-        return;
-    }
-}
-
-# is_boolean($value)
-#
-# does:   determine whether supplied value is boolean
-# detail: checks whether value is one of: 'yes', 'true', 'on', 1,
-#         'no, 'false, 'off' or 0
-# params: $value - value to be analysed [required]
-# prints: nil
-# return: boolean (undefined if no value provided)
-method is_boolean ($value) {
-    if ( not defined $value ) { return; }
-    $value = $self->boolise($value);
-    return $value =~ /(^1$|^0$)/xsm;
-}
-
-# is_deb($filepath)
-#
-# does:   determine whether file is a debian package file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
-# prints: nil
-# return: scalar boolean
-method is_deb ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    my @mimetypes
-        = ( 'application/x-deb', 'application/vnd.debian.binary-package', );
-    foreach my $mimetype (@mimetypes) {
-        if ( $self->_is_mimetype( $filepath, $mimetype ) ) {
-            return $TRUE;
-        }
-    }
-    return;
-}
-
-# is_mp3($filepath)
-#
-# does:   determine whether file is an mp3 file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
-# prints: nil
-# return: scalar boolean
-method is_mp3 ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    return $self->_is_mimetype( $filepath, 'audio/mpeg' );
-}
-
-# is_mp4($filepath)
-#
-# does:   determine whether file is an mp3 file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
-# prints: nil
-# return: scalar boolean
-method is_mp4 ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    return $self->_is_mimetype( $filepath, 'video/mp4' );
-}
-
-# is_perl($filepath)
-#
-# does:   determine whether file is a perl file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
-# prints: nil
-# return: scalar boolean
-method is_perl ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-
-    # check for mimetype match
-    if ( $self->_is_mimetype( $filepath, 'application/x-perl' ) ) {
-        return $TRUE;
-    }
-
-    # mimetype detection can fail if filename has no extension
-    # look for shebang and see if it is a perl interpreter
-    open my $fh, '<', $filepath;
-    my @lines = <$fh>;
-    close $fh;
-    chomp @lines;
-    foreach my $line (@lines) {
-        if ( $line =~ /^ \s* [#] [!] (\S+) /xsm ) {
-            my $interpreter = $1;
-            my $executable  = $self->get_filename($interpreter);
-            return $TRUE if $executable eq 'perl';
-            last;
-        }
-    }
-    return;
-}
-
-# join_dir($dir)
-#
-# does:   concatenates list of directories in path to string path
-# params: $dir - directory parts (arrayref) [required]
-# prints: nil
-# return: scalar string path
-#         die on error
-# uses: File::Spec
-method join_dir ($dir) {
-    if ( ref $dir ne 'ARRAY' ) {
-        confess "Directory parameter is not an arrayref: $dir";
-    }
-    my @dir_parts = @{$dir};
-    if ( not @dir_parts ) { return; }
-    return File::Spec->catdir(@dir_parts);
-}
-
-# kde_desktop()
-#
-# does:   determine whether running KDE
-# params: nil
-# prints: nil
-# return: scalar boolean
-# uses:   Desktop::Detect
-method kde_desktop () {
-
-    # try Desktop::Detect module (currently does not work on kde5)
-    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
-    if ( $desktop eq 'kde-plasma' ) { return $TRUE; }
-
-    # directly inspect $DESKTOP_SESSION (for kde5)
-    if ( $DESKTOP_SESSION eq 'plasma' ) { return $TRUE; }
-
-    # if those tests failed, then presumably not kde
-    return;
-}
-
-# konsolekalendar_date_format($date)
-#
-# does:   get date formatted as konsolekalendar does in its output
-#         example date value is 'Tues, 15 Apr 2008'
-#         corresponding strftime format string is '%a, %e %b %Y'
-# params: $date - ISO formatted date [optional, default=today]
-# prints: nil
-# return: scalar date string
-method konsolekalendar_date_format ($date) {
-
-    # get date
-    if ( not $date ) { $date = $self->today(); }
-    if ( not $self->valid_date($date) ) { return; }
-
-    # reformat
-    my $format = '%a, %e %b %Y';
-    my $d      = Date::Simple->new($date)->format($format);
-    $d =~ s/  / /gsm;                        # dates 1-9 have leading space
-    return $d;
-}
-
-# input_ask($prompt, [$default],[$prepend])
+# input_ask($prompt, [$default],[$prepend])                            {{{1
 #
 # does:   get input from user
 # params: $prompt  - user prompt [required]
@@ -1546,7 +1347,7 @@ method input_ask ($prompt, $default, @options) {
     Term::Clui::ask( $prompt, $default );
 }
 
-# input_choose($prompt, @options, [$prepend])
+# input_choose($prompt, @options, [$prepend])                          {{{1
 #
 # does:   user selects option from a menu
 # params: $prompt  - menu prompt [required]
@@ -1578,7 +1379,7 @@ method input_choose ($prompt, @options) {
     Term::Clui::choose( $prompt, @options );
 }
 
-# input_confirm($question, [$prepend])
+# input_confirm($question, [$prepend])                                 {{{1
 #
 # does:   user answers y/n to a question
 # params: $question - question to be answered with yes or no
@@ -1610,7 +1411,7 @@ method input_confirm ($question, @options) {
     Term::Clui::confirm($question);
 }
 
-# input_large($prompt, [$default],[$prepend])
+# input_large($prompt, [$default],[$prepend])                          {{{1
 #
 # does:   get input from user
 # params: $prompt  - user prompt [required]
@@ -1662,7 +1463,224 @@ method input_large ($prompt, $default, @options) {
     return;
 }
 
-# kill_process($pid)
+# internet_connection([$verbose])                                      {{{1
+#
+# does:   determine whether an internet connection can be found
+# params: $verbose - whether to provide feedback [optional, default=false]
+# prints: feedback if requested
+# return: boolean
+# uses:   Net::Ping::External
+method internet_connection ($verbose = $FALSE) {
+    my $connected;
+    my @urls         = $self->_ping_urls;
+    my $max_attempts = scalar @urls;
+    my $timeout      = 1;                        # seconds
+    if ($verbose) {
+        say "Checking internet connection (maximum $max_attempts attempts):";
+    }
+    while ( my ( $index, $url ) = each @urls ) {
+        my $attempt_number = $index + 1;
+        if ($verbose) { print "  Attempt $attempt_number... "; }
+        if (Net::Ping::External::ping(
+                hostname => $url,
+                timeout  => $timeout,            # appears to be ignored
+            )
+            )
+        {
+            $connected = $TRUE;
+            if ($verbose) { say 'OK'; }
+            last;
+        }
+        else {
+            if ($verbose) { say 'Failed'; }
+        }
+    }
+    if ($connected) {
+        if ($verbose) { say 'Internet connection detected'; }
+        return $TRUE;
+    }
+    else {
+        if ($verbose) { say 'No internet connection detected'; }
+        return;
+    }
+}
+
+# is_boolean($value)                                                   {{{1
+#
+# does:   determine whether supplied value is boolean
+# detail: checks whether value is one of: 'yes', 'true', 'on', 1,
+#         'no, 'false, 'off' or 0
+# params: $value - value to be analysed [required]
+# prints: nil
+# return: boolean (undefined if no value provided)
+method is_boolean ($value) {
+    if ( not defined $value ) { return; }
+    $value = $self->boolise($value);
+    return $value =~ /(^1$|^0$)/xsm;
+}
+
+# is_deb($filepath)                                                    {{{1
+#
+# does:   determine whether file is a debian package file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_deb ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
+    my @mimetypes
+        = ( 'application/x-deb', 'application/vnd.debian.binary-package', );
+    foreach my $mimetype (@mimetypes) {
+        if ( $self->_is_mimetype( $filepath, $mimetype ) ) {
+            return $TRUE;
+        }
+    }
+    return;
+}
+
+# is_mp3($filepath)                                                    {{{1
+#
+# does:   determine whether file is an mp3 file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_mp3 ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
+    return $self->_is_mimetype( $filepath, 'audio/mpeg' );
+}
+
+# is_mp4($filepath)                                                    {{{1
+#
+# does:   determine whether file is an mp3 file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_mp4 ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
+    return $self->_is_mimetype( $filepath, 'video/mp4' );
+}
+
+# is_perl($filepath)                                                   {{{1
+#
+# does:   determine whether file is a perl file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method is_perl ($filepath) {
+    if ( not $filepath ) {
+        cluck 'No filepath provided';
+        return;
+    }
+    if ( not -r $filepath ) {
+        cluck "Invalid filepath '$filepath'";
+        return;
+    }
+
+    # check for mimetype match
+    if ( $self->_is_mimetype( $filepath, 'application/x-perl' ) ) {
+        return $TRUE;
+    }
+
+    # mimetype detection can fail if filename has no extension
+    # look for shebang and see if it is a perl interpreter
+    open my $fh, '<', $filepath;
+    my @lines = <$fh>;
+    close $fh;
+    chomp @lines;
+    foreach my $line (@lines) {
+        if ( $line =~ /^ \s* [#] [!] (\S+) /xsm ) {
+            my $interpreter = $1;
+            my $executable  = $self->get_filename($interpreter);
+            return $TRUE if $executable eq 'perl';
+            last;
+        }
+    }
+    return;
+}
+
+# join_dir($dir)                                                       {{{1
+#
+# does:   concatenates list of directories in path to string path
+# params: $dir - directory parts (arrayref) [required]
+# prints: nil
+# return: scalar string path
+#         die on error
+# uses: File::Spec
+method join_dir ($dir) {
+    if ( ref $dir ne 'ARRAY' ) {
+        confess "Directory parameter is not an arrayref: $dir";
+    }
+    my @dir_parts = @{$dir};
+    if ( not @dir_parts ) { return; }
+    return File::Spec->catdir(@dir_parts);
+}
+
+# kde_desktop()                                                        {{{1
+#
+# does:   determine whether running KDE
+# params: nil
+# prints: nil
+# return: scalar boolean
+# uses:   Desktop::Detect
+method kde_desktop () {
+
+    # try Desktop::Detect module (currently does not work on kde5)
+    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
+    if ( $desktop eq 'kde-plasma' ) { return $TRUE; }
+
+    # directly inspect $DESKTOP_SESSION (for kde5)
+    if ( $DESKTOP_SESSION eq 'plasma' ) { return $TRUE; }
+
+    # if those tests failed, then presumably not kde
+    return;
+}
+
+# konsolekalendar_date_format($date)                                   {{{1
+#
+# does:   get date formatted as konsolekalendar does in its output
+#         example date value is 'Tues, 15 Apr 2008'
+#         corresponding strftime format string is '%a, %e %b %Y'
+# params: $date - ISO formatted date [optional, default=today]
+# prints: nil
+# return: scalar date string
+method konsolekalendar_date_format ($date) {
+
+    # get date
+    if ( not $date ) { $date = $self->today(); }
+    if ( not $self->valid_date($date) ) { return; }
+
+    # reformat
+    my $format = '%a, %e %b %Y';
+    my $d      = Date::Simple->new($date)->format($format);
+    $d =~ s/  / /gsm;                        # dates 1-9 have leading space
+    return $d;
+}
+
+# kill_process($pid)                                                   {{{1
 #
 # does:   kill process
 # params: $pid - process id [required]
@@ -1694,7 +1712,7 @@ method kill_process ($pid) {
     }
 }
 
-# listify(@items)
+# listify(@items)                                                      {{{1
 #
 # does:   tries to convert scalar, array and hash references to scalars
 # params: @items - items to convert to lists [required]
@@ -1740,7 +1758,7 @@ method listify (@items) {
     return @scalars;
 }
 
-# local_timezone()
+# local_timezone()                                                     {{{1
 #
 # does:   get local timezone
 # params: nil
@@ -1750,7 +1768,7 @@ method local_timezone () {
     return DateTime::TimeZone->new( name => 'local' )->name();
 }
 
-# logger($message, [$type])
+# logger($message, [$type])                                            {{{1
 #
 # does:   write message to system logs
 # params: $message - message content [required]
@@ -1780,7 +1798,7 @@ method logger ($message, $type = 'notice') {
     return;
 }
 
-# make_dir($dir_path)
+# make_dir($dir_path)                                                  {{{1
 #
 # does:   make directory recursively
 # params: $dir_path - directory path [required]
@@ -1794,7 +1812,7 @@ method make_dir ($dir_path) {
         or confess "Unable to create '$dir_path'";
 }
 
-# moox_option_bool_is_true($value)
+# moox_option_bool_is_true($value)                                     {{{1
 #
 # does:   determine whether boolean MooX::Option option value is true
 # params: $value - value of option [required]
@@ -1811,7 +1829,7 @@ method moox_option_bool_is_true ($value) {
     }
 }
 
-# msg_box([$msg], [$title])
+# msg_box([$msg], [$title])                                            {{{1
 #
 # does:   display message in gui dialog
 # params: $msg   - message [optional, default='Press OK button to proceed']
@@ -1827,7 +1845,7 @@ method msg_box ($msg, $title) {
     return $ui->msgbox( title => $title, text => $msg );
 }
 
-# notify(@messages, [$prepend])
+# notify(@messages, [$prepend])                                        {{{1
 #
 # does:   display console message
 # params: @messages - message lines [required]
@@ -1854,7 +1872,7 @@ method notify (@messages) {
     }
 }
 
-# notify_sys($msg, [$title], [$type], [$icon], [$time])
+# notify_sys($msg, [$title], [$type], [$icon], [$time])                {{{1
 #
 # does:   display message to user in system notification area
 # params: $msg   - message content [required]
@@ -1933,7 +1951,7 @@ method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
     return;
 }
 
-# now()
+# now()                                                                {{{1
 #
 # does:   provide current time ('HH::MM::SS')
 # params: nil
@@ -1943,7 +1961,7 @@ method now () {
     return Time::Simple->new()->format;
 }
 
-# number_list(@items)
+# number_list(@items)                                                  {{{1
 #
 # does:   prefix each list item with element index (base = 1)
 #         prefix is left padded so each is the same length
@@ -1951,6 +1969,15 @@ method now () {
 # prints: nil
 # return: list
 # note:   map operation extracted to method as per Perl Best Practice
+method number_list (@items) {
+    if ( not @items ) { return; }
+    my $prefix_length = length scalar @items;
+    my $index         = 1;
+    my @numbered_list
+        = map { $self->_add_numeric_prefix( $_, $prefix_length ) } @items;
+    return @numbered_list;
+}
+
 method _add_numeric_prefix ($item, $prefix_length) {
     state $index = 1;
     my $index_width   = length $index;
@@ -1962,16 +1989,7 @@ method _add_numeric_prefix ($item, $prefix_length) {
     return $item;
 }
 
-method number_list (@items) {
-    if ( not @items ) { return; }
-    my $prefix_length = length scalar @items;
-    my $index         = 1;
-    my @numbered_list
-        = map { $self->_add_numeric_prefix( $_, $prefix_length ) } @items;
-    return @numbered_list;
-}
-
-# offset_date($offset)
+# offset_date($offset)                                                 {{{1
 #
 # does:   get a date offset from today
 # params: $offset - offset in days [required]
@@ -1985,7 +2003,7 @@ method offset_date ($offset) {
     return $date->format('%Y-%m-%d');
 }
 
-# pager($lines)
+# pager($lines)                                                        {{{1
 #
 # does:   display list of lines in terminal using pager
 # params: $lines - array reference [required]
@@ -2027,7 +2045,7 @@ method pager ($lines) {
     }
 }
 
-# parent_dir($dir)
+# parent_dir($dir)                                                     {{{1
 #
 # does:   return parent directory
 # params: $dir - directory path to analyse [required]
@@ -2041,7 +2059,7 @@ method parent_dir ($dir) {
     return $self->join_dir( [@dir_path] );
 }
 
-# path_split($path)
+# path_split($path)                                                    {{{1
 #
 # does:   split directory or file path into component elements
 # params: $path - directory or file path to split [required]
@@ -2074,7 +2092,7 @@ method path_split ($path) {
     return @path;
 }
 
-# pid_command($pid)
+# pid_command($pid)                                                    {{{1
 #
 # does:   get command for given process id
 # params: $pid - process id [required]
@@ -2089,7 +2107,7 @@ method pid_command ($pid) {
     return $self->_command($pid);
 }
 
-# pid_running($pid)
+# pid_running($pid)                                                    {{{1
 #
 # does:   determines whether process id is running
 #         reloads processes each time method is called
@@ -2103,7 +2121,7 @@ method pid_running ($pid) {
     return scalar grep {/^$pid$/xsm} @pids;    # force scalar context
 }
 
-# pluralise($string, $numeric)
+# pluralise($string, $numeric)                                         {{{1
 #
 # does:   adjust string based on provided numerical value
 # params: $string - string to adjust [required]
@@ -2125,7 +2143,7 @@ method pluralise ($string, $number) {
     return Text::Pluralize::pluralize( $string, $number );
 }
 
-# process_children($pid)
+# process_children($pid)                                               {{{1
 #
 # does:   gets child processes of a specified pid
 # params: $pid - pid to analyse [required]
@@ -2144,7 +2162,7 @@ method process_children ($pid) {
     return map { $_->pid() } grep { $_->ppid() == $pid } @{ $t->table() };
 }
 
-# process_parent($pid)
+# process_parent($pid)                                                 {{{1
 #
 # does:   gets parent process of a specified pid
 # params: $pid - pid to analyse [required]
@@ -2168,7 +2186,7 @@ method process_parent ($pid) {
     return $parents[0];
 }
 
-# process_running($cmd, [$match_full])
+# process_running($cmd, [$match_full])                                 {{{1
 #
 # does:   determine whether process is running
 # params: $cmd         - command to search for [required]
@@ -2195,7 +2213,7 @@ method process_running ($cmd, $match_full = $FALSE) {
     }
 }
 
-# prompt([message])
+# prompt([message])                                                    {{{1
 #
 # does:   display message and prompt user to press any key
 # params: message - prompt message [optional]
@@ -2214,7 +2232,7 @@ method prompt ($message) {
     print "\n";
 }
 
-# push_arrayref($arrayref, @items)
+# push_arrayref($arrayref, @items)                                     {{{1
 #
 # does:   add items to arrayref
 # params: $arrayref - array reference to add to [required]
@@ -2235,7 +2253,7 @@ method push_arrayref ($arrayref, @items) {
     return [@list];
 }
 
-# restore_screensaver([$title])
+# restore_screensaver([$title])                                        {{{1
 #
 # does:   restores suspended kde screensaver
 # params: $title - title of message box [optional, default=scriptname]
@@ -2280,7 +2298,7 @@ method restore_screensaver ($title) {
     }
 }
 
-# retrieve_store($file)
+# retrieve_store($file)                                                {{{1
 #
 # does:   retrieves function data from storage file
 # params: $file - file in which data is stored [required]
@@ -2295,7 +2313,7 @@ method retrieve_store ($file) {
     return Storable::retrieve $file;
 }
 
-# run_command($cmd, [$silent], [$fatal])
+# run_command($cmd, [$silent], [$fatal])                               {{{1
 #
 # does:   run system command
 # params: $cmd    - command to run
@@ -2400,7 +2418,8 @@ method run_command ($cmd, :$silent, :$fatal) {
     }
 }
 
-# save_store($ref, $file)
+# save_store($ref, $file)                                              {{{1
+#
 # does:   store data structure in file
 # params: $ref  - reference to data structure to be stored
 #         $file - file path in which to store data
@@ -2427,7 +2446,7 @@ method save_store ($ref, $file) {
     return Storable::store $ref, $file;
 }
 
-# scriptname
+# scriptname                                                           {{{1
 #
 # does:   gets name of executing script
 # params: nil
@@ -2437,7 +2456,7 @@ method scriptname () {
     return $self->_script;
 }
 
-# sequential_24h_times($time1, $time2)
+# sequential_24h_times($time1, $time2)                                 {{{1
 #
 # does:   determine whether supplied times are in chronological
 #         sequential, i.e., second time occurs after first time
@@ -2462,7 +2481,7 @@ method sequential_24h_times ($time1, $time2) {
     return ( $t2 > $t1 );
 }
 
-# sequential_dates($date1, $date2)
+# sequential_dates($date1, $date2)                                     {{{1
 #
 # does:   determine whether supplied dates are in chronological sequence
 # params: $date1 - first date, ISO-formatted [required]
@@ -2487,7 +2506,7 @@ method sequential_dates ($date1, $date2) {
     return ( $d2 > $d1 );
 }
 
-# shared_module_file_milla($dist, $file)
+# shared_module_file_milla($dist, $file)                               {{{1
 #
 # does:   gets filepath of file in 'share' directory
 #         of milla project
@@ -2507,7 +2526,7 @@ method shared_module_file_milla ($dist, $file) {
     return;
 }
 
-# shell_underline($string)
+# shell_underline($string)                                             {{{1
 #
 # does:   underline string
 # params: $string - string to underline
@@ -2521,7 +2540,7 @@ method shell_underline ($string) {
     return $underline_on . $string . $underline_off;
 }
 
-# shorten($string, [$limit], [$cont])
+# shorten($string, [$limit], [$cont])                                  {{{1
 #
 # does:   truncate text if too long
 # params: $string - string to shorten [required]
@@ -2574,7 +2593,7 @@ method shorten ($string, $limit, $cont) {
     return $string;
 }
 
-# suspend_screensaver([$title], [$msg])
+# suspend_screensaver([$title], [$msg])                                {{{1
 #
 # does:   suspends kde screensaver if present
 # params: $title - title of message box [optional, default=scriptname]
@@ -2619,7 +2638,7 @@ method suspend_screensaver ($title, :$msg) {
     }
 }
 
-# tabify($string, [$tab_size])
+# tabify($string, [$tab_size])                                         {{{1
 #
 # does:   covert tab markers ('\t') to spaces
 # params: $string   - string to convert [required]
@@ -2637,7 +2656,7 @@ method tabify ($string = q//, $tab_size = 4) {
     return $string;
 }
 
-# temp_dir()
+# temp_dir()                                                           {{{1
 #
 # does:   create temporary directory
 # params: nil
@@ -2648,7 +2667,7 @@ method temp_dir () {
     return File::Temp::tempdir( CLEANUP => $TRUE );
 }
 
-# term_size()
+# term_size()                                                          {{{1
 #
 # does:   get terminal size
 # params: nil
@@ -2663,7 +2682,7 @@ method term_size () {
     return Dn::Common::TermSize->new();
 }
 
-# timezone_from_offset($offset)
+# timezone_from_offset($offset)                                        {{{1
 #
 # does:   determine timezone for offset
 # params: $offset - timezone offset to check [required]
@@ -2704,7 +2723,7 @@ method timezone_from_offset ($offset) {
     }
 }
 
-# today()
+# today()                                                              {{{1
 #
 # does:   get today as an ISO-formatted date
 # params: nil
@@ -2715,7 +2734,7 @@ method today () {
     return Date::Simple->today()->format('%Y-%m-%d');
 }
 
-# trim($string)
+# trim($string)                                                        {{{1
 #
 # does:   remove leading and trailing whitespace
 # params: $string - string to be converted [required]
@@ -2727,7 +2746,7 @@ method trim ($string = q//) {
     return $string;
 }
 
-# true_path($filepath)
+# true_path($filepath)                                                 {{{1
 #
 # does:   convert relative filepath to absolute
 # params: $filepath - filepath to convert [required]
@@ -2760,7 +2779,7 @@ method true_path ($filepath) {
     return abs_path($filepath);
 }
 
-# valid_24h_time($time)
+# valid_24h_time($time)                                                {{{1
 #
 # does:   determine whether supplied time is valid 24 hour time
 # params: $time - time to evaluate, 'HH::MM' format [required]
@@ -2776,7 +2795,7 @@ method valid_24h_time ($time) {
     return $TRUE;                                     # succeeded
 }
 
-# valid_date($date)
+# valid_date($date)                                                    {{{1
 #
 # does:   determine whether date is valid and in ISO format
 # params: $date - candidate date [required]
@@ -2787,7 +2806,7 @@ method valid_date ($date) {
     return Date::Simple->new($date);
 }
 
-# valid_email($email)
+# valid_email($email)                                                  {{{1
 #
 # does:   determine whether an email address is valid
 # params: $email - address to check [required]
@@ -2798,7 +2817,7 @@ method valid_email ($email) {
     return Email::Valid->address($email);
 }
 
-# valid_integer($value)
+# valid_integer($value)                                                {{{1
 #
 # does:   determine whether a valid integer (can be negative)
 # params: $value - value to test [required]
@@ -2813,7 +2832,7 @@ method valid_integer ($value) {
     }
 }
 
-# valid_positive_integer($value)
+# valid_positive_integer($value)                                       {{{1
 #
 # does:   determine whether a valid positive integer (zero or above)
 # params: $value - value to test [required]
@@ -2828,7 +2847,7 @@ method valid_positive_integer ($value) {
     }
 }
 
-# valid_timezone_offset($offset)
+# valid_timezone_offset($offset)                                       {{{1
 #
 # does:   determine whether a timezone offset is valid
 # params: $offset - timezone offset to check
@@ -2851,7 +2870,7 @@ method valid_timezone_offset ($offset) {
     return $is_valid_offset{$offset};
 }
 
-# valid_web_url($url)
+# valid_web_url($url)                                                  {{{1
 #
 # does:   determine whether a web address is valid
 # params: $url - url to check [required]
@@ -2863,7 +2882,7 @@ method valid_web_url ($url) {
     return $validator->is_web_uri($url);
 }
 
-# vim_list_print(@messages)
+# vim_list_print(@messages)                                            {{{1
 #
 # does:   prints a list of strings to the terminal screen using
 #         vim's default colour scheme
@@ -2890,7 +2909,7 @@ method vim_list_print (@messages) {
     }
 }
 
-# vim_print($type, @messages)
+# vim_print($type, @messages)                                          {{{1
 #
 # does:   print text to terminal screen using vim's default colour scheme
 # params: $type     - type ['title'|'error'|'warning'|'prompt'|'normal']
@@ -2939,7 +2958,7 @@ method vim_print ($type, @messages) {
     }
 }
 
-# vim_printify($type, $message)
+# vim_printify($type, $message)                                        {{{1
 #
 # does:   modifies a single string to be passed to 'vim_list_print'
 # params: $type    - as per method 'vim_print' [required]
@@ -2974,7 +2993,7 @@ method vim_printify ($type, $message) {
     return "$token$message";
 }
 
-# yesno($question, [$title])
+# yesno($question, [$title])                                           {{{1
 #
 # does:   ask yes/no question in gui dialog
 # params: $question - question [required]
@@ -2991,7 +3010,7 @@ method yesno ($question, $title) {
     return $ui->yesno( title => $title, text => $question );
 }
 
-# _file_mime_type($filepath)
+# _file_mime_type($filepath)                                           {{{1
 #
 # does:   determine mime type of file
 # params: $filepath - file to analyse [required]
@@ -3009,7 +3028,7 @@ method _file_mime_type ($filepath) {
     return File::MimeInfo->new()->mimetype($filepath);
 }
 
-# _get_icon($icon)
+# _get_icon($icon)                                                     {{{1
 #
 # does:   gets filepath of icon included in module package
 # params: $icon - file name of icon [required]
@@ -3019,7 +3038,7 @@ method _get_icon ($icon) {
     return $self->shared_module_file_milla( 'Dn-Common', $icon );
 }
 
-# _is_mimetype($filepath, $mimetype)
+# _is_mimetype($filepath, $mimetype)                                   {{{1
 #
 # does:   determine whether file is a specified mimetype
 # params: $filepath - file to analyse [required]
@@ -3035,7 +3054,7 @@ method _is_mimetype ($filepath, $mimetype) {
     return $filetype =~ m{^$mimetype\z}xsm;
 }
 
-# _load_processes()
+# _load_processes()                                                    {{{1
 #
 # does:   load '_processes' attribute with pid=>command pairs
 # params: nil
@@ -3048,7 +3067,7 @@ method _load_processes () {
     }
 }
 
-# _process_config_files()
+# _process_config_files()                                              {{{1
 #
 # does:   find all configuration files for calling script
 #         loads attribute '_configuration_files'
@@ -3083,7 +3102,7 @@ method _process_config_files () {
     }
 }
 
-# _reload_processes()
+# _reload_processes()                                                  {{{1
 #
 # does:   reload '_processes' attribute with pid=>command pairs
 # params: nil
@@ -3093,7 +3112,7 @@ method _reload_processes () {
     $self->_load_processes;
 }
 
-# _ui_dialog_widget_preference()
+# _ui_dialog_widget_preference()                                       {{{1
 #
 # does:   provide widget preferences for UI::Dialog
 # params: nil
@@ -3103,12 +3122,12 @@ method _reload_processes () {
 method _ui_dialog_widget_preference () {
     my @widgets = qw(kdialog zenity gdialog cdialog whiptail ascii);
     return grep { File::Which::which $_ } @widgets;
-}
+}    #                                                                 }}}1
 
 1;
 
-# POD: Method header format
-# -------------------------
+# _POD: Method header format                                           {{{1
+# --------------------------
 #
 # In the pod documentation below each method description begins with the
 # method signature in a second level header.
@@ -3129,8 +3148,8 @@ method _ui_dialog_widget_preference () {
 #
 #     =head2 method( )
 #
-# This ensures all method headers are displayed in the same format.
-
+# This ensures all method headers are displayed in the same format.    }}}1
+# POD                                                                  {{{1
 __END__
 
 =encoding utf-8
@@ -6430,3 +6449,4 @@ This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
 =cut
+# vim:fdm=marker
