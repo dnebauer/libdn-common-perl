@@ -1029,12 +1029,22 @@ method dirs_list ($dir) {
 #
 # does:   displays screen text with word wrapping
 # params: $string - text to display [required]
-# prints: text for display
+#         $error  - print to stderr
+#                   [named parameter, optional, default=false]
+# prints: text for display to stdout or stderr
 # return: nil
 # usage:  $cp->display($long_string);
+#         $cp->display( $long_string, error => $TRUE )
 # uses:   Text::Wrap
-method display ($string) {
-    say Text::Wrap::wrap( q{}, q{}, $string );
+method display ($string, :$error = $FALSE) {
+    my $msg = Text::Wrap::wrap( q{}, q{}, $string );
+    chomp $msg;
+    if ($error) {
+        say $msg;
+    }
+    else {
+        warn "$msg\n";
+    }
 }
 
 # do_copy($src, $dest)                                                 {{{1
@@ -2143,7 +2153,7 @@ method pluralise ($string, $number) {
     # check args
     if ( not( defined $string ) ) { confess 'No string provided'; }
     if ( not $string )            { return q{}; }
-    if ( not $self->valid_positive_integer($number) ) {
+    if ( not ( $number and $self->valid_positive_integer($number) ) ) {
         confess "Number '$number' is not an integer";
     }
 
@@ -2740,6 +2750,34 @@ method timezone_from_offset ($offset) {
 # uses:   Date::Simple
 method today () {
     return Date::Simple->today()->format('%Y-%m-%d');
+}
+
+# tools_available(@tools)                                              {{{1
+#
+# does:   check that required executables are available on system
+# params: @tools - required executables [optional]
+# prints: message to stderr if any tools not available
+# return: scalar boolean
+# usage:  if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+# note:   error message looks like:
+#             Required executable is not available: not-here
+#             Required executables are not available: not-here, me-either
+method tools_available (@tools) {
+    if ( not @tools ) { return; }
+    my @missing = grep { not $self->executable_path($_) } @tools;
+    if (@missing) {
+        my $missing_tools = join q{, }, @missing;
+        my $err
+            = $self->pluralise(
+            'Required (executable is|executables are) not available: ',
+            scalar @missing )
+            . $missing_tools . "\n";
+            $self->display( $err, error => $TRUE );
+        return;
+    }
+    else {
+        return $TRUE;
+    }
 }
 
 # trim($string)                                                        {{{1
@@ -3777,7 +3815,7 @@ Nil (error message if dies).
 
 List (dies if operation fails).
 
-=head2 display($string)
+=head2 display($string, [$error])
 
 =head3 Purpose
 
@@ -3792,6 +3830,12 @@ Displays text on screen with word wrapping.
 Test for display.
 
 Required.
+
+=item $error
+
+Print text to stderr rather than stdout. Boolean.
+
+Optional. Default: false.
 
 =back
 
@@ -5867,6 +5911,46 @@ Nil.
 =head3 Returns
 
 ISO-formatted date.
+
+=head2 tools_available(@tools)
+
+=head3 Purpose
+
+Check that required executables are available on system.
+
+=head3 Parameters
+
+=over
+
+=item @tools
+
+Required executables. List.
+
+Optional.
+
+=back
+
+=head3 Prints
+
+Message to stderr if any tools not available, otherwise nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head3 Usage
+
+    if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+
+=head3 Note
+
+The error message looks like:
+
+    Required executable is not available: not-here
+
+or
+
+    Required executables are not available: not-here, me-either
 
 =head2 trim($string)
 

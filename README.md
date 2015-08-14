@@ -569,8 +569,8 @@ Nil \(error message if dies\).
 
 List \(dies if operation fails\).
 
-display\(\$string\)
--------------------
+display\( \$string, \[\$error\] \)
+----------------------------------
 
 ###Purpose
 
@@ -584,9 +584,15 @@ Test for display.
 
 Required.
 
+####\$error
+
+Print text to stderr rather than stdout. Boolean.
+
+Named parameter. Optional. Default: false.
+
 ###Print
 
-Text for screen display.
+Text for screen display to stdout or stderr.
 
 ###Return
 
@@ -2479,6 +2485,49 @@ Nil.
 ###Returns
 
 ISO-formatted date.
+
+tools\_available\(\@tools\)
+---------------------------
+
+###Purpose
+
+Check that required executables are available on system.
+
+###Parameters
+
+=over
+
+=item @tools
+
+Required executables. List.
+
+Optional.
+
+=back
+
+###Prints
+
+Message to stderr if any tools not available, otherwise nil.
+
+###Returns
+
+Scalar boolean.
+
+###Usage
+
+```perl
+if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+```
+
+###Note
+
+The error message looks like:
+
+> Required executable is not available: not-here
+
+or
+
+> Required executables are not available: not-here, me-either
 
 trim\(\$string\)
 ----------------
