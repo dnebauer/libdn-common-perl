@@ -952,7 +952,7 @@ method dir_add_dir ($dir, @subdirs) {
         cluck 'No subdirectory names provided';
         return $dir;
     }
-    my @path = $self->dir_split($dir);
+    my @path = $self->path_split($dir);
     foreach my $subdir (@subdirs) {
         push @path, $subdir;
     }
@@ -968,7 +968,7 @@ method dir_add_dir ($dir, @subdirs) {
 # prints: nil
 # return: scalar file path
 method dir_add_file ($dir, $file) {
-    my @path = $self->dir_split($dir);
+    my @path = $self->path_split($dir);
     push @path, $file;
     return $self->join_dir( [@path] );
 }
@@ -976,8 +976,8 @@ method dir_add_file ($dir, $file) {
 # dir_split($dir)
 #
 # does:   split directory path into component subdirectories
-# params: $dir    - directory path to split [required]
-#                   need not exist
+# params: $dir - directory path to split [required]
+#                need not exist
 # prints: nil
 # return: list
 # uses:   File::Spec
@@ -2049,9 +2049,42 @@ method pager ($lines) {
 # note:   converts to, and returns, absolute path
 method parent_dir ($dir) {
     if ( not $dir ) { confess 'No path provided'; }
-    my @dir_path = $self->dir_split( $self->true_path($dir) );
+    my @dir_path = $self->path_split( $self->true_path($dir) );
     pop @dir_path;         # remove current dir to get parent
     return $self->join_dir( [@dir_path] );
+}
+
+# path_split($path)
+#
+# does:   split directory or file path into component elements
+# params: $path - directory or file path to split [required]
+#                 need not exist
+# prints: nil
+# return: list
+# uses:   File::Spec
+method path_split ($path) {
+
+    # check arg
+    if ( not $path ) { confess 'No path provided'; }
+
+    # get path parts
+    my ( $volume, $dir, $file ) = File::Spec->splitpath(shift);
+    my @path;
+
+    # process volume
+    if ($volume) { push @path, $volume; }
+
+    # process directory
+    # - last directory item can be empty
+    if ($dir)    { push @path, File::Spec->splitdir($dir); }
+    my $last = pop @path;    # keep last item if not empty
+    if ($last) { push @path, $last; }
+
+    # process file
+    if ($file) { push @path, $file; }
+
+    # return result
+    return @path;
 }
 
 # pid_command($pid)
@@ -3707,32 +3740,6 @@ Nil.
 
 Scalar file path.
 
-=head2 dir_split($dir)
-
-=head3 Purpose
-
-Split directory path into component subdirectories.
-
-=head3 Parameters
-
-=over
-
-=item $dir
-
-Directory path to split. Need not exist.
-
-Required.
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-List.
-
 =head2 dirs_list([$directory])
 
 =head3 Purpose
@@ -5105,6 +5112,32 @@ Nil.
 =head3 Returns
 
 Scalar (absolute directory path).
+
+=head2 path_split($path)
+
+=head3 Purpose
+
+Split directory or file path into component parts.
+
+=head3 Parameters
+
+=over
+
+=item $path
+
+Directory or file path to split. Need not exist.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List.
 
 =head2 pid_command($pid)
 

@@ -546,29 +546,6 @@ Nil.
 
 Scalar file path.
 
-dir\_split\(\$dir\)
--------------------
-
-###Purpose
-
-Split directory path into component subdirectories.
-
-###Parameters
-
-####\$dir
-
-Directory path to split. Need not exist.
-
-Required.
-
-###Prints
-
-Nil.
-
-###Returns
-
-List.
-
 dirs\_list\( \[\$directory\] \)
 -------------------------------
 
@@ -1859,6 +1836,29 @@ Nil.
 ###Returns
 
 Scalar (absolute directory path).
+
+path\_split\(\$path\)
+-------------------
+
+###Purpose
+
+Split directory or file path into component subdirectories.
+
+###Parameters
+
+####\$path
+
+Directory or file path to split. Need not exist.
+
+Required.
+
+###Prints
+
+Nil.
+
+###Returns
+
+List.
 
 pid\_command\(\$pid\)
 ---------------------
