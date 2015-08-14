@@ -338,6 +338,7 @@ method _build_urls () {
 # Methods
 
 # Style notes                                                          {{{1
+
 =begin comment
 
 STYLE NOTES
@@ -358,6 +359,7 @@ eval
 =end comment
 
 =cut
+
 #                                                                      }}}1
 
 # abort(@messages, [$prepend])                                         {{{1
@@ -371,8 +373,13 @@ eval
 # usage:  $cp->abort('Did not work', $filepath);
 #         $cp->abort('Did not work', $filepath, prepend => $TRUE);
 # note:   respects newline if enclosed in double quotes
-# TODO:   implement changed interface
 method abort (@messages) {
+
+    # check args
+    if ( not @messages ) {
+        cluck 'No message provided';
+        return;
+    }
 
     # display messages
     $self->notify(@messages);
@@ -672,9 +679,14 @@ method changelog_from_git ($dir) {
 # params: nil
 # prints: nil
 # return: nil
-# TODO:   implement changed interface
 method clear_screen () {
-    system 'clear';
+    my $clear = 'clear';
+    if ( $self->executable_path($clear) ) {
+        system 'clear';
+    }
+    else {
+        cluck "System command '$clear' is not available";
+    }
 }
 
 # config_param($param)                                                 {{{1
@@ -1336,15 +1348,16 @@ method get_path ($filepath) {
 #         -- once the line wraps the user cannot move to previous line
 #         use method 'input_large' for long input
 # uses:   Term::Clui
-# TODO:   implement changed interface
 method input_ask ($prompt, $default, @options) {
-    return if not $prompt;
+
+    # process args
+    if ( not $prompt ) { return; }
     ( my $prepend, @options )
         = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) {
-        $prompt = $self->_script . ': ' . $prompt;
-    }
-    Term::Clui::ask( $prompt, $default );
+    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
+
+    # get user input
+    return Term::Clui::ask( $prompt, $default );
 }
 
 # input_choose($prompt, @options, [$prepend])                          {{{1
@@ -1368,15 +1381,16 @@ method input_ask ($prompt, $default, @options) {
 #         - scalar: returns scalar (undef if choice cancelled)
 #         - list:   returns list (empty list if choice cancelled)
 # uses:   Term::Clui
-# TODO:   implement changed interface
 method input_choose ($prompt, @options) {
-    return if not @options;
+
+    # process args
+    if ( not @options ) { return; }
     ( my $prepend, @options )
         = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) {
-        $prompt = $self->_script . ': ' . $prompt;
-    }
-    Term::Clui::choose( $prompt, @options );
+    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
+
+    # get user selection
+    return Term::Clui::choose( $prompt, @options );
 }
 
 # input_confirm($question, [$prepend])                                 {{{1
@@ -1396,19 +1410,16 @@ method input_choose ($prompt, @options) {
 #             # do stuff
 #         }
 # uses:   Term::Clui
-# TODO:   implement changed interface
 method input_confirm ($question, @options) {
 
     # set variables
-    return if not $question;
+    if ( not $question ) { return; }
     ( my $prepend, @options )
         = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) {
-        $question = $self->_script . ': ' . $question;
-    }
+    if ($prepend) { $question = $self->_script . ': ' . $question; }
 
     # get user response
-    Term::Clui::confirm($question);
+    return Term::Clui::confirm($question);
 }
 
 # input_large($prompt, [$default],[$prepend])                          {{{1
@@ -1424,16 +1435,13 @@ method input_confirm ($question, @options) {
 #         for short values, where prompt and response will easily fit
 #           on one line, use method'input_ask'
 # uses:   Term::Clui
-# TODO:   implement changed interface
 method input_large ($prompt, $default, @options) {
 
     # set variables
-    return if not $prompt;
+    if ( not $prompt ) { return; }
     ( my $prepend, @options )
         = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) {
-        $prompt = $self->_script . ': ' . $prompt;
-    }
+    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
     my $rule = q{-} x 60;
     my $content
         = "[Everything to first horizontal rule will be deleted]\n"
@@ -1460,7 +1468,9 @@ method input_large ($prompt, $default, @options) {
     if (@data) {
         return join "\n", @data[ $rule_index .. $#data ];
     }
-    return;
+    else {
+        return;
+    }
 }
 
 # internet_connection([$verbose])                                      {{{1
@@ -1856,7 +1866,6 @@ method msg_box ($msg, $title) {
 # usage:  $cp->notify('File path is:', $filepath);
 #         $cp->notify('File path is:', $filepath, prepend => $TRUE);
 # note:   respects newline if enclosed in double quotes
-# TODO:   implement changed interface
 method notify (@messages) {
 
     # set prepend flag and display messages
@@ -1895,12 +1904,11 @@ method notify (@messages) {
 # note:   not guaranteed to respect newlines
 # uses:   Gtk2::Notify
 #         Test::NeedsDisplay (required to prevent build tools from failing)
-# TODO:   implement changed interface
 method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
 
     # parameters
     # - msg
-    return if not($msg);
+    if ( not $msg ) { return; }
 
     # - title
     if ( not $title ) {
@@ -2081,7 +2089,7 @@ method path_split ($path) {
 
     # process directory
     # - last directory item can be empty
-    if ($dir)    { push @path, File::Spec->splitdir($dir); }
+    if ($dir) { push @path, File::Spec->splitdir($dir); }
     my $last = pop @path;    # keep last item if not empty
     if ($last) { push @path, $last; }
 
@@ -2786,7 +2794,6 @@ method true_path ($filepath) {
 #                 leading zero can be dropped
 # prints: nil
 # return: boolean
-# TODO: test eval
 method valid_24h_time ($time) {
     if ( not $time ) { return; }
     if ( !eval { Time::Simple->new($time); 1 } ) {    # failed
@@ -2932,7 +2939,6 @@ method vim_list_print (@messages) {
 # usage:  $cp->vim_print( 't', "This is a title" );
 # note:   will gracefully handle arrays and array references in message list
 # uses:   Term::ANSIColor
-# TODO:   implement changed interface
 method vim_print ($type, @messages) {
 
     # variables
@@ -2969,7 +2975,6 @@ method vim_print ($type, @messages) {
 # usage:  @output = $cp->vim_printify( 't', 'My Title' );
 # detail: the string is given a prefix that signals to 'vim_list_print'
 #         what format to use (prefix is stripped before printing)
-# TODO:   implement changed interface
 method vim_printify ($type, $message) {
 
     # variables
