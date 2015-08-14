@@ -12,7 +12,7 @@ use Types::Standard qw(ArrayRef Bool Str);
 
 Readonly my $TRUE => 1;
 
-has 'succeed' => (
+has 'success' => (
     is            => 'ro',
     isa           => Types::Standard::Bool,
     required      => $TRUE,
@@ -78,7 +78,7 @@ Dn::Common::CommandResult - returned by Dn::Common->capture_command_output
     my $cp = Dn::Common->new();
     my $cmd = [ ... ];
     my $result = $cp->capture_command_output($cmd);
-    if ( $result->succeed ) {
+    if ( $result->success ) {
         ...
     }
 
@@ -88,7 +88,7 @@ Captures results of running a command with the C<Dn::Command> method C<capture_c
 
 =head1 METHODS
 
-=head2 succeed
+=head2 success
 
 Whether command succeeded. Scalar boolean.
 

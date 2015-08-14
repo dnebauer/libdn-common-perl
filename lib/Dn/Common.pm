@@ -378,7 +378,7 @@ method autoconf_version () {
     my $cmd = [ 'autoconf', '--version', ];
     my $cmd_str = join q{ }, @{$cmd};
     my $result = $self->capture_command_output($cmd);
-    if ( not $result->succeed ) { confess "Command '$cmd_str' failed"; }
+    if ( not $result->success ) { confess "Command '$cmd_str' failed"; }
     my $version_line = ( $result->stdout )[0];
     my @version_line_elements = split /\s+/xsm, $version_line;
     foreach my $element (@version_line_elements) {
@@ -505,9 +505,8 @@ method browse ($title, $text) {
 # does:   run system command and capture output
 # params: $cmd - command to run
 #                [string or array reference, required]
-# return: hash reference { succeed => $bool, error => $bool, full => @list,
-#                          stdout => @list, stderr => @list, }
-# uses:   IPC::Cmd
+# return: Dn::Common::CommandResult object
+# uses:   Dn::Common::CommandResult, IPC::Cmd
 method capture_command_output ($cmd) {
 
     # process arg
@@ -525,21 +524,41 @@ method capture_command_output ($cmd) {
     my ( $succeed, $err, $full_ref, $stdout_ref, $stderr_ref )
         = IPC::Cmd::run( command => $cmd );
 
-    # return output
-    if ( defined $err ) { 
+    # process output
+    # - err: has trailing newline
+    if ( defined $err ) {
         chomp $err;
     }
     else {
         $err = q{};    # prevent undef which fails type constraint
     }
-    my @full = @{$full_ref};
-    chomp @full;
-    my @stdout = @{$stdout_ref};
-    chomp @stdout;
-    my @stderr = @{$stderr_ref};
-    chomp @stderr;
+
+    # - full, stdout and stderr: appears that for at least some commands
+    #   all output lines are put into a single string, separated with
+    #   embedded newlines, which is then put into a single element list
+    #   which is made into an array reference; these are unpacked below
+    my @full;
+    foreach my $chunk ( @{$full_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @full, @lines;
+    }
+    my @stdout;
+    foreach my $chunk ( @{$stdout_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @stdout, @lines;
+    }
+    my @stderr;
+    foreach my $chunk ( @{$stderr_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @stderr, @lines;
+    }
+
+    # return results as an object
     return Dn::Common::CommandResult->new(
-        succeed      => $succeed,
+        success      => $succeed,
         error        => $err,
         full_output  => [@full],
         standard_out => [@stdout],
@@ -570,24 +589,16 @@ method changelog_from_git ($dir) {
     # obtain git log output
     my $cmd = [ 'git', 'log', '--date-order', '--date=short' ];
     my $result = $self->capture_command_output($cmd);
-    if ( not $result->succeed ) {
+    if ( not $result->success ) {
         cluck "Unable to get git log in '$dir'";
         return;
-    }
-
-    # output contains multiple lines per list item
-    # - don't know why
-    my @output;
-    foreach my $chunk ( $result->stdout ) {
-        my @lines = split /\n/xsm, $chunk;
-        push @output, @lines;
     }
 
     # process output log entries
     my ( @log, @entry );
     my $indent = q{ } x 4;
     my ( $author, $email, $date );
-    foreach my $line (@output) {
+    foreach my $line ( $result->stdout ) {
         next if $line =~ /^commit /xsm;
         next if $line =~ /^\s*$/xsm;
         my ( $key, @values ) = split /\s+/xsm, $line;
@@ -1194,7 +1205,7 @@ method file_used_by ($file) {
     # okay, let's investigate who is locking
     my $cmd = [ $fuser, $file ];
     my $result = $self->capture_command_output($cmd);
-    if ( not $result->succeed ) {
+    if ( not $result->success ) {
         foreach my $line ( $result->full ) {
             warn "$line\n";
         }
@@ -1307,23 +1318,46 @@ method get_path ($filepath) {
     return $path;
 }
 
-# internet_connection()
+# internet_connection([$verbose])
 #
 # does:   determine whether an internet connection can be found
-# params: nil
-# prints: nil
+# params: $verbose - whether to provide feedback [optional, default=false]
+# prints: feedback if requested
 # return: boolean
 # uses:   Net::Ping::External
-method internet_connection () {
+method internet_connection ($verbose = $FALSE) {
     my $connected;
-    foreach my $url ( $self->_ping_urls ) {
-        if ( Net::Ping::External::ping( hostname => $url ) ) {
+    my @urls         = $self->_ping_urls;
+    my $max_attempts = scalar @urls;
+    my $timeout      = 1;                        # seconds
+    if ($verbose) {
+        say "Checking internet connection (maximum $max_attempts attempts):";
+    }
+    while ( my ( $index, $url ) = each @urls ) {
+        my $attempt_number = $index + 1;
+        if ($verbose) { print "  Attempt $attempt_number... "; }
+        if (Net::Ping::External::ping(
+                hostname => $url,
+                timeout  => $timeout,            # appears to be ignored
+            )
+            )
+        {
             $connected = $TRUE;
+            if ($verbose) { say 'OK'; }
             last;
         }
+        else {
+            if ($verbose) { say 'Failed'; }
+        }
     }
-    if ($connected) { return $TRUE; }
-    return;
+    if ($connected) {
+        if ($verbose) { say 'Internet connection detected'; }
+        return $TRUE;
+    }
+    else {
+        if ($verbose) { say 'No internet connection detected'; }
+        return;
+    }
 }
 
 # is_boolean($value)
@@ -2158,6 +2192,27 @@ method prompt ($message) {
     }
     Term::ReadKey::ReadMode('restore');
     print "\n";
+}
+
+# push_arrayref($arrayref, @items)
+#
+# does:   add items to arrayref
+# params: $arrayref - array reference to add to [required]
+#         @items    - items to add [required]
+# prints: nil, except error messages
+# return: array reference (dies on failure)
+method push_arrayref ($arrayref, @items) {
+
+    # check args
+    if ( not @items )    { confess 'No items provided'; }
+    if ( not $arrayref ) { confess 'No array reference provided'; }
+    my $ref_type = ref $arrayref;
+    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+
+    # add items
+    my @list = @{$arrayref};
+    push @list, @items;
+    return [@list];
 }
 
 # restore_screensaver([$title])
@@ -3265,7 +3320,11 @@ Nil.
 
 =head3 Returns
 
-List: boolean success, list of stdout (success) or stdout + stderr (failure).
+Dn::Common::CommandResult object.
+
+=head3 Note
+
+The returned object can provide stdout output, stderr output and full output (stdout and stderr combined as initially output). In each case, the output is provided as a list, with each list element being a line of original output.
 
 =head2 changelog_from_git($dir)
 
@@ -4379,7 +4438,7 @@ Here is a case where input is required:
         $prompt = "Input is required\nEnter input:";
     }
 
-=head2 internet_connection( )
+=head2 internet_connection([$verbose])
 
 =head3 Purpose
 
@@ -4387,11 +4446,19 @@ Checks to see whether an internet connection can be found.
 
 =head3 Parameters
 
-Nil.
+=over
+
+=item $verbose
+
+Whether to provide user feedback during connection attempts.
+
+Optional. Default: false.
+
+=back
 
 =head3 Prints
 
-Nil.
+Feedback if requested, otherwise nil.
 
 =head3 Returns
 
@@ -5236,6 +5303,38 @@ Message.
 =head3 Returns
 
 Nil.
+
+=head2 push_arrayref($arrayref, @items)
+
+=head3 Purpose
+
+Add items to array reference.
+
+=head3 Parameters
+
+=over
+
+=item $arrayref
+
+Array reference to add to.
+
+Required.
+
+=item @items
+
+Items to add to array reference.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Array reference. (Method dies on failure.)
 
 =head2 restore_screensaver([$title])
 
@@ -6172,6 +6271,10 @@ Scalar boolean.
 =item DateTime::TimeZone
 
 =item Desktop::Detect
+
+=item Dn::Common::CommandResult
+
+=item Dn::Common::TermSize
 
 =item Dn::Common::Types
 

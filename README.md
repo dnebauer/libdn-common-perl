@@ -1221,7 +1221,7 @@ while (1) {
 }
 ```
 
-internet\_connection\(\)
+internet\_connection\(\[\$verbose\]\)
 ------------------------
 
 ###Purpose
@@ -1230,7 +1230,11 @@ Checks to see whether an internet connection can be found.
 
 ###Parameters
 
-Nil.
+####\$verbose
+
+Whether to provide user feedback during connection attempts.
+
+Optional. Default: false.
 
 ###Prints
 
@@ -2028,6 +2032,35 @@ Message.
 ###Returns
 
 Nil.
+
+push\_arrayref(\$arrayref, @item\)
+-----------------------------------------
+
+###Purpose
+
+Add items to array reference.
+
+###Parameters
+
+####\$arrayref
+
+Array reference to add to.
+
+Required.
+
+####@items
+
+Items to add to array reference.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Array reference. (Method dies on failure.)
 
 restore\_screensaver\( \[\$title\] \)
 -------------------------------------
