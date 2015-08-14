@@ -973,19 +973,6 @@ method dir_add_file ($dir, $file) {
     return $self->join_dir( [@path] );
 }
 
-# dir_split($dir)
-#
-# does:   split directory path into component subdirectories
-# params: $dir - directory path to split [required]
-#                need not exist
-# prints: nil
-# return: list
-# uses:   File::Spec
-method dir_split ($dir) {
-    if ( not $dir ) { confess 'No directory provided'; }
-    return File::Spec->splitdir($dir);
-}
-
 # dirs_list($directory)
 #
 # does:   list subdirectories in directory
