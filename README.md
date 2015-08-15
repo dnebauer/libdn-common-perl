@@ -1987,26 +1987,20 @@ Nil, except error messages.
 
 Scalar integer (PID).
 
-process\_running\( \$cmd, \[\$match\_full\] \)
-----------------------------------------------
+process\_running\(\$regex\)
+---------------------------
 
 ###Purpose
 
-Determines whether process is running. Matches on process command. Can match against part or all of process commands.
+Determines whether process is running. Matches on process commands in "ps aux" output.
 
 ###Parameters
 
-####\$cmd
+####\$regex
 
-Command to search for.
+Regular expression to match to command in "ps aux" output. 
 
 Required.
-
-####\$match\_full
-
-Whether to require match against entire process command.
-
-Optional. Default: false.
 
 ###Prints
 

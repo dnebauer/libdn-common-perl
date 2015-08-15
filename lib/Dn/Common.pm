@@ -3,7 +3,7 @@ package Dn::Common;
 use 5.014_002;    #                                                    {{{1
 use Moo;
 use strictures 2;
-use version; our $VERSION = qv('1.0.5');
+use version; our $VERSION = qv('1.0.6');
 
 # use of Gtk2::Notify causes debuild to fail with error:
 #   perl Build test --verbose 1
@@ -2204,31 +2204,22 @@ method process_parent ($pid) {
     return $parents[0];
 }
 
-# process_running($cmd, [$match_full])                                 {{{1
+# process_running($regex)                                              {{{1
 #
 # does:   determine whether process is running
-# params: $cmd         - command to search for [required]
-#         $ match_full - whether to require match against entire process
-#                        [optional, default=false]
+# params: $regex       - regular expression to match against ps output
+#                        [required]
 # prints: nil
 # return: boolean
-# note:   if the command string is part of a parameter passed to a script
-#         which then calls this method, and partial matching is in effect,
-#         the script process will match and result in a false positive
-method process_running ($cmd, $match_full = $FALSE) {
+method process_running ($regex) {
 
     # set and check variables
-    if ( not $cmd ) { return; }
+    if ( not $regex ) { return; }
     $self->_reload_processes;
     my @cmds = $self->_commands;
 
     # search process commands for matches
-    if ($match_full) {
-        return scalar grep {/^$cmd$/xsm} @cmds;
-    }
-    else {
-        return scalar grep {/$cmd/xsm} @cmds;
-    }
+    return scalar grep {/$regex/} @cmds;
 }
 
 # prompt([message])                                                    {{{1
@@ -5332,11 +5323,11 @@ Nil, except error messages.
 
 Scalar integer (PID).
 
-=head2 process_running($cmd, [$match_full])
+=head2 process_running($regex)
 
 =head3 Purpose
 
-Determines whether process is running. Matches on process command. Can match against part or all of process commands.
+Determines whether process is running. Matches on process command.
 
 Note that the process table is reloaded each time this method is called, so it can be called repeatedly in dynamic situations where processes are starting and stopping.
 
@@ -5344,17 +5335,11 @@ Note that the process table is reloaded each time this method is called, so it c
 
 =over
 
-=item $cmd
+=item $regex
 
-Command to search for. 
+Regular expression to match to command in C<ps aux> output. 
 
 Required.
-
-=item $match_full
-
-Whether to require match against entire process command.
-
-Optional. Default: false.
 
 =back
 
