@@ -2894,6 +2894,67 @@ Modified string.
 $cp->vim_printify( 't', 'This is a title' );
 ```
 
+wrap\( \$strings, \[\$width\],\[\$indent\], \[\$hang\], \[\$break\] \)
+
+###Purpose
+
+Wrap strings at terminal (or provided) width.
+
+###Parameters
+
+####\$strings
+
+Text to wrap. Single string or reference to array of strings.
+
+Required.
+
+####%options
+
+Options hash. Optional.
+
+Hash members:
+
+*   $width
+
+    Width at which to wrap.
+
+    Optional. Default: terminal width.
+
+    Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
+
+*   $indent
+
+    Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
+
+    Optional. Default: 0.
+
+*   $hang
+
+    Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
+
+    Optional. Default: $indent.
+
+*   $break
+
+    Characters on which to break. A regular expression.
+
+    Optional. Default: qr\(\[\\s-_/\]\).
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+List of scalar strings (no terminal newlines).
+
+###Usage
+
+```perl
+my @output = $cp->display($long_string, indent => 2, hang => 4);
+my @output = $cp->display([@many_strings]);
+```
+
 yesno\(\$question, \[\$title\]\)
 --------------------------------
 
@@ -2928,344 +2989,144 @@ Scalar boolean.
 Dependencies
 ============
 
-autodie
--------
-
-Automated error checking of 'open' and 'close' functions.
-
-Debian: provided by package 'libautodie-perl'.
-
-Carp
-----
-
-Modern error handling.
-
-Debian: provided by package 'perl-base'.
-
-Config::Simple
---------------
-
-Reads and parses configuration files.
-
-Provides the 'import\_from' function.
-
-Debian: provided by package 'libconfig-simple-perl'.
-
-Curses
-------
-
-Terminal screen handlind.
-
-Cwd
----
-
-Used to normalise paths, including following symlinks and collapsing relative paths. Also used to provide current working directory.
-
-Provides the 'abs\_path' and 'getcwd' functions for these purposes, respectively.
-
-Debian: provided by package 'libfile-spec-perl'.
-
-Data::Dumper::Simple
---------------------
-
-Used for displaying variables.
-
-Debian: provided by package 'libdata-dumper-simple-perl'.
-
-Data::Validate::URI
--------------------
-
-Used for validating web URIs.
-
-Debian: Provided by 'libdata-validate-uri-perl'.
-
-Date::Simple
+Perl modules
 ------------
 
-Used for writing date strings.
+*   autodie
 
-Debian: provided by package 'libdate-simple-perl'.
+*   Carp
 
-DateTime
---------
+*   Config::Simple
 
-DateTime::Format::Mail
-----------------------
+*   Curses
 
-DateTime::TimeZone
-------------------
+*   Cwd
 
-Used for manipulating dates and times.
+*   Data::Dumper::Simple
 
-Debian: provided by packages 'libdatetime-perl', 'libdatetime-format-mail-perl' and 'libdatetime-timezone-perl', respectively.
+*   Data::Structure::Util
 
-Desktop::Detect
----------------
+*   Data::Validate::URI
 
-Used for detecting KDE desktop. Uses 'detect\_desktop' function.
+*   Date::Simple
 
-Debian: provided by package 'libdesktop-detect-perl'.
+*   DateTime
 
-Email::Valid
-------------
+*   DateTime::Format::Mail
 
-Used for validating email addresses.
+*   DateTime::TimeZone
 
-Debian: provided by package 'libemail-valid-perl'.
+*   Desktop::Detect
 
-Env
----
+*   Email::Valid
 
-Import environmental variables.
+*   English
 
-Debian: provided by package 'perl-modules'.
+*   Env
 
-File::Basename
---------------
+*   experimental
 
-Parse file names.
+*   File::Basename
 
-Provides the 'fileparse' method.
+*   File::chdir
 
-Debian: provided by package 'perl'.
+*   File::Copy
 
-File::chdir
+*   File::Copy::Recursive
+
+*   File::Find::Rule
+
+*   File::MimeInfo
+
+*   File::Path
+
+*   File::Spec
+
+*   File::Temp
+
+*   File::Util
+
+*   File::Which
+
+*   Function::Parameters
+
+*   Gtk2::Notify
+
+*   HTML::Entities
+
+*   IO::Pager
+
+*   IPC::Cmd
+
+*   IPC::Open3
+
+*   IPC::Run
+
+*   Logger::Syslog
+
+*   namespace::clean
+
+*   Moo
+
+*   MooX::HandlesVia
+
+*   Net::DBus
+
+*   Net::Ping::External
+
+*   Proc::ProcessTable
+
+*   Readonly
+
+*   Scalar::Util
+
+*   Storable
+
+*   strictures
+
+*   Term::ANSIColor
+
+*   Term::Clui
+
+*   Term::ReadKey
+
+*   Test::NeedsDisplay
+
+*   Text::Pluralize
+
+*   Text::Wrap
+
+*   Time::HiRes
+
+*   Time::Simple
+
+*   Type::Utils
+
+*   Types::Path::Tiny
+
+*   UI::Dialog
+
+*   version
+
+Executables
 -----------
 
-Provides $CWD and @CWD for manipulating current directory.
+*   adb | fb-adb
 
-Debian: provided by package 'libfile-chdir-perl'.
+*   autoconf
 
-File::Copy
-----------
+*   echo
 
-Used for file copying.
+*   fuser
 
-Provides the 'copy' and 'move' functions.
+*   su
 
-Debian: provided by package 'perl-modules'.
+*   sudo
 
-File::Find::Rule
+Debian packaging
 ----------------
 
-Enables searching for files and directories.
-
-Debian: provided by package 'libfile-find-rule-perl'.
-
-File::MimeInfo
---------------
-
-Provides 'mimetype' method for getting mime-type information about mp3 files.
-
-Debian: provided by package 'libfile-mimeinfo-perl'.
-
-Note: Previously used File::Type and its 'mime\_type' method to get file mime-type information but that module incorrectly identifies some mp3 files as 'application/octet-stream'. Other alternatives are File::MMagic and File::MMagic:Magic.
-
-File::Spec
-----------
-
-Perform operations on file and directory names.
-
-Debian: provided by package 'perl-base'.
-
-File::Util
-----------
-
-Used for various file and directory operations, including recursive directory creation and extracting filename and/or dirpath from a filepath.
-
-Debian: provided by package 'libfile-util-perl'.
-
-File::Which
------------
-
-Used for finding paths to executable files.
-
-Provides the 'which' function which mimics the bash 'which' utility.
-
-Debian: provided by package 'libfile-which-perl'.
-
-Function::Parameters
---------------------
-
-Enables use of modern method interface.
-
-Debian: provided by package 'libfunction-parameters-perl',
-
-Gtk2::Notify
-------------
-
-Provides access to libnotify.
-
-Provides the 'set\_timeout' and 'show' functions.
-
-Uses this nonstandard invocation recommended by the module man page:
-
-####use Gtk2::Notify -init, "\$0";
-
-Debian: provided by package 'libgtk2-notify-perl'.
-
-HTML::Entities
---------------
-
-Used for converting between html entities and reserved characters. Provides 'encode\_entities' and 'decode\_entities' methods.
-
-Debian: provided by package: 'libhtml-parser-perl'.
-
-Debian: provided by package 'libnet-ping-external-perl'.
-
-IPC::Cmd
---------
-
-IPC::Open3
-----------
-
-IPC::Run
---------
-
-Enable running of system commands.
-
-Debian: provided by packages 'perl-modules', 'libipc-run-perl' and 'perl-base', respectively.
-
-Logger::Syslog
---------------
-
-Interface to system log.
-
-Provides functions 'debug', 'notice', 'warning' and 'error'.
-
-Some system logs only record some message types. On debian systems, for example, /var/log/messages records only 'notice' and 'warning' message types while /var/log/syslog records all message types.
-
-Debian: provided by package 'liblogger-syslog-perl'.
-
-namespace::autoclean
---------------------
-
-Used to optimise Mouse.
-
-Debian: provided by package 'libnamespace::autoclean'.
-
-Mouse
------
-
-Use modern perl.
-
-Debian: provided by 'libmouse-perl'.
-
-Mouse::Util::TypeConstraints
-----------------------------
-
-Used to enhance Mouse.
-
-Debian: provided by 'libmouse-perl'.
-
-MouseX::NativeTraits
---------------------
-
-Used to enhance Mouse.
-
-Debian: provided by package 'libmousex-nativetraits-perl'.
-
-Net::DBus
----------
-
-Used in manipulating DBus services.
-
-Debian: provided by package 'libnet-dbus-perl'.
-
-Net::Ping::External
--------------------
-
-Cross-platform interface to ICMP "ping" utilities. Enables the pinging of internet hosts.
-
-Provides the 'ping' function.
-
-Proc::ProcessTable
-------------------
-
-Provides access to system process table, i.e., output of 'ps'.
-
-Provides the 'table' method.
-
-Debian: provided by package 'libproc-processtable-perl'.
-
-Readonly
---------
-
-Use modern perl.
-
-Debian: provided by package 'libreadonly-perl'
-
-Storable
---------
-
-Used for storing and retrieving persistent data.
-
-Provides the 'store' and 'retrieve' functions.
-
-Debian: provided by package 'perl'.
-
-Term::ANSIColor
----------------
-
-Used for user input.
-
-Provides the 'colored' function.
-
-Debian: provided by package 'perl-modules'.
-
-Term::Clui
-----------
-
-Used for user input.
-
-Provides 'choose', 'ask', 'edit' and 'confirm' functions.
-
-Is configured to not remember responses. To override put this command after this module is called:
-
-```perl
-$ENV{'CLUI_DIR'} = "ON";
-```
-
-Debian: provided by package 'libperl-term-clui'.
-
-Term::ReadKey
--------------
-
-Used for reading single characters from keyboard.
-
-Provides the 'ReadMode' and 'ReadKey' functions.
-
-Debian: provided by package 'libterm-readkey-perl'.
-
-Test::NeedsDisplay
-------------------
-
-Prevents build error caused by Gtk2::Notify. The module tests require a display but cannot find one. Test::NeedsDisplay provides a fake display.
-
-Debian: provided by package 'libtest-needsdisplay-perl'.
-
-Text::Wrap
-----------
-
-Used for formatting text into readable paragraphs.
-
-Provides the 'wrap' function.
-
-Debian: provided by package 'perl-base'.
-
-Time::Simple
-------------
-
-Used for validating and comparing times. May be distributed with this module.
-
-Debian: not available from offial repositories, but available in local debian package of this module.
-
-UI::Dialog
-----------
-
-Used for gui dialogs.
-
-Debian: provided by package 'libui-dialog-perl'.
+Two of the modules that Dn::Common depends on are not available from the standard debian repository: [Text::Pluralize](http://search.cpan.org/~kvail/Text-Pluralize-1.1/lib/Text/Pluralize.pm) and [Time::Simple](http://search.cpan.org/~lgoddard/Time-Simple-0.06/lib/Time/Simple.pm). For that reason the debian package of Dn::Common also provides these two modules.
 
 License
 =======

@@ -1,0 +1,25 @@
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/blib/lib/Dn/Common.pm:    $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/blib/lib/Dn/Common.pm:#         $cp->display( $long_string, error => $TRUE )
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/blib/lib/Dn/Common.pm:            $self->display( $err, error => $TRUE );
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/blib/lib/Dn/Common.pm:# usage:  $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/blib/libdoc/Dn::Common.3pm:\&    $cp\->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/debian/libdn-common-perl/usr/share/perl5/Dn/Common.pm:    $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/debian/libdn-common-perl/usr/share/perl5/Dn/Common.pm:#         $cp->display( $long_string, error => $TRUE )
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/debian/libdn-common-perl/usr/share/perl5/Dn/Common.pm:            $self->display( $err, error => $TRUE );
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/debian/libdn-common-perl/usr/share/perl5/Dn/Common.pm:# usage:  $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/lib/Dn/Common.pm:    $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/lib/Dn/Common.pm:#         $cp->display( $long_string, error => $TRUE )
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/lib/Dn/Common.pm:            $self->display( $err, error => $TRUE );
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/lib/Dn/Common.pm:# usage:  $cp->display($long_string);
+../../../libs/dn-common-perl/build/Dn-Common-1.0.6/README:        $cp->display($long_string);
+../../../libs/dn-common-perl/build/lib/Dn/Common.pm:    $cp->display($long_string);
+../../../libs/dn-common-perl/build/lib/Dn/Common.pm:#         $cp->display( $long_string, error => $TRUE )
+../../../libs/dn-common-perl/build/lib/Dn/Common.pm:            $self->display( $err, error => $TRUE );
+../../../libs/dn-common-perl/build/lib/Dn/Common.pm:# usage:  $cp->display($long_string);
+../../../libs/dn-common-perl/build/README.md:    $cp->display($long_string);
+../../../libs/dn-common-perl/source/lib/Dn/Common.pm:    $cp->display($long_string);
+../../../libs/dn-common-perl/source/lib/Dn/Common.pm:#         $cp->display( $long_string, error => $TRUE )
+../../../libs/dn-common-perl/source/lib/Dn/Common.pm:            $self->display( $err, error => $TRUE );
+../../../libs/dn-common-perl/source/lib/Dn/Common.pm:# usage:  $cp->display($long_string);
+../../../libs/dn-common-perl/source/README.md:$cp->display($long_string);
+../../../utils/keep-awake/dn-keep-awake:            push @report, $cmd->display();
