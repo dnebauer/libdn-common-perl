@@ -1102,6 +1102,117 @@ method do_rmdir ($dir) {
     return File::Path::remove_tree($dir);
 }
 
+# do_wrap($string, [$width],[$indent], [$hang], [$break])              {{{1
+#
+# does:   displays screen text with word wrapping
+# params: $strings - text to wrap, string or array reference
+#                    [required]
+#         %options - options hash [optional]:
+#             $width  - width at which to wrap [default=terminal width]
+#                       note: cannot be wider than terminal width
+#             $indent - size of indent [default=0]
+#             $hang   - size of indent of second and subsequent lines
+#                       [default=$indent]
+#             $break  - characters on which to break, regex
+#                       [default=qr([\s-_])]
+# prints: nil
+# return: list of strings (no terminal slashes)
+# usage:  my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
+#         my @output = $cp->dp_wrap([@many_strings]);
+# uses:   Text::Wrap
+method do_wrap ($strings, %options) {
+
+    # handle args
+    # - $strings                                                       {{{2
+    if ( not $strings ) { confess 'No strings provided'; }
+    my $strings_ref = ref $strings;
+    my @input;
+    for ($strings_ref) {
+        when ( $_ eq 'ARRAY' ) { @input = @{$strings}; }
+        when ( $_ eq q{} ) { push @input, $strings; }
+        default {
+            my $err = 'Input is not a string or array reference: '
+                . Dumper($strings);
+            confess $err;
+        }
+    }
+
+    # - $width                                                         {{{2
+    my $width;
+    if ( $options{'width'} ) {
+        if (    $self->valid_positive_integer( $options{'width'} )
+            and $options{'width'} > 0 )
+        {
+            $width = $options{'width'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'width': } . Dumper( $options{'width'} );
+            confess $err;
+        }
+        my $terminal_width = $self->term_size->width;
+        if ( ( not $width ) or ( $width > $terminal_width ) ) {
+            $width = $terminal_width;
+        }
+    }
+    local $Text::Wrap::columns = $Text::Wrap::columns;
+    $Text::Wrap::columns = $width;
+
+    # - $indent                                                        {{{2
+    my $indent = q{};
+    if ( $options{'indent'} ) {
+        if (    $self->valid_positive_integer( $options{'indent'} )
+            and $options{'indent'} > 0 )
+        {
+            $indent = q{ } x $options{'indent'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'indent': } . Dumper( $options{'indent'} );
+            confess $err;
+        }
+    }
+
+    # - $hang                                                          {{{2
+    my $hang = $indent;
+    if ( $options{'hang'} ) {
+        if ( $self->valid_positive_integer( $options{'hang'} ) ) {
+            $hang = q{ } x $options{'hang'};
+        }
+        else {
+            my $err = q{Invalid option 'hang': } . Dumper( $options{'hang'} );
+            confess $err;
+        }
+    }
+
+    # - $break                                                         {{{2
+    my $break = qr([\s_/-]);
+    if ( $options{'break'} ) {
+        my $break_ref = ref $options{'break'};
+        if ( $break_ref eq 'Regexp' ) {
+            $break = $options{'break'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'break': } . Dumper( $options{'break'} );
+            confess $err;
+        }
+    }
+    local $Text::Wrap::break = $Text::Wrap::break;
+    $Text::Wrap::break = $break;    #                                  }}}2
+
+    # wrap message
+    my @output;
+    foreach my $line (@input) {
+        my $wrapped = Text::Wrap::wrap( $indent, $hang, $line );
+        my @wrapped_lines = split /\n/xsm, $wrapped;
+        push @output, @wrapped_lines;
+    }
+    chomp @output;
+
+    return @output;
+}
+
 # echo_e($string)                                                      {{{1
 #
 # does:   use shell command 'echo -e'
@@ -3041,117 +3152,6 @@ method vim_printify ($type, $message) {
     return "$token$message";
 }
 
-# wrap($string, [$width],[$indent], [$hang], [$break])                 {{{1
-#
-# does:   displays screen text with word wrapping
-# params: $strings - text to wrap, string or array reference
-#                    [required]
-#         %options - options hash [optional]:
-#             $width  - width at which to wrap [default=terminal width]
-#                       note: cannot be wider than terminal width
-#             $indent - size of indent [default=0]
-#             $hang   - size of indent of second and subsequent lines
-#                       [default=$indent]
-#             $break  - characters on which to break, regex
-#                       [default=qr([\s-_])]
-# prints: nil
-# return: list of strings (no terminal slashes)
-# usage:  my @output = $cp->display($long_string, indent => 2, hang => 4);
-#         my @output = $cp->display([@many_strings]);
-# uses:   Text::Wrap
-method wrap ($strings, %options) {
-
-    # handle args
-    # - $strings                                                       {{{2
-    if ( not $strings ) { confess 'No strings provided'; }
-    my $strings_ref = ref $strings;
-    my @input;
-    for ($strings_ref) {
-        when ( $_ eq 'ARRAY' ) { @input = @{$strings}; }
-        when ( $_ eq q{} ) { push @input, $strings; }
-        default {
-            my $err = 'Input is not a string or array reference: '
-                . Dumper($strings);
-            confess $err;
-        }
-    }
-
-    # - $width                                                         {{{2
-    my $width;
-    if ( $options{'width'} ) {
-        if (    $self->valid_positive_integer( $options{'width'} )
-            and $options{'width'} > 0 )
-        {
-            $width = $options{'width'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'width': } . Dumper( $options{'width'} );
-            confess $err;
-        }
-        my $terminal_width = $self->term_size->width;
-        if ( ( not $width ) or ( $width > $terminal_width ) ) {
-            $width = $terminal_width;
-        }
-    }
-    local $Text::Wrap::columns = $Text::Wrap::columns;
-    $Text::Wrap::columns = $width;
-
-    # - $indent                                                        {{{2
-    my $indent = q{};
-    if ( $options{'indent'} ) {
-        if (    $self->valid_positive_integer( $options{'indent'} )
-            and $options{'indent'} > 0 )
-        {
-            $indent = q{ } x $options{'indent'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'indent': } . Dumper( $options{'indent'} );
-            confess $err;
-        }
-    }
-
-    # - $hang                                                          {{{2
-    my $hang = $indent;
-    if ( $options{'hang'} ) {
-        if ( $self->valid_positive_integer( $options{'hang'} ) ) {
-            $hang = q{ } x $options{'hang'};
-        }
-        else {
-            my $err = q{Invalid option 'hang': } . Dumper( $options{'hang'} );
-            confess $err;
-        }
-    }
-
-    # - $break                                                         {{{2
-    my $break = qr([\s-_/]);
-    if ( $options{'break'} ) {
-        my $break_ref = ref $options{'break'};
-        if ( $break_ref = 'Regexp' ) {
-            $break = $options{'break'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'break': } . Dumper( $options{'break'} );
-            confess $err;
-        }
-    }
-    local $Text::Wrap::break = $Text::Wrap::break;
-    $Text::Wrap::break = $break;    #                                  }}}2
-
-    # wrap message
-    my @output;
-    foreach my $line (@input) {
-        my $wrapped = Text::Wrap::wrap( $indent, $hang, $line );
-        my @wrapped_lines = split /\n/xsm, $wrapped;
-        push @output, @wrapped_lines;
-    }
-    chomp @output;
-
-    return @output;
-}
-
 # yesno($question, [$title])                                           {{{1
 #
 # does:   ask yes/no question in gui dialog
@@ -4034,6 +4034,73 @@ Nil.
 =head3 Returns
 
 Boolean scalar.
+
+=head2 do_wrap($strings, [$width],[$indent], [$hang], [$break])
+
+=head3 Purpose
+
+Wrap strings at terminal (or provided) width.
+
+=head3 Parameters
+
+=over
+
+=item $strings
+
+Text to wrap. Single string or reference to array of strings.
+
+Required.
+
+=item %options
+
+Options hash. Optional.
+
+Hash members:
+
+=over
+
+=item $width
+
+Width at which to wrap.
+
+Optional. Default: terminal width.
+
+Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
+
+=item $indent
+
+Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
+
+Optional. Default: 0.
+
+=item $hang
+
+Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
+
+Optional. Default: $indent.
+
+=item $break
+
+Characters on which to break. A regular expression.
+
+Optional. Default: qr([\s-_/]).
+
+=back
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+List of scalar strings (no terminal newlines).
+
+=head3 Usage
+
+    my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
+    my @output = $cp->do_wrap([@many_strings]);
 
 =head2 echo_e($string)
 
@@ -6469,73 +6536,6 @@ Modified string.
 =head3 Usage
 
     $cp->vim_printify( 't', 'This is a title' );
-
-=head2 wrap($strings, [$width],[$indent], [$hang], [$break])
-
-=head3 Purpose
-
-Wrap strings at terminal (or provided) width.
-
-=head3 Parameters
-
-=over
-
-=item $strings
-
-Text to wrap. Single string or reference to array of strings.
-
-Required.
-
-=item %options
-
-Options hash. Optional.
-
-Hash members:
-
-=over
-
-=item $width
-
-Width at which to wrap.
-
-Optional. Default: terminal width.
-
-Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
-
-=item $indent
-
-Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
-
-Optional. Default: 0.
-
-=item $hang
-
-Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
-
-Optional. Default: $indent.
-
-=item $break
-
-Characters on which to break. A regular expression.
-
-Optional. Default: qr([\s-_/]).
-
-=back
-
-=back
-
-=head3 Prints
-
-Nil, except error messages.
-
-=head3 Returns
-
-List of scalar strings (no terminal newlines).
-
-=head3 Usage
-
-    my @output = $cp->display($long_string, indent => 2, hang => 4);
-    my @output = $cp->display([@many_strings]);
 
 =head2 yesno($question, [$title])
 

@@ -666,6 +666,67 @@ Nil.
 
 Boolean scalar.
 
+do\_wrap\( \$strings, \[\$width\],\[\$indent\], \[\$hang\], \[\$break\] \)
+
+###Purpose
+
+Wrap strings at terminal (or provided) width.
+
+###Parameters
+
+####\$strings
+
+Text to wrap. Single string or reference to array of strings.
+
+Required.
+
+####%options
+
+Options hash. Optional.
+
+Hash members:
+
+*   $width
+
+    Width at which to wrap.
+
+    Optional. Default: terminal width.
+
+    Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
+
+*   $indent
+
+    Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
+
+    Optional. Default: 0.
+
+*   $hang
+
+    Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
+
+    Optional. Default: $indent.
+
+*   $break
+
+    Characters on which to break. A regular expression.
+
+    Optional. Default: qr\(\[\\s-_/\]\).
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+List of scalar strings (no terminal newlines).
+
+###Usage
+
+```perl
+my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
+my @output = $cp->do_wrap([@many_strings]);
+```
+
 echo\_e\(\$string\)
 -------------------
 
@@ -2915,67 +2976,6 @@ Modified string.
 
 ```perl
 $cp->vim_printify( 't', 'This is a title' );
-```
-
-wrap\( \$strings, \[\$width\],\[\$indent\], \[\$hang\], \[\$break\] \)
-
-###Purpose
-
-Wrap strings at terminal (or provided) width.
-
-###Parameters
-
-####\$strings
-
-Text to wrap. Single string or reference to array of strings.
-
-Required.
-
-####%options
-
-Options hash. Optional.
-
-Hash members:
-
-*   $width
-
-    Width at which to wrap.
-
-    Optional. Default: terminal width.
-
-    Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
-
-*   $indent
-
-    Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
-
-    Optional. Default: 0.
-
-*   $hang
-
-    Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
-
-    Optional. Default: $indent.
-
-*   $break
-
-    Characters on which to break. A regular expression.
-
-    Optional. Default: qr\(\[\\s-_/\]\).
-
-###Prints
-
-Nil, except error messages.
-
-###Returns
-
-List of scalar strings (no terminal newlines).
-
-###Usage
-
-```perl
-my @output = $cp->display($long_string, indent => 2, hang => 4);
-my @output = $cp->display([@many_strings]);
 ```
 
 yesno\(\$question, \[\$title\]\)
