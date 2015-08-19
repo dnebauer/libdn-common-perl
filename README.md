@@ -976,6 +976,29 @@ Scalar string \(filename\).
 
 This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle "virtual" filepaths.
 
+get\_last\_directory\(\$dirpath\)
+---------------------------------
+
+###Purpose
+
+Get last directory from a directory path.
+
+###Parameters
+
+####\$dirpath
+
+Directory path to analyse.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Scalar path (dies on failure).
+
 get\_path\(\$filepath\)
 -----------------------
 

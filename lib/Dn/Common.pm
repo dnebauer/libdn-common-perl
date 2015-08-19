@@ -1329,9 +1329,23 @@ method get_filename ($filepath) {
     return File::Basename::fileparse($filepath);
 }
 
+# get_last_directory($dirpath)                                         {{{1
+#
+# does:   get last directory from directory path
+# params: $dirpath - directory path [required]
+# prints: nil
+# return: scalar path
+# uses:   File::Spec
+method get_last_directory ($dirpath) {
+    if ( not $dirpath ) { confess 'No directory path provided'; }
+    my @path     = File::Spec->splitdir($dirpath);
+    my $last_dir = pop @path;
+    return $last_dir;
+}
+
 # get_path($filepath)                                                  {{{1
 #
-# does:   get path from filepath.
+# does:   get path from filepath
 # params: $filepath - file path [required]
 # prints: nil
 # return: scalar path
@@ -4362,6 +4376,32 @@ Scalar string (filename).
 =head3 Note
 
 This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle I<virtual> filepaths.
+
+=head2 get_last_directory($dirpath)
+
+=head3 Purpose
+
+Get last directory from a directory path.
+
+=head3 Parameters
+
+=over
+
+=item $dirpath
+
+Directory path to analyse.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Scalar path (dies on failure).
 
 =head2 get_path($filepath)
 
