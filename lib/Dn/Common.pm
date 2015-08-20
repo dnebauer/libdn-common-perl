@@ -1440,17 +1440,34 @@ method get_filename ($filepath) {
     return File::Basename::fileparse($filepath);
 }
 
-# get_last_directory($dirpath)                                         {{{1
+# get_last_subdir($dirpath)                                            {{{1
 #
-# does:   get last directory from directory path
+# does:   get last subdirectory from directory path
 # params: $dirpath - directory path [required]
 # prints: nil
 # return: scalar path
 # uses:   File::Spec
-method get_last_directory ($dirpath) {
+method get_last_subdir ($dirpath) {
     if ( not $dirpath ) { confess 'No directory path provided'; }
-    my @path     = File::Spec->splitdir($dirpath);
-    my $last_dir = pop @path;
+    my @path = File::Spec->splitdir($dirpath);
+    my $last_dir;
+    while ( not $last_dir ) {    # final element empty if trailing slash
+        $last_dir = pop @path;
+    }
+    if ( not $last_dir ) {
+        if (@path) {
+            my $residual = join_dir([@path]);
+            my @err = (
+                qq{Unable to resolve last directory:\n},
+                qq{  Received path '$dirpath' and wound up with an empty\n},
+                qq{  last directory and residual path '$residual'\n},
+            );
+            confess @err;
+        }
+        else {    # no path and no last_dir -- assume root
+            return q{/};
+        }
+    }
     return $last_dir;
 }
 
@@ -2475,7 +2492,9 @@ method run_command ($cmd, :$silent, :$fatal) {
     # - $cmd
     if ( not( defined $cmd ) ) { confess 'No command provided'; }
     my $arg_type = ref $cmd;
-    if ( $arg_type ne 'ARRAY' ) { confess 'Command is not array reference'; }
+    if ( $arg_type ne 'ARRAY' ) {
+        confess 'Command is not array reference';
+    }
     my @cmd_args = @{$cmd};
     if ( not @cmd_args ) { confess 'No command arguments provided'; }
 
