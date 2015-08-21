@@ -3,7 +3,7 @@ package Dn::Common;
 use 5.014_002;    #                                                    {{{1
 use Moo;
 use strictures 2;
-use version; our $VERSION = qv('1.0.6');
+use version; our $VERSION = qv('1.0.7');
 
 # use of Gtk2::Notify causes debuild to fail with error:
 #   perl Build test --verbose 1
@@ -65,6 +65,7 @@ use IO::Pager;
 use IPC::Cmd qw(run);
 use IPC::Open3;
 use IPC::Run;
+use List::MoreUtils qw(any first_result);
 use Logger::Syslog;
 use Net::DBus;
 use Net::Ping::External qw(ping);
@@ -85,7 +86,7 @@ use experimental 'switch';    #                                        }}}1
 
 # Attributes
 
-# has notify_sys_icon_path                                             {{{1
+# notify_sys_icon_path                                                 {{{1
 has 'notify_sys_icon_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -103,7 +104,7 @@ method _notify_sys_icon () {
     return;
 }
 
-# has notify_sys_title                                                 {{{1
+# notify_sys_title                                                     {{{1
 has 'notify_sys_title' => (
     is            => 'rw',
     isa           => Types::Standard::Str,
@@ -113,7 +114,7 @@ has 'notify_sys_title' => (
     documentation => q{Default title for method 'notify_sys'},
 );
 
-# has notify_sys_type                                                  {{{1
+# notify_sys_type                                                      {{{1
 has 'notify_sys_type' => (
     is            => 'rw',
     isa           => Dn::Common::Types::NotifySysType,
@@ -123,7 +124,7 @@ has 'notify_sys_type' => (
     documentation => q{Default type for method 'notify_sys'},
 );
 
-# has run_command_fatal                                                {{{1
+# run_command_fatal                                                    {{{1
 has 'run_command_fatal' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
@@ -133,7 +134,7 @@ has 'run_command_fatal' => (
     documentation => q{Default fatal setting for method 'run_command'},
 );
 
-# has run_command_silent                                               {{{1
+# run_command_silent                                                   {{{1
 has 'run_command_silent' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
@@ -143,7 +144,55 @@ has 'run_command_silent' => (
     documentation => q{Default silent setting for method 'run_command'},
 );
 
-# has _configuration_files                                             {{{1
+# _adb                                                                 {{{1
+has '_adb' => (
+    is            => 'ro',
+    isa           => Types::Standard::Str,
+    lazy          => $TRUE,
+    builder       => '_build_adb',
+    documentation => q{An adb executable (either 'adb' or 'fb-adb')},
+);
+
+method _build_adb () {
+    foreach my $adb (qw(fb-adb adb)) {
+        if ( $self->executable_path($adb) ) {
+            return $adb;
+        }
+    }
+    warn "Cannot find 'fb-adb' or 'adb'\n";
+    return q{};
+}
+
+# _android_device()                                                    {{{1
+has '_android_device_id' => (
+    is            => 'rw',
+    isa           => Types::Standard::Str,
+    default       => q{},
+    documentation => q{Internal device id (use '_android_device()' instead)},
+);
+
+# use this method instead of directly using attribute '_android_device_id'
+# - returns android device id or dies
+method _android_device () {
+
+    # use existing android device id if still available
+    my $device = $self->_android_device_id;
+    if ( $device and $self->_android_device_available($device) ) {
+        return $device;
+    }
+
+    # otherwise try to select a new device
+    $device = $self->android_device_reset();
+    if ($device) {
+        $self->_android_device_id($device);
+        return $device;
+    }
+    else {
+        die "No android device set\n";
+    }
+}
+
+# _configuration_files                                                 {{{1
 has '_configuration_files' => (
     is  => 'rw',
     isa => Types::Standard::ArrayRef [
@@ -160,7 +209,7 @@ has '_configuration_files' => (
     documentation => q{Details from configuration files},
 );
 
-# has _icon_error_path                                                 {{{1
+# _icon_error_path                                                     {{{1
 has '_icon_error_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -181,7 +230,7 @@ method _icon_error () {
     return;
 }
 
-# has _icon_info_path                                                  {{{1
+# _icon_info_path                                                      {{{1
 has '_icon_info_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -202,7 +251,7 @@ method _icon_info () {
     return;
 }
 
-# has _icon_question_path                                              {{{1
+# _icon_question_path                                                  {{{1
 has '_icon_question_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -223,7 +272,7 @@ method _icon_question () {
     return;
 }
 
-# has _icon_warn_path                                                  {{{1
+# _icon_warn_path                                                      {{{1
 has '_icon_warn_path' => (
     is            => 'rw',
     isa           => Types::Path::Tiny::AbsFile,
@@ -244,7 +293,7 @@ method _icon_warn () {
     return;
 }
 
-# has _processes                                                       {{{1
+# _processes                                                           {{{1
 has '_processes' => (
     is          => 'rw',
     isa         => Types::Standard::HashRef [Types::Standard::Str],
@@ -263,7 +312,7 @@ has '_processes' => (
     documentation => q{Running processes},
 );
 
-# has _screensaver                                                     {{{1
+# _screensaver                                                         {{{1
 has '_screensaver' => (
     is            => 'rw',
     isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
@@ -290,7 +339,7 @@ method _build_screensaver () {
         ->get_object('/org/freedesktop/ScreenSaver');
 }
 
-# has _screensaver_attempt_suspend                                     {{{1
+# _screensaver_attempt_suspend                                         {{{1
 has '_screensaver_attempt_suspend' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
@@ -303,7 +352,7 @@ method _build_screensaver_attempt_suspend () {
     return $self->kde_desktop();
 }
 
-# has _screensaver_cookie                                              {{{1
+# _screensaver_cookie                                                  {{{1
 has '_screensaver_cookie' => (
     is            => 'rw',
     isa           => Types::Standard::Int,
@@ -311,7 +360,7 @@ has '_screensaver_cookie' => (
     documentation => q{Cookie used to track suspend requests},
 );
 
-# has _script                                                          {{{1
+# _script                                                              {{{1
 has '_script' => (
     is            => 'ro',
     isa           => Types::Standard::Str,
@@ -320,7 +369,7 @@ has '_script' => (
     documentation => q{Basename of calling script},
 );
 
-# has _urls                                                            {{{1
+# _urls                                                                {{{1
 has '_urls' => (
     is            => 'rw',
     isa           => Types::Standard::ArrayRef [Types::Standard::Str],
@@ -393,33 +442,63 @@ method abort (@messages) {
     die "${prefix}Aborting\n";
 }
 
-# adb_devices()                                                        {{{1
+# android_copy_file($source, $target, $android)                        {{{1
 #
-# does:   gets all attached adb devices
+# does:   copy file to or from android device
+# params: $source  - source file [required]
+#         $target  - target file or directory [required]
+#         $android - which path is on android device
+#                    [required, must be 'source' or 'target']
+# prints: nil, except error messages
+# return: n/a (die if serious error)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+# note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
+method android_copy_file ($source, $target, $android) {
+
+    # check args
+    if ( not $source )  { confess 'No source provided'; }
+    if ( not $target )  { confess 'No target provided'; }
+    if ( not $android ) { confess 'No android indicator provided'; }
+    my %valid_android = map { ( $_ => $TRUE ) } qw(source target);
+    if ( not $valid_android{$android} ) {
+        confess "Invalid android indicator '$android'";
+    }
+
+    # set variables
+    my $adb = $self->_adb;
+    if ( not $adb ) { confess 'Could not find adb on this system'; }
+    my $device = $self->_android_device;
+    my $operation = ( $android eq 'source' ) ? 'pull' : 'push';
+
+    # copy files
+    my $cmd = [ $adb, '-s', $device, $operation, $source, $target ];
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->success ) {
+        my $error = $result->error;
+        my @msg = ( "File copy failed\n", "System reported: $error\n" );
+        die @msg;
+    }
+    return;
+}
+
+# android_devices()                                                    {{{1
+#
+# does:   gets all attached android devices
 # params: nil
 # prints: nil
 # return: list of devices
-# note:   tries to use 'fb-adb' then 'adb'
-method adb_devices () {
-                        # check for android debug bridge
-    my $adb;
-    my @adb_alternatives = qw/fb-adb adb/;
-    foreach my $adb_alternative (@adb_alternatives) {
-        if ( $self->executable_path($adb_alternative) ) {
-            $adb = $adb_alternative;
-            last;
-        }
-    }
+# note:   tries using 'fb-adb' then 'adb', and returns
+#         failure code if both unavailable
+method android_devices () {
+
+    my $adb = $self->_adb;    # android debug bridge
     if ( not $adb ) {
-        my @msg = (
-            "Cannot find 'fb-adb' or 'adb'\n",
-            "Unable to check for attached android devices\n",
-        );
-        cluck @msg;
+        warn "Unable to search for android devices\n";
         return;
     }
 
-    # get and parse adb devices report
+    # get and parse android devices report
     # - ignore failed command and parse output anyway
     my $cmd = [ $adb, 'devices' ];
     my $result = $self->capture_command_output($cmd);
@@ -435,6 +514,104 @@ method adb_devices () {
         }
     }
     return @devices;
+}
+
+# android_device_reset()                                               {{{1
+# does:   sets android device for android operations
+# params: nil
+# prints: feedback and error messages
+# return: device id, undef if fails
+# alert:  this function is called automatically whenever a method is
+#         called that requires an android device, and one has not already
+#         been selected;
+#         that selected device is used for subsequent methods that require
+#         an android device, unless it becomes unavailable;
+#         if that device becomes unavailable, the next time a method
+#         is called that requires an android device, this method is called
+#         again to select a new device;
+#         for those reasons this method should rarely need to be called
+#         directly
+method android_device_reset () {
+    my @devices      = $self->android_devices();
+    my $device_count = scalar @devices;
+    for ($device_count) {
+
+        # no android devices detected
+        when ( $_ == 0 ) {
+            warn "No android device detected\n";
+            return;
+        }
+
+        # if single android device, select it automatically
+        when ( $_ == 1 ) {
+            return $devices[0];
+        }
+
+        # if multiple android devices, select one
+        when ( $_ > 1 ) {
+            return $self->input_choose( 'Select android device: ', @devices );
+        }
+    }
+}
+
+# android_file_list($dir)                                              {{{1
+#
+# does:   get list of files in android directory
+# params: $dir - directory to analyse [required]
+# prints: nil, except for error messages
+# return: list of file names
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+method android_file_list ($dir) {
+    if ( not $dir ) { $dir = q{}; }
+    my $type = 'file';
+    return $self->_android_file_or_subdir_list( $dir, $type );
+}
+
+# android_mkdir($dir)                                                  {{{1
+#
+# does:   ensure subdirectory exists on android device
+# params: $dir - directory to create [required]
+# prints: nil, except error messages
+# return: n/a, dies on failure
+# note:   no error if directory already exists (mkdir -p)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+# note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
+method android_mkdir ($dir) {
+
+    # check arg
+    if ( not $dir ) { confess 'No directory provided'; }
+
+    # set variables
+    my $adb = $self->_adb;
+    if ( not $adb ) { confess 'Could not find adb on this system'; }
+    my $device = $self->_android_device();
+
+    # make directory
+    my $cmd = [ $adb, '-s', $device, 'shell', 'mkdir', '-p', $dir ];
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->success ) {
+        my @msg   = ("Fatal error creating directory '$dir'\n");
+        my $error = $result->error;
+        if ($error) { push @msg, "System reported: $error\n"; }
+        die @msg;
+    }
+    return;
+}
+
+# android_subdir_list($dir)                                            {{{1
+#
+# does:   get list of subdirectories in android directory
+# params: $dir - directory to analyse [required]
+# prints: nil
+# return: list of subdirectory names
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+method android_subdir_list ($dir) {
+    if ( not $dir ) { $dir = q{}; }
+    my $type = 'subdir';
+    return $self->_android_file_or_subdir_list( $dir, $type );
 }
 
 # autoconf_version()                                                   {{{1
@@ -1451,12 +1628,12 @@ method get_last_subdir ($dirpath) {
     if ( not $dirpath ) { confess 'No directory path provided'; }
     my @path = File::Spec->splitdir($dirpath);
     my $last_dir;
-    while ( not $last_dir ) {    # final element empty if trailing slash
+    while ( not $last_dir ) {       # final element empty if trailing slash
         $last_dir = pop @path;
     }
     if ( not $last_dir ) {
         if (@path) {
-            my $residual = join_dir([@path]);
+            my $residual = join_dir( [@path] );
             my @err = (
                 qq{Unable to resolve last directory:\n},
                 qq{  Received path '$dirpath' and wound up with an empty\n},
@@ -1665,6 +1842,34 @@ method internet_connection ($verbose = $FALSE) {
         if ($verbose) { say 'No internet connection detected'; }
         return;
     }
+}
+
+# is_android_directory($path)                                          {{{1
+#
+# does:   determine whether path is an android directory
+# params: $path - path to check [required]
+# prints: nil, except error messages
+# return: boolean (dies if no path provided)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+method is_android_directory ($path) {
+    if ( not $path ) { $path = q{}; }
+    my $type = 'dir';
+    return $self->_is_android_file_or_dir( $path, $type );
+}
+
+# is_android_file($path)                                               {{{1
+#
+# does:   determine whether path is an android file
+# params: $path - path to check [required]
+# prints: nil, except error messages
+# return: boolean (dies if no path provided)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+method is_android_file ($path) {
+    if ( not $path ) { $path = q{}; }
+    my $type = 'file';
+    return $self->_is_android_file_or_dir( $path, $type );
 }
 
 # is_boolean($value)                                                   {{{1
@@ -3188,6 +3393,80 @@ method yesno ($question, $title) {
     return $ui->yesno( title => $title, text => $question );
 }
 
+# _android_device_available($device)                                   {{{1
+#
+# does:   determine whether an android device is available
+# params: $device - android device [required]
+# prints: nil, except error messages
+# return: scalar boolean, dies on failure
+method _android_device_available ($device) {
+    if ( not $device ) { confess 'No device provided'; }
+    my @devices = $self->android_devices();
+    if ( not @devices ) { return; }
+    return List::MoreUtils::any {/^$device\z/xsm} @devices;
+}
+
+# _android_file_or_subdir_list($dir, $type)                            {{{1
+#
+# does:   engine for getting a list of files or subdirectories
+#         in an android directory
+# params: $dir    - directory containing files or subdirectories [required]
+#         $type   - whether obtaining files or subdirectories
+#                   [required, must be 'file' or 'subdir']
+# prints: nil, except error messages
+# return: list of scalar (dies if no path provided)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+# note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
+method _android_file_or_subdir_list ($dir, $type) {
+
+    # check args
+    if ( not $dir )  { confess 'No directory provided'; }
+    if ( not $type ) { confess 'No type provided'; }
+    my %valid_type = map { ( $_ => $TRUE ) } qw(file subdir);
+    if ( not $valid_type{$type} ) { confess "Invalid type '$type'"; }
+    my $device = $self->_android_device();
+
+    # select android debug bridge
+    my $adb = $self->_adb;
+    if ( not $adb ) { confess 'Could not find adb on this system'; }
+
+    # confirm directory exists
+    if ( not $self->is_android_directory($dir) ) {
+        confess "Invalid android directory '$dir'\n";
+    }
+
+    # obtain directory listing
+    my $cmd = [ $adb, '-s', $device, 'shell', 'ls', '-aF', $dir ];
+    my $result = $self->capture_command_output($cmd);
+    if ( not $result->success ) {
+        my $error = $result->error;
+        my @msg   = (
+            "Unable to obtain listing from directory '$dir'\n",
+            "System reported error: $error\n",
+        );
+        die @msg;
+    }
+    my @stdout = $result->stdout;
+
+    # get matching files or directories
+    # - files in output have '- ' prepended
+    # - subdirectories in output have 'd ' prepended
+    my $match;
+    for ($type) {
+        when (/file/)   { $match = qr/^ -\s ( [\s\S]+ ) $/xsm; }
+        when (/subdir/) { $match = qr/^ d\s ( [\s\S]+ ) $/xsm; }
+    }
+    my @items;
+    foreach my $line (@stdout) {
+        if ( $line =~ $match ) {
+            push @items, $1;
+        }
+    }
+
+    return @items;
+}
+
 # _file_mime_type($filepath)                                           {{{1
 #
 # does:   determine mime type of file
@@ -3214,6 +3493,38 @@ method _file_mime_type ($filepath) {
 # return: icon filepath
 method _get_icon ($icon) {
     return $self->shared_module_file_milla( 'Dn-Common', $icon );
+}
+
+# _is_android_file_or_dir($path, $type)                                {{{1
+#
+# does:   engine for detecting whether a path
+#         is an android file or directory
+# params: $path   - path to check [required]
+#         $type   - whether file or directory
+#                   [required, must be 'file' or 'dir']
+# prints: nil, except error messages
+# return: boolean (dies if no path provided)
+# note:   see notes to method 'android_device_reset' regarding
+#         selection of android device
+# note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
+method _is_android_file_or_dir ($path, $type) {
+
+    # check args
+    if ( not $path ) { confess 'No path provided'; }
+    if ( not $type ) { confess 'No type provided'; }
+    my %valid_type = map { ( $_ => $TRUE ) } qw(file dir);
+    if ( not $valid_type{$type} ) { confess "Invalid type '$type'"; }
+    my $device = $self->_android_device();
+
+    # select android debug bridge
+    my $adb = $self->_adb;
+    if ( not $adb ) { confess 'Could not find adb on this system'; }
+
+    # test path
+    my $flag = ( $type eq 'file' ) ? '-f' : '-d';
+    my $cmd = [ $adb, '-s', $device, 'shell', 'test', $flag, $path ];
+    my $result = $self->capture_command_output($cmd);
+    return $result->success;
 }
 
 # _is_mimetype($filepath, $mimetype)                                   {{{1
@@ -3327,7 +3638,9 @@ method _ui_dialog_widget_preference () {
 #     =head2 method( )
 #
 # This ensures all method headers are displayed in the same format.    }}}1
+
 # POD                                                                  {{{1
+
 __END__
 
 =encoding utf-8
@@ -3385,7 +3698,51 @@ Nil.
     $cp->abort('We failed');
     $cp->abort('We failed', prepend => $TRUE);
 
-=head2 adb_devices( )
+=head2 android_copy_file($source, $target, $android)
+
+=head3 Purpose
+
+Copy file to or from android device.
+
+=head3 Parameters
+
+=over
+
+=item $source
+
+Source file path.
+
+Required.
+
+=item $target
+
+Target file or directory.
+
+Required.
+
+=item $android
+
+Which path is on android device. Must be 'source' or 'target'.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error message.
+
+=head3 Returns
+
+N/A, die if serious error.
+
+=head3 Notes
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
+
+Method tries using C<fb-adb> then C<adb> and dies if both unavailable.
+
+=head2 android_devices( )
 
 =head3 Purpose
 
@@ -3405,7 +3762,128 @@ List of attached devices. (Empty list if none.)
 
 =head3 Note
 
-Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
+Tries to use C<fb-adb> then C<adb>. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
+
+=head2 android_device_reset( )
+
+=head3 Purpose
+
+Reset android device for android operations.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+User feedback if no android devices available, or user has to select between multiple devices.
+
+=head3 Returns
+
+Scalar string (device id), or undef if no device is set.
+Boolean scalar.
+
+=head3 Warning
+
+This method is called automatically whenever a method is called that requires an android device and one has not already been selected. If only one android device is available, it is selected automatically. If multiple android devices are available, the user is prompted to select one. If no android device is available, the method dies.
+
+A selected device is used for subsequent methods that require an android device, provided the device is still available. If the previously selected android device has become unavailable, when the next method is called that requires an android device, a new device is selected as before.
+
+For these reasons, this method should rarely need to be called directly.
+
+=head2 android_file_list($dir)
+
+=head3 Purpose
+
+Get list of files in an android directory.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Android directory to obtains contents of.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except for error messages.
+
+=head3 Returns
+
+List of file names.
+
+=head3 Note
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
+
+=head2 android_mkdir($dir)
+
+=head3 Purpose
+
+Ensure subdirectory exists on android device.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory to create.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+N/A, dies on failure.
+
+=head3 Notes
+
+No error if directory already exists, e.g., C<mkdir -p>.
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
+
+Method tries using C<fb-adb> then C<adb> and dies if both unavailable.
+
+=head2 android_subdir_list($dir)
+
+=head3 Purpose
+
+Get list of subdirectories in an android directory.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Android directory to obtains contents of.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except for error messages.
+
+=head3 Returns
+
+List of subdirectory names.
+
+=head3 Note
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
 
 =head2 autoconf_version( )
 
@@ -4753,6 +5231,66 @@ Feedback if requested, otherwise nil.
 =head3 Returns
 
 Boolean.
+
+=head2 is_android_directory($path)
+
+=head3 Purpose
+
+Determine whether path is an android directory.
+
+=head3 Parameters
+
+=over
+
+=item $path
+
+Path to check.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Boolean (dies if no path provided).
+
+=head3 Note
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
+
+=head2 is_android_file($path)
+
+=head3 Purpose
+
+Determine whether path is an android file.
+
+=head3 Parameters
+
+=over
+
+=item $path
+
+Path to check.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Boolean (dies if no path provided).
+
+=head3 Note
+
+See method L</"android_device_reset"> regarding selection of android device for this method.
 
 =head2 is_boolean($value)
 
@@ -6671,6 +7209,8 @@ Scalar boolean.
 =item IPC::Open3
 
 =item IPC::Run
+
+=item List::MoreUtils
 
 =item Logger::Syslog
 

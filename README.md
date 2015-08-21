@@ -43,12 +43,53 @@ $cp->abort('We failed');
 $cp->abort('We failed', prepend => 1);
 ```
 
-adb_devices\(\)
----------------
+android\_copy\_file\( \$source, \$target, \$android \)
+------------------------------------------------------
 
 ###Purpose
 
-Gets all attached adb devices.
+Copy file to or from android device.
+
+###Parameters
+
+####\$source
+
+Source file path.
+
+Required.
+
+####\$target
+
+Target file or directory.
+
+Required.
+
+####\$android
+
+Which path is on android device. Must be 'source' or 'target'.
+
+Required.
+
+###Prints
+
+Nil, except error message.
+
+###Returns
+
+N/A, die if serious error.
+
+###Notes
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
+
+Method tries using 'fb-adb' then 'adb' and dies if both unavailable.
+
+android\_devices\(\)
+--------------------
+
+###Purpose
+
+Get list of attached android devices.
 
 ###Parameters
 
@@ -60,14 +101,127 @@ Nil.
 
 ###Returns
 
-List of device identifiers.
+List of attached devices. (Empty list if none.)
 
 ###Note
 
 Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
 
+android\_device\_reset\(\)
+--------------------------
+
+###Purpose
+
+Reset android device for android operations.
+
+###Parameters
+
+Nil.
+
+###Prints
+
+User feedback if no android devices available, or user has to select between multiple devices.
+
+###Returns
+
+Scalar string (device id), or undef if no device is set.
+Boolean scalar.
+
+###Warning
+
+This method is called automatically whenever a method is called that requires an android device and one has not already been selected. If only one android device is available, it is selected automatically. If multiple android devices are available, the user is prompted to select one. If no android device is available, the method dies.
+
+A selected device is used for subsequent methods that require an android device, provided the device is still available. If the previously selected android device has become unavailable, when the next method is called that requires an android device, a new device is selected as before.
+
+For these reasons, this method should rarely need to be called directly.
+
+android\_file\_list\(\$dir\)
+----------------------------
+
+###Purpose
+
+Get list of files in an android directory.
+
+###Parameters
+
+####\$dir
+
+Android directory to obtains contents of.
+
+Required.
+
+###Prints
+
+Nil, except for error messages.
+
+###Returns
+
+List of file names.
+
+###Note
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
+
+android\_mkdir\(\$dir\)
+-----------------------
+
+###Purpose
+
+Ensure subdirectory exists on android device.
+
+###Parameters
+
+####\$dir
+
+Directory to create.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+N/A, dies on failure.
+
+###Notes
+
+No error if directory already exists, e.g., 'mkdir -p'.
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
+
+Method tries using 'fb-adb' then 'adb' and dies if both unavailable.
+
+android\_subdir\_list\(\$dir\)
+------------------------------
+
+###Purpose
+
+Get list of subdirectories in an android directory.
+
+###Parameters
+
+####\$dir
+
+Android directory to obtains contents of.
+
+Required.
+
+###Prints
+
+Nil, except for error messages.
+
+###Returns
+
+List of subdirectory names.
+
+###Note
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
+
 autoconf\_version\(\)
---------------
+---------------------
 
 ###Purpose
 
@@ -1310,6 +1464,60 @@ Nil.
 ###Returns
 
 Boolean.
+
+is\_android\_directory\(\$path\)
+--------------------------------
+
+###Purpose
+
+Determine whether path is an android directory.
+
+###Parameters
+
+####\$path
+
+Path to check.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Boolean (dies if no path provided).
+
+###Note
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
+
+is\_android\_file\(\$path\)
+---------------------------
+
+###Purpose
+
+Determine whether path is an android file.
+
+###Parameters
+
+####\$path
+
+Path to check.
+
+Required.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Boolean (dies if no path provided).
+
+###Note
+
+See method 'android\_device\_reset' regarding selection of android device for this method.
 
 is\_boolean\(\$value\)
 ----------------------
