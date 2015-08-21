@@ -820,7 +820,7 @@ Nil.
 
 Boolean scalar.
 
-do\_wrap\( \$strings, \[\$width\],\[\$indent\], \[\$hang\], \[\$break\] \)
+do\_wrap\( \$strings, \[\%options\] \)
 
 ###Purpose
 

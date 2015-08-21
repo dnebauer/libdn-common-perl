@@ -1291,11 +1291,11 @@ method do_rmdir ($dir) {
 #             $hang   - size of indent of second and subsequent lines
 #                       [default=$indent]
 #             $break  - characters on which to break, regex
-#                       [default=qr([\s-_])]
+#                       [default=qr([\s_/-])]
 # prints: nil
 # return: list of strings (no terminal slashes)
 # usage:  my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
-#         my @output = $cp->dp_wrap([@many_strings]);
+#         my @output = $cp->do_wrap([@many_strings]);
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
@@ -1327,10 +1327,10 @@ method do_wrap ($strings, %options) {
                 = q{Invalid option 'width': } . Dumper( $options{'width'} );
             confess $err;
         }
-        my $terminal_width = $self->term_size->width;
-        if ( ( not $width ) or ( $width > $terminal_width ) ) {
-            $width = $terminal_width;
-        }
+    }
+    my $terminal_width = $self->term_size->width - 1;
+    if ( ( not $width ) or ( $width > $terminal_width ) ) {
+        $width = $terminal_width;
     }
     local $Text::Wrap::columns = $Text::Wrap::columns;
     $Text::Wrap::columns = $width;
@@ -1339,7 +1339,8 @@ method do_wrap ($strings, %options) {
     my $indent = q{};
     if ( $options{'indent'} ) {
         if (    $self->valid_positive_integer( $options{'indent'} )
-            and $options{'indent'} > 0 )
+            and $options{'indent'} > 0
+            and ( ( $options{'indent'} + 10 ) < $width ) )
         {
             $indent = q{ } x $options{'indent'};
         }
@@ -1353,7 +1354,9 @@ method do_wrap ($strings, %options) {
     # - $hang                                                          {{{2
     my $hang = $indent;
     if ( $options{'hang'} ) {
-        if ( $self->valid_positive_integer( $options{'hang'} ) ) {
+        if ( $self->valid_positive_integer( $options{'hang'} )
+            and ( ( $options{'hang'} + 10 ) < $width ) )
+        {
             $hang = q{ } x $options{'hang'};
         }
         else {
@@ -4532,7 +4535,7 @@ Nil.
 
 Boolean scalar.
 
-=head2 do_wrap($strings, [$width],[$indent], [$hang], [$break])
+=head2 do_wrap($strings, [%options])
 
 =head3 Purpose
 
