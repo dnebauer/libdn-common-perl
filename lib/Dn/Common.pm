@@ -1282,29 +1282,40 @@ method do_rmdir ($dir) {
 # do_wrap($string, [$width],[$indent], [$hang], [$break])              {{{1
 #
 # does:   displays screen text with word wrapping
-# params: $strings - text to wrap, string or array reference
+# params:                                                              {{{2
+#         $strings - text to wrap, string or array reference
 #                    [required]
 #         %options - options hash [optional]:
-#             $width         - width at which to wrap [default=terminal width]
-#                              note: cannot be wider than terminal width
-#             $indent        - size of indent [default=0]
-#             $hang          - size of indent of second and subsequent lines
-#                              [default=$indent]
-#             $break_consume - characters on which to break
-#                              while consuming them
-#                              [array reference, default=(' ')]
-#             $break_protect - characters on which to break
-#                              while preserving them
-#                              [array reference, default=()]
+#             $width  - width at which to wrap [default=terminal width]
+#                       note: cannot be wider than terminal width
+#             $indent - size of indent [default=0]
+#             $hang   - size of indent of second and subsequent lines
+#                       [default=$indent]
+#             $break  - characters on which to break
+#                       note: cannot include escapes (such as '\s')
+#                       [array reference, default=(' ')]               }}}2
 # prints: nil
 # return: list of strings (no terminal slashes)
 # usage:  my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
 #         my @output = $cp->do_wrap([@many_strings]);
-# note:   a line consisting solely of break characters, even break_protect
-#         characters (such as a line of dashes, where dashes are defined as a
-#         break_protect character) will simply disappear during processing --
+# notes:                                                               {{{2
+# note:   continuation lines have a prepended continuation character;
+#         alternatives include:
+#         U+2938 (⤸),
+#         U+21A9 (↩),
+#         U+21B2 (↲),
+#         U+21B5 (↵),
+#         U+21D9 (⇙),
+#         U+2926 (⤦),
+#         U+2936 (⤶),
+#         U+23CE (⏎),
+#         U+2B0B (⬋),
+#         U+2B03 (⬃)
+# note:   a line consisting solely of break characters (such as a
+#         line of dashes, where dashes are defined as a break
+#         character) will simply disappear during processing --
 #         this is due to an idiosyncrasy of the Text::Wrap class
-# note:   often used with method 'pager' to format screen display
+# note:   often used with method 'pager' to format screen display      }}}2
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
@@ -1375,44 +1386,50 @@ method do_wrap ($strings, %options) {
     }
 
     # - $break                                                         {{{2
-    my $break_consume = [' '];
-    if ( defined $options{'break_consume'} ) {
-        my $break_consume_ref = ref $options{'break_consume'};
-        if ( $break_consume_ref eq 'ARRAY' ) {
-            $break_consume = $options{'break_consume'};
+    my $break_chars = [' '];
+    if ( defined $options{'break'} ) {
+        my $break_ref = ref $options{'break'};
+        if ( $break_ref eq 'ARRAY' ) {
+            $break_chars = $options{'break'};
         }
         else {
             my $err
-                = q{Invalid option 'break_consume': }
-                . Dumper( $options{'break_consume'} );
-            confess $err;
-        }
-    }
-    my $break_protect = [];
-    if ( defined $options{'break_protect'} ) {
-        my $break_protect_ref = ref $options{'break_protect'};
-        if ( $break_protect_ref eq 'ARRAY' ) {
-            $break_protect = $options{'break_protect'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'break_protect': }
-                . Dumper( $options{'break_protect'} );
+                = q{Invalid option 'break': } . Dumper( $options{'break'} );
             confess $err;
         }
     }
 
-    # double break_protect tokens
-    foreach my $token ( @{$break_protect} ) {
+    # some break tokens can't be doubled, or it screws up the output
+    # - also, ensure tokens are single characters
+    my ( @doubled_chars, @ignoring );
+    my @do_not_double = (q{ });
+    foreach my $char ( @{$break_chars} ) {
+        if ( length $char > 1 ) {
+            push @ignoring, $char;
+            next;
+        }
+
+        # do not use 'x' switch as searching includes spaces
+        if ( not List::MoreUtils::any {/^$char\z/sm} @do_not_double ) {
+            push @doubled_chars, $char;
+        }
+    }
+    if (@ignoring) {
+        foreach my $item (@ignoring) { $item = "'$item'"; }
+        my $chars = join q{, }, @ignoring;
+        warn "Break on single characters only -- ignoring: $chars\n";
+    }
+
+    # double break characters in case one is eaten by Text::Wrap
+    foreach my $char (@doubled_chars) {
         foreach my $line (@input) {
-            $line =~ s/$token/$token$token/xsmg;
+            $line =~ s/$char/$char$char/xsmg;
         }
     }
 
     # assemble $break regex and set $Text::Wrap::break
     my $pattern = q{};
-    if ( @{$break_consume} ) { $pattern .= ( join q{}, @{$break_consume} ); }
-    if ( @{$break_protect} ) { $pattern .= ( join q{}, @{$break_protect} ); }
+    if ( @{$break_chars} ) { $pattern .= ( join q{}, @{$break_chars} ); }
     if ($pattern) { $pattern = "[$pattern]"; }
     my $break = qr($pattern);
     local $Text::Wrap::break = $Text::Wrap::break;
@@ -1425,14 +1442,19 @@ method do_wrap ($strings, %options) {
     foreach my $line (@input) {
         my $wrapped = Text::Wrap::wrap( $indent, $hang, $line );
         my @wrapped_lines = split /\n/xsm, $wrapped;
+        if ( scalar @wrapped_lines > 1 ) {    # add continuation character
+            my $first_line = shift @wrapped_lines;
+            foreach my $line (@wrapped_lines) { $line .= q{↩}; }    # U+21A9
+            unshift @wrapped_lines, $first_line;
+        }
         push @output, @wrapped_lines;
     }
     chomp @output;
 
-    # reverse doubling of break_protect tokens
-    foreach my $token ( @{$break_protect} ) {
+    # reverse doubling of break tokens
+    foreach my $char (@doubled_chars) {
         foreach my $line (@output) {
-            $line =~ s/$token$token/$token/xsmg;
+            $line =~ s/$char$char/$char/xsmg;
         }
     }
 
@@ -4579,7 +4601,7 @@ Boolean scalar.
 
 =head3 Purpose
 
-Wrap strings at terminal (or provided) width.
+Wrap strings at terminal (or provided) width. Continuation lines have a prepended continuation character (U+21A9, leftwards arrow with hook).
 
 This method is often used with method 'pager' to format screen display.
 
@@ -4621,17 +4643,11 @@ Size of indent of second and subsequent lines. If not provided, $indent is used 
 
 Optional. Default: $indent.
 
-=item $break_consume
+=item $break
 
-Characters on which to break while consuming them. Array reference.
+Characters on which to break. Cannot includes escapes (such as '\s'). Array reference.
 
 Optional. Default: [' '].
-
-=item $break_protect
-
-Characters on which to break while preserving them. Array reference.
-
-Optional. Default: [].
 
 =back
 

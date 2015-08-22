@@ -824,7 +824,9 @@ do\_wrap\( \$strings, \[\%options\] \)
 
 ###Purpose
 
-Wrap strings at terminal (or provided) width.
+Wrap strings at terminal (or provided) width. Continuation lines have a prepended continuation character (U+21A9, '↩').
+
+This method is often used with method 'pager' to format screen display.
 
 ###Parameters
 
@@ -860,17 +862,11 @@ Hash members:
 
     Optional. Default: \$indent.
 
-*   \$break\_consume
+*   \$break
 
-    Characters on which to break while consuming them. Array reference.
+    Characters on which to break. Cannot include escapes (such as '\s'). Array reference.
 
     Optional. Default: [' '].
-
-*   \$break\_protect
-
-    Characters on which to break while preserving them. Array reference.
-
-    Optional. Default: [].
 
 ###Prints
 
@@ -2100,9 +2096,11 @@ pager\(\$lines\)
 
 Display list of lines in terminal using pager.
 
-It does not matter whether ot not the lines have terminal newlines or not.
+It does not matter whether or not the lines have terminal newlines or not.
 
 The content is paged. See the IO::Pager manpage for details on the algorithm used to determine the pager used.
+
+This method is often used with method 'do\_wrap' to format screen display.
 
 ###Parameters
 
