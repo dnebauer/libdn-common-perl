@@ -2112,6 +2112,12 @@ Content to display. Array reference.
 
 Required.
 
+####\$prefer
+
+Preferred pager. It is used if available.
+
+Optional. No default, i.e., normally follows [IO::Pager](http://search.cpan.org/~jpierce/IO-Pager-0.34/lib/IO/Pager.pm) algorithm.
+
 ###Prints
 
 Provided content, each line begins on a new line and is intelligently wrapped.

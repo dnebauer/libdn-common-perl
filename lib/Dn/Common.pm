@@ -22,7 +22,7 @@ use Carp qw(cluck confess);
 use Data::Dumper::Simple;
 use Dn::Common::Types qw(NotifySysType);
 use English qw(-no_match_vars);
-use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PWD);
+use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PAGER PWD);
 use Function::Parameters;
 use MooX::HandlesVia;
 use Readonly;
@@ -1304,6 +1304,7 @@ method do_rmdir ($dir) {
 #         characters (such as a line of dashes, where dashes are defined as a
 #         break_protect character) will simply disappear during processing --
 #         this is due to an idiosyncrasy of the Text::Wrap class
+# note:   often used with method 'pager' to format screen display
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
@@ -2419,43 +2420,37 @@ method offset_date ($offset) {
 # pager($lines)                                                        {{{1
 #
 # does:   display list of lines in terminal using pager
-# params: $lines - array reference [required]
-# prints: formatted and paged lines
+# params: $lines  - array reference [required]
+#         $prefer - preferred pager, used if it is found on the system
+#                   [optional, no default]
+# prints: paged lines
 # return: n/a, die on failure
 # note:   pager used depends on IO::Pager algorithm
 # note:   does not matter whether lines have terminal newlines or not
-# uses:   Text::Wrap, IO::Pager
-method pager ($lines) {
+# note:   often used with method 'do_wrap' to format screen display
+# uses:   IO::Pager
+method pager ($lines, $prefer) {
 
-    # check arg
+    # check args
     if ( not $lines ) { confess 'No lines provided'; }
     my $ref_type = ref $lines;
     if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
-
-    # wrap lines
-    # - localise package variable as per Perl Best Practice (pp. 77-79)
-    my @original_lines = @{$lines};
-    chomp @original_lines;
-    my @wrapped_lines;
-    local $Text::Wrap::columns = $Text::Wrap::columns;
-    $Text::Wrap::columns = $self->term_size->width;
-    foreach my $line (@original_lines) {
-        my @new_lines;
-        if ( $line =~ /^\s*\z/xsm ) {    # empty line, otherwise dropped
-            push @new_lines, q{};
-        }
-        else {
-            my $wrapped_line = Text::Wrap::wrap( q{}, q{}, $line );
-            @new_lines = split /\n/xsm, $wrapped_line;
-        }
-        push @wrapped_lines, @new_lines;
+    my $default_pager;
+    if ( $prefer and $self->executable_path($prefer) and $prefer ne $PAGER ) {
+        $default_pager = $PAGER;
+        $PAGER         = $prefer;
     }
 
-    # display wrapped lines
+    # display lines
+    my @output = @{$lines};
+    chomp @output;
     my $pager = IO::Pager->new();
-    foreach my $line (@wrapped_lines) {
+    foreach my $line (@output) {
         $pager->print("$line\n");
     }
+
+    # restore default pager
+    if ($default_pager) { $PAGER = $default_pager; }
 }
 
 # parent_dir($dir)                                                     {{{1
@@ -4586,6 +4581,8 @@ Boolean scalar.
 
 Wrap strings at terminal (or provided) width.
 
+This method is often used with method 'pager' to format screen display.
+
 =head3 Parameters
 
 =over
@@ -5928,15 +5925,15 @@ Nil.
 
 ISO-formatted date.
 
-=head2 pager($lines)
+=head2 pager($lines, [$prefer])
 
 =head3 Purpose
 
-Display list of lines in terminal using pager.
+Display list of lines in terminal using pager. Unless a preferred pager is provided the pager used is determined by C<IO::Pager>.
 
 It does not matter whether or not the lines have terminal newlines or not.
 
-The pager used is determined by C<IO::Pager>.
+This method is often used with method 'do_wrap' to format screen display.
 
 =head3 Parameters
 
@@ -5948,13 +5945,19 @@ Content to display. Array reference.
 
 Required.
 
+=item $prefer
+
+Preferred pager. It is used if available.
+
+Optional. No default, i.e., normally follows L<IO::Pager> algorithm.
+
 =back
 
 =head3 Prints
 
 Provided content, each line begins on a new line and is intelligently wrapped.
 
-The content is paged. See L</"IO::Pager"> for details on the algorithm used to determine the pager used.
+The content is paged. See L<IO::Pager> for details on the algorithm used to determine the pager used.
 
 =head3 Return
 
