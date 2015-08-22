@@ -1300,7 +1300,10 @@ method do_rmdir ($dir) {
 # return: list of strings (no terminal slashes)
 # usage:  my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
 #         my @output = $cp->do_wrap([@many_strings]);
-# note:
+# note:   a line consisting solely of break characters, even break_protect
+#         characters (such as a line of dashes, where dashes are defined as a
+#         break_protect character) will simply disappear during processing --
+#         this is due to an idiosyncrasy of the Text::Wrap class
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
@@ -4621,11 +4624,17 @@ Size of indent of second and subsequent lines. If not provided, $indent is used 
 
 Optional. Default: $indent.
 
-=item $break
+=item $break_consume
 
-Characters on which to break. A regular expression.
+Characters on which to break while consuming them. Array reference.
 
-Optional. Default: qr([\s-_/]).
+Optional. Default: [' '].
+
+=item $break_protect
+
+Characters on which to break while preserving them. Array reference.
+
+Optional. Default: [].
 
 =back
 
