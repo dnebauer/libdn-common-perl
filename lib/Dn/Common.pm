@@ -1285,17 +1285,22 @@ method do_rmdir ($dir) {
 # params: $strings - text to wrap, string or array reference
 #                    [required]
 #         %options - options hash [optional]:
-#             $width  - width at which to wrap [default=terminal width]
-#                       note: cannot be wider than terminal width
-#             $indent - size of indent [default=0]
-#             $hang   - size of indent of second and subsequent lines
-#                       [default=$indent]
-#             $break  - characters on which to break, regex
-#                       [default=qr([\s_/-])]
+#             $width         - width at which to wrap [default=terminal width]
+#                              note: cannot be wider than terminal width
+#             $indent        - size of indent [default=0]
+#             $hang          - size of indent of second and subsequent lines
+#                              [default=$indent]
+#             $break_consume - characters on which to break
+#                              while consuming them
+#                              [array reference, default=(' ')]
+#             $break_protect - characters on which to break
+#                              while preserving them
+#                              [array reference, default=()]
 # prints: nil
 # return: list of strings (no terminal slashes)
 # usage:  my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
 #         my @output = $cp->do_wrap([@many_strings]);
+# note:
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
@@ -1366,22 +1371,52 @@ method do_wrap ($strings, %options) {
     }
 
     # - $break                                                         {{{2
-    my $break = qr([\s_/-]);
-    if ( $options{'break'} ) {
-        my $break_ref = ref $options{'break'};
-        if ( $break_ref eq 'Regexp' ) {
-            $break = $options{'break'};
+    my $break_consume = [' '];
+    if ( defined $options{'break_consume'} ) {
+        my $break_consume_ref = ref $options{'break_consume'};
+        if ( $break_consume_ref eq 'ARRAY' ) {
+            $break_consume = $options{'break_consume'};
         }
         else {
             my $err
-                = q{Invalid option 'break': } . Dumper( $options{'break'} );
+                = q{Invalid option 'break_consume': }
+                . Dumper( $options{'break_consume'} );
             confess $err;
         }
     }
+    my $break_protect = [];
+    if ( defined $options{'break_protect'} ) {
+        my $break_protect_ref = ref $options{'break_protect'};
+        if ( $break_protect_ref eq 'ARRAY' ) {
+            $break_protect = $options{'break_protect'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'break_protect': }
+                . Dumper( $options{'break_protect'} );
+            confess $err;
+        }
+    }
+
+    # double break_protect tokens
+    foreach my $token ( @{$break_protect} ) {
+        foreach my $line (@input) {
+            $line =~ s/$token/$token$token/xsmg;
+        }
+    }
+
+    # assemble $break regex and set $Text::Wrap::break
+    my $pattern = q{};
+    if ( @{$break_consume} ) { $pattern .= ( join q{}, @{$break_consume} ); }
+    if ( @{$break_protect} ) { $pattern .= ( join q{}, @{$break_protect} ); }
+    if ($pattern) { $pattern = "[$pattern]"; }
+    my $break = qr($pattern);
     local $Text::Wrap::break = $Text::Wrap::break;
     $Text::Wrap::break = $break;    #                                  }}}2
 
     # wrap message
+    local $Text::Wrap::huge = $Text::Wrap::huge;
+    $Text::Wrap::huge = 'wrap';
     my @output;
     foreach my $line (@input) {
         my $wrapped = Text::Wrap::wrap( $indent, $hang, $line );
@@ -1389,6 +1424,13 @@ method do_wrap ($strings, %options) {
         push @output, @wrapped_lines;
     }
     chomp @output;
+
+    # reverse doubling of break_protect tokens
+    foreach my $token ( @{$break_protect} ) {
+        foreach my $line (@output) {
+            $line =~ s/$token$token/$token/xsmg;
+        }
+    }
 
     return @output;
 }

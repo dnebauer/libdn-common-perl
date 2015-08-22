@@ -840,7 +840,7 @@ Options hash. Optional.
 
 Hash members:
 
-*   $width
+*   \$width
 
     Width at which to wrap.
 
@@ -848,23 +848,29 @@ Hash members:
 
     Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
 
-*   $indent
+*   \$indent
 
-    Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
+    Size of indent. Can be indent of first line only (if \$hang is also provided) or of all lines (if \$hang is not provided). Indent is spaces.
 
     Optional. Default: 0.
 
-*   $hang
+*   \$hang
 
-    Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
+    Size of indent of second and subsequent lines. If not provided, \$indent is used for all lines.
 
-    Optional. Default: $indent.
+    Optional. Default: \$indent.
 
-*   $break
+*   \$break\_consume
 
-    Characters on which to break. A regular expression.
+    Characters on which to break while consuming them. Array reference.
 
-    Optional. Default: qr\(\[\\s-_/\]\).
+    Optional. Default: [' '].
+
+*   \$break\_protect
+
+    Characters on which to break while preserving them. Array reference.
+
+    Optional. Default: [].
 
 ###Prints
 
@@ -880,6 +886,10 @@ List of scalar strings (no terminal newlines).
 my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
 my @output = $cp->do_wrap([@many_strings]);
 ```
+
+###Note
+
+A line consisting solely of break characters, even break\_protect characters (such as a line of dashes, where dashes are defined as a break\_protect character) will simply disappear during processing. This is due to an idiosyncrasy of the Text::Wrap class.
 
 echo\_e\(\$string\)
 -------------------
