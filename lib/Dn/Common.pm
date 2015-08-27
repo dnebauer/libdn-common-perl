@@ -209,6 +209,34 @@ has '_configuration_files' => (
     documentation => q{Details from configuration files},
 );
 
+# _desktop                                                             {{{1
+has '_desktop' => (
+    is            => 'ro',
+    isa           => Types::Standard::Str,
+    lazy          => $TRUE,
+    builder       => '_build_desktop',
+    documentation => 'The running desktop',
+);
+
+method _build_desktop () {
+    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
+
+    # kde
+    # - version 4: returns 'kde-plasma'
+    if ( $desktop eq 'kde-plasma' ) { return 'kde'; }
+
+    # - version 5: returns nothing, so directly inspect $DESKTOP_SESSION
+    if ( $DESKTOP_SESSION eq 'plasma' ) { return 'kde'; }
+
+    # gnome
+    my %gnome_desktop
+        = map { ( $_ => $TRUE ) } qw(gnome gnome-classic gnome-fallback);
+    if ( $gnome_desktop{$desktop} ) { return $desktop; }
+
+    # other
+    return $desktop;
+}
+
 # _icon_error_path                                                     {{{1
 has '_icon_error_path' => (
     is            => 'rw',
@@ -293,6 +321,33 @@ method _icon_warn () {
     return;
 }
 
+# _kde_screensaver                                                     {{{1
+has '_kde_screensaver' => (
+    is            => 'rw',
+    isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
+    lazy          => $TRUE,
+    builder       => '_build_kde_screensaver',
+    documentation => q{KDE screensaver object},
+
+    # use lazy+builder because if use default sub then other modules
+    # that use this one can fail their build with this error:
+    #     perl Build test --verbose
+    #     t/basic.t ...............
+    #     # No DISPLAY. Looking for xvfb-run...
+    #     # Restarting with xvfb-run...
+    #     Xlib:  extension "RANDR" missing on display ":99".
+    #     org.freedesktop.DBus.Error.ServiceUnknown: The name \
+    #         org.freedesktop.ScreenSaver was not provided by \
+    #         any .service files
+    #     Compilation failed in require at t/basic.t line 3.
+    #     ...
+);
+
+method _build_kde_screensaver () {
+    return Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
+        ->get_object('/org/freedesktop/ScreenSaver');
+}
+
 # _processes                                                           {{{1
 has '_processes' => (
     is          => 'rw',
@@ -312,44 +367,21 @@ has '_processes' => (
     documentation => q{Running processes},
 );
 
-# _screensaver                                                         {{{1
-has '_screensaver' => (
-    is            => 'rw',
-    isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
-    lazy          => $TRUE,
-    builder       => '_build_screensaver',
-    documentation => q{KDE screensaver object},
-
-    # use lazy+builder because if use default sub then other modules
-    # that use this one can fail their build with this error:
-    #     perl Build test --verbose
-    #     t/basic.t ...............
-    #     # No DISPLAY. Looking for xvfb-run...
-    #     # Restarting with xvfb-run...
-    #     Xlib:  extension "RANDR" missing on display ":99".
-    #     org.freedesktop.DBus.Error.ServiceUnknown: The name \
-    #         org.freedesktop.ScreenSaver was not provided by \
-    #         any .service files
-    #     Compilation failed in require at t/basic.t line 3.
-    #     ...
-);
-
-method _build_screensaver () {
-    return Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
-        ->get_object('/org/freedesktop/ScreenSaver');
-}
-
-# _screensaver_attempt_suspend                                         {{{1
-has '_screensaver_attempt_suspend' => (
+# _screensaver_can_attempt_suspend                                     {{{1
+has '_screensaver_can_attempt_suspend' => (
     is            => 'rw',
     isa           => Types::Standard::Bool,
     lazy          => $TRUE,
-    builder       => '_build_screensaver_attempt_suspend',
-    documentation => q{Whether to attempt to suspend KDE screensaver},
+    builder       => '_build_screensaver_can_attempt_suspend',
+    documentation => q{Whether to attempt to suspend screensaver},
 );
 
-method _build_screensaver_attempt_suspend () {
-    return $self->kde_desktop();
+method _build_screensaver_can_attempt_suspend () {
+
+    # can if xscreensaver or kde screensaver
+    my $type = $self->_screensaver_type;
+    my %can_suspend = map { ( $_ => $TRUE ) } qw(x kde);
+    return $can_suspend{$type};
 }
 
 # _screensaver_cookie                                                  {{{1
@@ -357,8 +389,36 @@ has '_screensaver_cookie' => (
     is            => 'rw',
     isa           => Types::Standard::Int,
     lazy          => $TRUE,
-    documentation => q{Cookie used to track suspend requests},
+    documentation => q{Cookie used to track some suspend requests},
 );
+
+# _screensaver_suspended                                               {{{1
+has '_screensaver_suspended' => (
+    is            => 'rw',
+    isa           => Types::Standard::Bool,
+    default       => $FALSE,
+    documentation => q{Flags whether screensaver is currently suspended},
+);
+
+# _screensaver_type                                                    {{{1
+has '_screensaver_type' => (
+    is            => 'rw',
+    isa           => Types::Standard::Str,
+    lazy          => $TRUE,
+    builder       => '_build_screensaver_type',
+    documentation => q{ScreenSaver type, i.e., 'x', 'kde'},
+);
+
+method _build_screensaver_type () {
+
+    # x: xscreensaver
+    if ( $self->process_running(qr[^xscreensaver\z]) ) { return q{x}; }
+
+    # kde: kde screensaver
+    if ( $self->_desktop eq 'kde' ) { return 'kde'; }
+
+    return q{};
+}
 
 # _script                                                              {{{1
 has '_script' => (
@@ -2676,7 +2736,7 @@ method push_arrayref ($arrayref, @items) {
 
 # restore_screensaver([$title])                                        {{{1
 #
-# does:   restores suspended kde screensaver
+# does:   restores suspended screensaver
 # params: $title - title of message box [optional, default=scriptname]
 # prints: nil (feedback via popup notification)
 # return: boolean
@@ -2684,39 +2744,20 @@ method push_arrayref ($arrayref, @items) {
 #         DBus service org.freedesktop.ScreenSaver
 method restore_screensaver ($title) {
     if ( not $title ) { $title = $self->_script; }
-    my $cookie;
+    my $type = $self->_screensaver_type;
 
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {
-        $cookie = $self->_screensaver_cookie;
+    # handle based on screensaver type
+    for ($type) {
+        when (/kde/) { return $self->_restore_kde_screensaver($title); }
+        when (/x/)   { return $self->_restore_xscreensaver(); }
+        default {
+            my $msg = 'Unable to manipulate ';
+            if ($type) { $msg .= "'$type'"; }
+            else       { $msg = 'Cannot detect any screensaver'; }
+            $self->notify_sys( $msg, title => $title, type => 'error' );
+        }
     }
-    else {                            # must first be suspended
-        $err = 'Screensaver has not been suspended by this process';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
-        $err = 'Cannot suspend screensaver on non-KDE desktop';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-
-    # restore screensaver
-    if ( !eval { $self->_screensaver->UnInhibit($cookie); 1 } ) {    # failed
-        $err = 'Unable to restore screensaver programmatically';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = 'It should restore automatically as this script exits';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    else {    # succeeded
-        $self->notify_sys( 'Restored screensaver', title => $title );
-        $self->_screensaver_cookie();
-        return $TRUE;
-    }
+    return;
 }
 
 # retrieve_store($file)                                                {{{1
@@ -3021,44 +3062,30 @@ method shorten ($string, $limit, $cont) {
 # does:   suspends kde screensaver if present
 # params: $title - title of message box [optional, default=scriptname]
 #         $msg   - message explaining suspend request
-#                 [named param, optional, default='request from $PID']
+#                 [optional, default='request from $PID']
 #                 example: 'running smplayer'
 # prints: nil (feedback via popup notification)
 # return: boolean
-# uses:   Net::DBus::RemoteObject
-#         DBus service org.freedesktop.ScreenSaver
-method suspend_screensaver ($title, :$msg) {
+method suspend_screensaver ($title, $msg) {
     if ( not $title ) { $title = $self->_script; }
     if ( not $msg )   { $msg   = "request from $PID"; }
-    my $cookie;
 
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {      # do not repeat request
-        $err = 'This process has already requested screensaver suspension';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
+    # handle based on screensaver type
+    my $type = $self->_screensaver_type;
+    say "Screensaver type: '$type'";
+    for ($type) {
+        when (/kde/) {
+            return $self->_suspend_kde_screensaver( $title, $msg );
+        }
+        when (/x/) { return $self->_suspend_xscreensaver( $title, $msg ); }
+        default {
+            my $msg = 'Unable to manipulate ';
+            if ($type) { $msg .= "'$type'"; }
+            else       { $msg = 'Cannot detect any screensaver'; }
+            $self->notify_sys( $msg, title => $title, type => 'error' );
+        }
     }
-    if ( not $self->_screensaver_attempt_suspend ) {    # must be kde
-        $err = 'Cannot suspend screensaver on non-KDE desktop';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-
-    # suspension screensaver
-    if ( !eval { $cookie = $self->_screensaver->Inhibit( $PID, $msg ); 1 } ) {
-        $err = 'Failed to suspend screensaver';         # failed
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $self->_screensaver_attempt_suspend($FALSE);
-        return;
-    }
-    else {                                              # succeeded
-        $self->notify_sys( 'Suspended screensaver', title => $title );
-        $self->_screensaver_cookie($cookie);
-        return $TRUE;
-    }
+    return;
 }
 
 # tabify($string, [$tab_size])                                         {{{1
@@ -3664,6 +3691,178 @@ method _process_config_files () {
 # return: nil
 method _reload_processes () {
     $self->_load_processes;
+}
+
+# _restore_kde_screensaver([$title])                                   {{{1
+#
+# does:   restores suspended KDE screensaver
+# params: $title - title of message box [optional, default=scriptname]
+# prints: nil (feedback via popup notification)
+# return: boolean
+# uses:   Net::DBus::RemoteObject
+#         DBus service org.freedesktop.ScreenSaver
+method _restore_kde_screensaver ($title) {
+    my $cookie;
+
+    # sanity checks
+    my $err;
+    if ( $self->_screensaver_cookie ) {
+        $cookie = $self->_screensaver_cookie;
+    }
+    else {                                 # must first be suspended
+        $err = 'Screensaver has not been suspended by this process';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    if ( not $self->_screensaver_can_attempt_suspend ) {
+        $err = 'Cannot suspend screensaver';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+
+    # restore kde screensaver
+    if ( !eval { $self->_kde_screensaver->UnInhibit($cookie); 1 } ) {   # fail
+        $err = 'Unable to restore kde screensaver programmatically';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = "Error: $EVAL_ERROR";
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = 'It should restore automatically as this script exits';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    else {    # succeeded
+        $self->notify_sys( 'Restored kde screensaver', title => $title );
+        $self->_screensaver_cookie();
+        $self->_screensaver_suspended($FALSE);    # no longer suspended
+        return $TRUE;
+    }
+}
+
+# _restore_xscreensaver([$title])                                      {{{1
+#
+# does:   restores suspended xscreensaver
+# params: $title - title of message box [optional, default=scriptname]
+# prints: nil (feedback via popup notification)
+# return: boolean
+method _restore_xscreensaver ($title) {
+
+    # first check that screensaver is suspended
+    if ( not $self->_screensaver_suspended ) {
+        $self->notify_sys(
+            'Screensaver is not currently suspended',
+            title => $title,
+            type  => 'error',
+        );
+        return;
+    }
+
+    # simply restart xscreensaver
+    my $cmd = 'xscreensaver &';
+
+    # detect and handle failure
+    my $err = 'Unable to restore xscreensaver';
+    if ( !eval { system $cmd; 1 } ) {
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    if ( not $self->process_running(qr[^xscreensaver\z]) ) {
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+
+    # succeeded
+    $self->_screensaver_suspended($FALSE);    # no longer suspended
+    return $TRUE;
+}
+
+# _suspend_kde_screensaver([$title], [$msg])                           {{{1
+#
+# does:   suspends kde screensaver if present
+# params: $title - title of message box [optional, default=scriptname]
+#         $msg   - message explaining suspend request [required]
+# prints: nil (feedback via popup notification)
+# return: boolean
+# uses:   Net::DBus::RemoteObject
+#         DBus service org.freedesktop.ScreenSaver
+method _suspend_kde_screensaver ($title, $msg) {
+    if ( not $title ) { confess 'No title provided'; }
+    if ( not $msg )   { confess 'No message provided'; }
+    my $cookie;
+
+    # sanity checks
+    my $err;
+    if ( $self->_screensaver_cookie ) {
+
+        # do not repeat request
+        $err
+            = 'This process has already requested KDE screensaver suspension';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    if ( not $self->_screensaver_can_attempt_suspend ) {
+        $err = 'Am not able to suspend KDE screensaver';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+
+    # suspend screensaver
+    if ( !eval { $cookie = $self->_kde_screensaver->Inhibit( $PID, $msg ); 1 }
+        )
+    {
+        $err = 'Failed to suspend KDE screensaver';    # failed
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = "Error: $EVAL_ERROR";
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $self->_screensaver_can_attempt_suspend($FALSE);
+        return;
+    }
+    else {                                             # succeeded
+        $self->notify_sys( 'Suspended KDE screensaver', title => $title );
+        $self->_screensaver_suspended($TRUE);
+        $self->_screensaver_cookie($cookie);
+        return $TRUE;
+    }
+}
+
+# _suspend_xscreensaver([$title], [$msg])                              {{{1
+#
+# does:   suspends xscreensaver if present
+# params: $title - title of message box [required]
+#         $msg   - message explaining suspend request [required]
+# prints: nil (feedback via popup notification)
+# return: boolean
+method _suspend_xscreensaver ($title, $msg) {
+    if ( not $title ) { confess 'No title provided'; }
+    if ( not $msg )   { confess 'No message provided'; }
+
+    # sanity checks
+    my $err;
+    if ( $self->_screensaver_suspended ) {    # do not repeat request
+        $err = 'This process has already requested xscreensaver suspension';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+    if ( not $self->_screensaver_can_attempt_suspend ) {
+        $err = 'Am not able to suspend xscreensaver';
+        $self->notify_sys( $err, type => 'error', title => $title );
+        return;
+    }
+
+    # suspend screensaver
+    my @cmd = qw(xscreensaver-command -exit);
+    if ( !eval { system @cmd; 1 } ) {
+        $err = 'Failed to suspend xscreensaver';    # failed
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $err = "Error: $EVAL_ERROR";
+        $self->notify_sys( $err, type => 'error', title => $title );
+        $self->_screensaver_can_attempt_suspend($FALSE);
+        return;
+    }
+    else {                                          # succeeded
+        $self->notify_sys( 'Suspended xscreensaver', title => $title );
+        $self->_screensaver_suspended($TRUE);
+        return $TRUE;
+    }
 }
 
 # _ui_dialog_widget_preference()                                       {{{1
@@ -6261,9 +6460,9 @@ Array reference. (Method dies on failure.)
 
 =head3 Purpose
 
-Restore suspended kde screensaver.
+Restore suspended screensaver. Currently handles xscreensaver and kde screensaver.
 
-Only works if used by the same process that suspended the screensaver (See method C<suspend_screensaver>. The screensaver is restored automatically is the process that suspended the screensaver exits.
+As a result of the method used to suspend the kde screensaver, it can only be restored by the same process that suspended it (see method 'suspend_screensaver'), or when that process exits.
 
 =head3 Parameters
 
@@ -6586,9 +6785,9 @@ Scalar string.
 
 =head3 Purpose
 
-Suspend kde screensaver if it is present.
+Suspend screensaver. Currently handles xscreensaver and kde screensaver.
 
-The screensaver is suspended until it is restored (see method C<restore_screensaver>) or the process that suspended the screensaver exits.
+As a result of the method used to suspend and restore the kde screensaver, it can only be restored by the same process that suspended it (see method 'restore_screensaver'), or when that process exits.
 
 =head3 Parameters
 
