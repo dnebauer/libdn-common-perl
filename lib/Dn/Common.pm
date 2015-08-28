@@ -2652,6 +2652,47 @@ method process_children ($pid) {
     return map { $_->pid() } grep { $_->ppid() == $pid } @{ $t->table() };
 }
 
+# process_ids($cmd_re, [$silent])                                      {{{1
+#
+# does:   get process ids for command
+# params: $cmd_re - regular expression to match against ps output [required]
+#         $silent - whether to suppress warnings about no/multiple matches
+#                   [named parameter, optional, default=false]
+# prints: warning (if not suppressed)
+# return: list of scalar integers
+method process_ids ($cmd_re, :$silent = $FALSE) {
+
+    # set and check variables
+    if ( not $cmd_re ) { return; }
+    $self->_reload_processes;
+    my @pids = $self->_pids;
+
+    # search process commands for matches
+    my @matching_pids;
+    foreach my $pid (@pids) {
+        my $cmd = $self->_command($pid);
+        if ( $cmd =~ $cmd_re ) {
+            push @matching_pids, $pid;
+        }
+    }
+
+    # provide warning if triggered and feedback requested
+    if ( not $silent ) {
+        my $match_count = scalar @matching_pids;
+        if ( $match_count == 0 ) {
+            warn "No matches for process command '$cmd_re'\n";
+        }
+        if ( $match_count > 1 ) {
+            my $msg = "Multiple ($match_count) matches for "
+                . "process command '$cmd_re'\n";
+            warn $msg;
+        }
+    }
+
+    # return matches
+    return @matching_pids;
+}
+
 # process_parent($pid)                                                 {{{1
 #
 # does:   gets parent process of a specified pid
@@ -6343,6 +6384,38 @@ Nil, except error messages.
 =head3 Returns
 
 List of pids.
+
+=head2 process_ids($cmd_re, [$silent])
+
+=head3 Purpose
+
+Get pids for process command.
+
+=head3 Parameters
+
+=over
+
+=item $cmd_re
+
+Value to match against process commands in ps output. Regular expression.
+
+Required.
+
+=item $silent
+
+Whether to suppress warnings. Note: by default warnings are issued if there is no match or there are multiple matches found.
+
+Named parameter. Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Warning messages if other than a single matching pid found.
+
+=head3 Returns
+
+List of scalar integers (pids).
 
 =head2 process_parent($pid)
 

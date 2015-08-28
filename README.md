@@ -2270,6 +2270,34 @@ Nil, except error messages.
 
 List of pids.
 
+process\_ids\( \$cmd\_re, \[\$silent\] \)
+
+###Purpose
+
+Get pids for process command.
+
+###Parameters
+
+####\$cmd\_re
+
+Expression to match against process commands in ps output. Regular expression.
+
+Required.
+
+####\$silent
+
+Whether to suppress warnings. Note: by default warnings are issued if there is no match or there are multiple matches found.
+
+Named parameter. Optional. Default: false.
+
+###Prints
+
+Warning messages if other than a single matching pid found.
+
+###Returns
+
+List of scalar integers \(pids\).
+
 process\_parent\(\$pid\)
 ------------------------
 
