@@ -3113,17 +3113,17 @@ method suspend_screensaver ($title, $msg) {
 
     # handle based on screensaver type
     my $type = $self->_screensaver_type;
-    say "Screensaver type: '$type'";
     for ($type) {
         when (/kde/) {
             return $self->_suspend_kde_screensaver( $title, $msg );
         }
         when (/x/) { return $self->_suspend_xscreensaver( $title, $msg ); }
-        default {
+        default {    # presume no screensaver, so exit with success
             my $msg = 'Unable to manipulate ';
             if ($type) { $msg .= "'$type'"; }
-            else       { $msg = 'Cannot detect any screensaver'; }
-            $self->notify_sys( $msg, title => $title, type => 'error' );
+            else       { $msg = 'No screensaver detected'; }
+            $self->notify_sys( $msg, title => $title );
+            return $TRUE;
         }
     }
     return;
@@ -6556,6 +6556,8 @@ User feedback indicating success or failure.
 =head3 Returns
 
 Boolean. Whether able to successfully suspend the screensaver.
+
+Note that if none of the supported screensavers is detected, the return value is true, i.e., it is presumed there is no screensaver.
 
 =head2 retrieve_store($file)
 
