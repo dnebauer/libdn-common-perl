@@ -2918,7 +2918,7 @@ Determine whether supplied time is valid.
 
 ####\$time
 
-Time to evaluate. Must be in 'HH::MM' format \(leading zero can be dropped\).
+Time to evaluate. Must be in 'HH:MM' format \(leading zero can be dropped\) or 'HHMM' format \(cannot drop leading zero\).
 
 Required.
 

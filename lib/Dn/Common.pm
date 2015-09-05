@@ -3301,16 +3301,18 @@ method true_path ($filepath) {
 # valid_24h_time($time)                                                {{{1
 #
 # does:   determine whether supplied time is valid 24 hour time
-# params: $time - time to evaluate, 'HH::MM' format [required]
+# params: $time - time to evaluate, 'HH:MM' or 'HHMM' format [required]
 #                 leading zero can be dropped
 # prints: nil
 # return: boolean
 method valid_24h_time ($time) {
     if ( not $time ) { return; }
-    if ( !eval { Time::Simple->new($time); 1 } ) {    # failed
-        return;
-    }
-    return $TRUE;                                     # succeeded
+
+    # deal with case of 4-digit time, e.g., '0520'
+    if ( $time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm ) { $time = "$1:$2"; }
+
+    # evaluate time value
+    return !( !eval { Time::Simple->new($time); 1 } );
 }
 
 # valid_date($date)                                                    {{{1
@@ -7127,7 +7129,7 @@ Determine whether supplied time is valid.
 
 =item $time
 
-Time to evaluate. Must be in 'HH::MM' format (leading zero can be dropped).
+Time to evaluate. Must be in 'HH:MM' format (leading zero can be dropped) or 'HHMM' format (cannot drop leading zero).
 
 Required.
 
