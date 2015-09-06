@@ -3312,7 +3312,7 @@ method valid_24h_time ($time) {
     if ( $time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm ) { $time = "$1:$2"; }
 
     # evaluate time value
-    return !( !eval { Time::Simple->new($time); 1 } );
+    return eval { Time::Simple->new($time); 1 };
 }
 
 # valid_date($date)                                                    {{{1
