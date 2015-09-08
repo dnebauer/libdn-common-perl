@@ -341,6 +341,43 @@ Nil.
 
 List: boolean success, list of stdout (success) or stdout + stderr (failure).
 
+centre\_text\( \[\$text\], \[\$width\] \)
+-----------------------------------------
+
+###Purpose
+
+Centre text within specified width by inserting leading spaces.
+
+###Parameters
+
+####\$text
+
+Text to centre.
+
+Optional. Default: empty string.
+
+####\$width
+
+Width of line within which to centre text.
+
+Optional. Default: terminal width.
+
+###Prints
+
+Nil, except error messages.
+
+###Returns
+
+Scalar string.
+
+###Usage
+
+```perl
+my $string = 'Centre me';
+my $centred = $cp->centre_text( $string, 20 );
+# $centred = '     Centre me'
+```
+
 changelog\_from\_git\(\$dir\)
 -----------------------------
 

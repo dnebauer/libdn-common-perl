@@ -412,7 +412,7 @@ has '_screensaver_type' => (
 method _build_screensaver_type () {
 
     # x: xscreensaver
-    if ( $self->process_running(qr[^xscreensaver\z]) ) { return q{x}; }
+    if ( $self->process_running(qr/^xscreensaver\z/) ) { return q{x}; }
 
     # kde: kde screensaver
     if ( $self->_desktop eq 'kde' ) { return 'kde'; }
@@ -537,7 +537,7 @@ method android_copy_file ($source, $target, $android) {
     if ( not $result->success ) {
         my $error = $result->error;
         my @msg = ( "File copy failed\n", "System reported: $error\n" );
-        die @msg;
+        confess @msg;
     }
     return;
 }
@@ -655,7 +655,7 @@ method android_mkdir ($dir) {
         my @msg   = ("Fatal error creating directory '$dir'\n");
         my $error = $result->error;
         if ($error) { push @msg, "System reported: $error\n"; }
-        die @msg;
+        confess @msg;
     }
     return;
 }
@@ -826,6 +826,41 @@ method capture_command_output ($cmd) {
         standard_out => [@stdout],
         standard_err => [@stderr],
     );
+}
+
+# centre_text($text, $width)                                           {{{1
+#
+# does:   centre text within specified width by inserting leading spaces
+# params: $text  - text to centre [optional, default=empty string]
+#         $width - line width [optional, default=terminal width]
+# prints: nil, except error messages
+# return: scalar string
+method centre_text ($text, $width) {
+
+    # check args
+    if ( not $text ) { return q{}; }
+    my $length = length $text;
+    if ( $length == 0 ) { return q{}; }
+    my $term_width = eval { $self->term_size->width };
+    if ( $term_width and not $width ) {
+        $width = $term_width;        # try to use term width if no width
+    }
+    if ( not $self->valid_positive_integer($width) ) {
+        warn "Width '$width' is not a positive integer\n";
+        return $text;
+    }
+    if ( not $width )        { return $text; }
+    if ( $length >= $width ) { return $text; }
+
+    # calculate left padding
+    my $excess = $width - $length;
+    if ( $excess <= 1 ) { return $text; }
+    my $left_pad_size = int( $excess / 2 );
+    my $left_pad      = q{ } x $left_pad_size;
+
+    # return result
+    my $padded_text = $left_pad . $text;
+    return $padded_text;
 }
 
 # changelog_from_git($dir)                                             {{{1
@@ -1446,7 +1481,7 @@ method do_wrap ($strings, %options) {
     }
 
     # - $break                                                         {{{2
-    my $break_chars = [' '];
+    my $break_chars = [q{ }];
     if ( defined $options{'break'} ) {
         my $break_ref = ref $options{'break'};
         if ( $break_ref eq 'ARRAY' ) {
@@ -1491,7 +1526,7 @@ method do_wrap ($strings, %options) {
     my $pattern = q{};
     if ( @{$break_chars} ) { $pattern .= ( join q{}, @{$break_chars} ); }
     if ($pattern) { $pattern = "[$pattern]"; }
-    my $break = qr($pattern);
+    my $break = qr/$pattern/;
     local $Text::Wrap::break = $Text::Wrap::break;
     $Text::Wrap::break = $break;    #                                  }}}2
 
@@ -2572,8 +2607,8 @@ method path_split ($path) {
     # process directory
     # - last directory item can be empty
     if ($dir) { push @path, File::Spec->splitdir($dir); }
-    my $last = pop @path;    # keep last item if not empty
-    if ($last) { push @path, $last; }
+    my $final = pop @path;    # keep last item if not empty
+    if ($final) { push @path, $final; }
 
     # process file
     if ($file) { push @path, $file; }
@@ -2685,7 +2720,7 @@ method process_ids ($cmd_re, :$silent = $FALSE) {
         if ( $match_count > 1 ) {
             my $msg = "Multiple ($match_count) matches for "
                 . "process command '$cmd_re'\n";
-            warn $msg;
+            cluck $msg;
         }
     }
 
@@ -2789,8 +2824,8 @@ method restore_screensaver ($title) {
 
     # handle based on screensaver type
     for ($type) {
-        when (/kde/) { return $self->_restore_kde_screensaver($title); }
-        when (/x/)   { return $self->_restore_xscreensaver(); }
+        when (/^kde\z/xsm) { return $self->_restore_kde_screensaver($title); }
+        when (/^x\z/xsm)   { return $self->_restore_xscreensaver(); }
         default {
             my $msg = 'Unable to manipulate ';
             if ($type) { $msg .= "'$type'"; }
@@ -3114,10 +3149,12 @@ method suspend_screensaver ($title, $msg) {
     # handle based on screensaver type
     my $type = $self->_screensaver_type;
     for ($type) {
-        when (/kde/) {
+        when (/^kde\z/xsm) {
             return $self->_suspend_kde_screensaver( $title, $msg );
         }
-        when (/x/) { return $self->_suspend_xscreensaver( $title, $msg ); }
+        when (/^x\z/xsm) {
+            return $self->_suspend_xscreensaver( $title, $msg );
+        }
         default {    # presume no screensaver, so exit with success
             my $msg = 'Unable to manipulate ';
             if ($type) { $msg .= "'$type'"; }
@@ -3312,7 +3349,8 @@ method valid_24h_time ($time) {
     if ( $time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm ) { $time = "$1:$2"; }
 
     # evaluate time value
-    return eval { Time::Simple->new($time); 1 };
+    my $value = eval { Time::Simple->new($time); 1 };
+    return $value;
 }
 
 # valid_date($date)                                                    {{{1
@@ -3580,7 +3618,7 @@ method _android_file_or_subdir_list ($dir, $type) {
             "Unable to obtain listing from directory '$dir'\n",
             "System reported error: $error\n",
         );
-        die @msg;
+        confess @msg;
     }
     my @stdout = $result->stdout;
 
@@ -3589,8 +3627,8 @@ method _android_file_or_subdir_list ($dir, $type) {
     # - subdirectories in output have 'd ' prepended
     my $match;
     for ($type) {
-        when (/file/)   { $match = qr/^ -\s ( [\s\S]+ ) $/xsm; }
-        when (/subdir/) { $match = qr/^ d\s ( [\s\S]+ ) $/xsm; }
+        when (/^file\z/xsm)   { $match = qr/^ -\s ( [\s\S]+ ) $/xsm; }
+        when (/^subdir\z/xsm) { $match = qr/^ d\s ( [\s\S]+ ) $/xsm; }
     }
     my @items;
     foreach my $line (@stdout) {
@@ -3808,7 +3846,7 @@ method _restore_xscreensaver ($title) {
         $self->notify_sys( $err, type => 'error', title => $title );
         return;
     }
-    if ( not $self->process_running(qr[^xscreensaver\z]) ) {
+    if ( not $self->process_running(qr/^xscreensaver\z/xsm) ) {
         $self->notify_sys( $err, type => 'error', title => $title );
         return;
     }
@@ -4327,6 +4365,44 @@ Dn::Common::CommandResult object.
 =head3 Note
 
 The returned object can provide stdout output, stderr output and full output (stdout and stderr combined as initially output). In each case, the output is provided as a list, with each list element being a line of original output.
+
+=head2 centre_text([$text], [$width])
+
+=head3 Purpose
+
+Centre text within specified width by inserting leading spaces.
+
+=head3 Parameters
+
+=over
+
+=item $text
+
+Text to centre.
+
+Optional. Default: empty string.
+
+=item $width
+
+Width of line within which to centre text.
+
+Optional. Default: terminal width.
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+Scalar string.
+
+=head3 Usage
+
+    my $string = 'Centre me';
+    my $centred = $cp->centre_text( $string, 20 );
+    # $centred = '     Centre me'
 
 =head2 changelog_from_git($dir)
 
@@ -6207,7 +6283,7 @@ Required.
 
 Preferred pager. It is used if available.
 
-Optional. No default, i.e., normally follows L<IO::Pager> algorithm.
+Optional. No default, i.e., normally follows L<IO::Pager|IO::Pager> algorithm.
 
 =back
 
@@ -6215,7 +6291,7 @@ Optional. No default, i.e., normally follows L<IO::Pager> algorithm.
 
 Provided content, each line begins on a new line and is intelligently wrapped.
 
-The content is paged. See L<IO::Pager> for details on the algorithm used to determine the pager used.
+The content is paged. See L<IO::Pager|IO::Pager> for details on the algorithm used to determine the pager used.
 
 =head3 Return
 
