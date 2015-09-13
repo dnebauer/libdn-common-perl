@@ -1,5 +1,4 @@
 requires 'perl', '5.014002';
-requires 'autodie';
 requires 'Config::Simple';
 requires 'Carp';
 requires 'Curses';

@@ -17,7 +17,6 @@ use version; our $VERSION = qv('1.0.7');
 use Test::NeedsDisplay;
 
 use namespace::clean;
-use autodie qw(open close);
 use Carp qw(cluck confess);
 use Data::Dumper::Simple;
 use Dn::Common::Types qw(NotifySysType);
@@ -2140,9 +2139,14 @@ method is_perl ($filepath) {
 
     # mimetype detection can fail if filename has no extension
     # look for shebang and see if it is a perl interpreter
-    open my $fh, '<', $filepath;
+    my $fh;
+    if ( not( open $fh, '<', $filepath ) ) {
+        confess "Unable to open file '$filepath' for reading";
+    }
     my @lines = <$fh>;
-    close $fh;
+    if ( not( close $fh ) ) {
+        confess "Unable to close file '$filepath'";
+    }
     chomp @lines;
     foreach my $line (@lines) {
         if ( $line =~ /^ \s* [#] [!] (\S+) /xsm ) {
@@ -3547,6 +3551,86 @@ method vim_printify ($type, $message) {
 
     # return altered string
     return "$token$message";
+}
+
+# write_file($file, $content, [$silent], [$fatal], [$no_newline])      {{{1
+#
+# does:   write file
+# params: $file       - filepath to create [required]
+#         $content    - content to write, scalar or arrayref [required]
+#         $silent     - whether to suppress feedback
+#                       [named parameter, optional, default=false]
+#         $fatal      - whether to die on write failure
+#                       [named parameter, optional, default=false]
+#         $no_newline - whether to not add a terminal newline where missing
+#                       [named parameter, optional, default=false]
+# prints: feedback:
+#         if succeeded - "Wrote file '$file'"
+#         if failed - "Unable to write '$file'"
+# return: boolean success
+# note:   if $fatal is true and write operation fails, an error message
+#         is provided on dying event if $silent is true
+method write_file ($file, $content, :$silent, :$fatal, :$no_newline) {
+
+    # check args
+    if ( not $file )    { confess 'No file path provided'; }
+    if ( not $content ) { confess 'No file content provided'; }
+
+    # prepare content
+    my @filling = $self->listify($content);
+    if ( not @filling ) { confess 'No file content provided'; }
+    chomp @filling;
+    if ( not $no_newline ) {
+        foreach my $line (@filling) { $line .= "\n"; }
+    }
+
+    # remove existing file
+    if ( -f $file ) {
+        if ( not( unlink $file ) ) {    # sets $ERRNO on failure
+            my @err = (
+                "Unable to delete existing file '$file'\n",
+                "Error: $ERRNO\n",
+            );
+            if ($fatal)        { confess @err; }
+            if ( not $silent ) { cluck @err; }
+            return;
+        }
+    }
+
+    # write file
+    my $fh;
+    if ( not( open $fh, '>', $file ) ) {
+        my $err = "Unable to create '$file'";
+        if ($fatal)        { confess $err; }
+        if ( not $silent ) { cluck $err; }
+        return;
+    }
+    my $retval = $TRUE;    # to ensure we try to close file
+    if ( not( print {$fh} @filling ) ) {
+        my $err = "Unable to write to '$file'";
+        if ($fatal)        { confess $err; }
+        if ( not $silent ) { cluck $err; }
+        $retval = $FALSE;
+    }
+    if ( not( close $fh ) ) {
+        my $err = "Unable to close '$file'";
+        if ($fatal)        { confess $err; }
+        if ( not $silent ) { cluck $err; }
+        $retval = $FALSE;
+    }
+
+    # final check that a file was created
+    if ( not -f $file ) {
+        my $err = "Unable to create '$file'";
+        if ($fatal)        { confess $err; }
+        if ( not $silent ) { cluck $err; }
+        $retval = $FALSE;
+    }
+
+    # provide feedback if successful
+    if ( $retval and not $silent ) { say "Created file '$file'"; }
+
+    return $retval;
 }
 
 # yesno($question, [$title])                                           {{{1
@@ -6409,7 +6493,7 @@ Boolean scalar.
 
 =head3 Purpose
 
-Adjust string based on provided numerical value. Note that this method is a simple wrapper of Text::Pluralize::pluralize.
+Adjust string based on provided numerical value. Note that this method is a simple wrapper of L<Text::Pluralize::pluralize|Text::Pluralise/pluralize>.
 
 =head3 Parameters
 
@@ -7519,6 +7603,76 @@ Modified string.
 
     $cp->vim_printify( 't', 'This is a title' );
 
+=head2 write_file($file, $content, [$silent], [$fatal], [$no_newline])
+
+=head3 Purpose
+
+Write provided content to a file.
+
+=head3 Parameters
+
+=over
+
+=item $file
+
+Path of file to create.
+
+Required.
+
+=item $content
+
+Content to write to file. Scalar or array reference.
+
+Required.
+
+=item $silent
+
+Whether to suppress feedback.
+
+Named parameter. Optional. Default: false.
+
+=item $fatal
+
+Whether to die on write failure.
+
+Named parameter. Optional. Default: false.
+
+=item $no_newline
+
+Whether to not add a terminal newline where missing.
+
+Named parameter. Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Feedback:
+
+=over
+
+=over
+
+=item if write operation is successful
+
+    "Wrote file '$file'"
+
+=item if write operation fails
+
+    "Unable to write '$file'"
+
+=back
+
+=back
+
+=head3 Returns
+
+Boolean success.
+
+=head3 Note
+
+If $fatal is set to true and the write operation fails, an error message is provided regardless of the value of $silent.
+
 =head2 yesno($question, [$title])
 
 =head3 Purpose
@@ -7558,8 +7712,6 @@ Scalar boolean.
 =head2 Perl modules
 
 =over
-
-=item autodie
 
 =item Carp
 

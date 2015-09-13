@@ -3265,6 +3265,66 @@ Modified string.
 $cp->vim_printify( 't', 'This is a title' );
 ```
 
+write\_file\( \$file, \$content, \[\$silent\], \[\$fatal\], \[\$no\_newline\] \)
+
+###Purpose
+
+Write provided content to a file.
+
+###Parameters
+
+###\$file
+
+Path of file to create.
+
+Required.
+
+###\$content
+
+Content to write to file. Scalar or array reference.
+
+Required.
+
+###\$silent
+
+Whether to suppress feedback.
+
+Named parameter. Optional. Default: false.
+
+###\$fatal
+
+Whether to die on write failure.
+
+Named parameter. Optional. Default: false.
+
+###\$no\_newline
+
+Whether to not add a terminal newline where missing.
+
+Named parameter. Optional. Default: false.
+
+=back
+
+###Prints
+
+Feedback:
+
+*   if write operation is successful
+
+    "Wrote file '\$file'"
+
+*   if write operation fails
+
+    "Unable to write '\$file'"
+
+###Returns
+
+Boolean success.
+
+###Note
+
+If \$fatal is set to true and the write operation fails, an error message is provided regardless of the value of \$silent.
+
 yesno\(\$question, \[\$title\]\)
 --------------------------------
 
