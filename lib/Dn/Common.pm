@@ -411,7 +411,9 @@ has '_screensaver_type' => (
 method _build_screensaver_type () {
 
     # x: xscreensaver
-    if ( $self->process_running(qr/^xscreensaver\z/) ) { return q{x}; }
+    my $xscreensaver
+        = qr/^(xscreensaver|\/usr\/bin\/xscreensaver(\s-nosplash)?)\z/;
+    if ( $self->process_running($xscreensaver) ) { return q{x}; }
 
     # kde: kde screensaver
     if ( $self->_desktop eq 'kde' ) { return 'kde'; }
