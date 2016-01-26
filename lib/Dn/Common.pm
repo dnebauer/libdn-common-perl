@@ -2666,7 +2666,8 @@ method pluralise ($string, $number) {
     # check args
     if ( not( defined $string ) ) { confess 'No string provided'; }
     if ( not $string )            { return q{}; }
-    if ( not( $number and $self->valid_positive_integer($number) ) ) {
+    if ( not $number )            { confess "No number provided"; }
+    if ( not $self->valid_positive_integer($number) ) {
         confess "Number '$number' is not an integer";
     }
 
@@ -6108,7 +6109,7 @@ Scalar boolean. If directory already exists returns true.
 
 Determine whether a boolean MooX::Option is true.
 
-A simple truth check on such a value does not work because the value when false, an empty array reference, evaluates as true.
+A simple truth check on such a value does not work because MooX::Option's false value, an empty array reference, evaluates in perl as true.
 
 =head3 Parameters
 
@@ -6271,7 +6272,7 @@ Boolean: whether able to display notification.
 
 Do not call this method from a spawned child process -- the 'show()' call in the last line of this method causes the child process to hang without any feedback to user.
 
-=head2 now()
+=head2 now( )
 
 =head3 Purpose
 
