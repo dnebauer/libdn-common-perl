@@ -8,16 +8,15 @@ use namespace::clean;
 use Curses;
 use Function::Parameters;
 use Readonly;
-use Types::Standard qw(Int);
+use Types::Standard;
 
 Readonly my $TRUE  => 1;
 Readonly my $FALSE => 0;
 
 has 'height' => (
-    is            => 'ro',
-    isa           => Int,
+    is            => 'lazy',
+    isa           => Types::Standard::Int,
     required      => $TRUE,
-    builder       => '_build_height',
     documentation => 'Terminal height',
 );
 
@@ -30,10 +29,9 @@ method _build_height () {
 }
 
 has 'width' => (
-    is            => 'ro',
-    isa           => Int,
+    is            => 'lazy',
+    isa           => Types::Standard::Int,
     required      => $TRUE,
-    builder       => '_build_width',
     documentation => 'Terminal width',
 );
 
@@ -59,8 +57,8 @@ Dn::Common::TermSize - provide dimensions of terminal
 
     my $terminal_height = Dn::Common::TermSize->new()->height;
 
-    my $dcts = Dn::Common::TermSize->new();
-    my $terminal_width = $dcts->width();
+    my $ts = Dn::Common::TermSize->new();
+    my $terminal_width = $ts->width();
 
 =head1 DESCRIPTION
 
@@ -82,25 +80,9 @@ Designed to be run in a terminal. Not sure what would happen if run outside a te
 
 =head1 DEPENDENCIES
 
-=over
+=head2 Perl modules
 
-=item Curses
-
-=item Function::Parameters
-
-=item Moo
-
-=item namespace::clean
-
-=item strictures
-
-=item Readonly
-
-=item Types::Standard
-
-=item version
-
-=back
+Curses, Function::Parameters, Moo, namespace::clean, strictures, Readonly, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

@@ -31,8 +31,8 @@ Dn::Common::Types - library of custom type constraints for Dn::Common
     use Dn::Common::Types qw(NotifySysType);
 
     has 'type',
-        isa => Dn::Common::Types::NotifySysType,    # must NOT quote
         is  => 'rw';
+        isa => Dn::Common::Types::NotifySysType,    # must NOT quote
 
 =head1 DESCRIPTION
 
@@ -50,15 +50,9 @@ Error message: "notify_sys type '$_' is invalid".
 
 =head1 DEPENDENCES
 
-=over
+=head2 Perl modules
 
-=item Type::Library
-
-=item Type::Utils
-
-=item Types::Standard
-
-=back
+Type::Library, Type::Utils, Types::Standard.
 
 =head1 BUGS AND LIMITATIONS
 

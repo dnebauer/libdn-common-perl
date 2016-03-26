@@ -8,7 +8,7 @@ use namespace::clean;
 
 use MooX::HandlesVia;
 use Readonly;
-use Types::Standard qw(ArrayRef Bool Str);
+use Types::Standard;
 
 Readonly my $TRUE => 1;
 
@@ -27,38 +27,29 @@ has 'error' => (
 );
 
 has 'full_output' => (
-    is          => 'ro',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    required    => $TRUE,
-    handles_via => 'Array',
-    handles     => {
-        full     => 'elements',
-        has_full => 'count',
-    },
+    is            => 'ro',
+    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+    required      => $TRUE,
+    handles_via   => 'Array',
+    handles       => { full => 'elements', has_full => 'count', },
     documentation => 'Full output (stdout and stderr)',
 );
 
 has 'standard_out' => (
-    is          => 'ro',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    required    => $TRUE,
-    handles_via => 'Array',
-    handles     => {
-        stdout     => 'elements',
-        has_stdout => 'count',
-    },
+    is            => 'ro',
+    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+    required      => $TRUE,
+    handles_via   => 'Array',
+    handles       => { stdout => 'elements', has_stdout => 'count', },
     documentation => 'Standard output',
 );
 
 has 'standard_err' => (
-    is          => 'ro',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    required    => $TRUE,
-    handles_via => 'Array',
-    handles     => {
-        stderr     => 'elements',
-        has_stderr => 'count',
-    },
+    is            => 'ro',
+    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+    required      => $TRUE,
+    handles_via   => 'Array',
+    handles       => { stderr => 'elements', has_stderr => 'count', },
     documentation => 'Standard error',
 );
 
@@ -122,23 +113,9 @@ Whether there was output to standard error. Scalar boolean (actually the number 
 
 =head1 DEPENDENCIES
 
-=over
+=head2 Perl modules
 
-=item Moo
-
-=item MooX::HandlesVia
-
-=item namespace::clean
-
-=item Readonly
-
-=item strictures
-
-=item Types::Standard
-
-=item version
-
-=back
+Moo, MooX::HandlesVia, namespace::clean, Readonly, strictures, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

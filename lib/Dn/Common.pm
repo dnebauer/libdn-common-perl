@@ -26,8 +26,8 @@ use Function::Parameters;
 use MooX::HandlesVia;
 use Readonly;
 use Type::Utils qw(declare);   # as|where|message apparently already declared!
-use Types::Path::Tiny qw(AbsFile);
-use Types::Standard qw(ArrayRef Bool HashRef InstanceOf Int Str);
+use Types::Path::Tiny;
+use Types::Standard;
 
 Readonly my $TRUE  => 1;
 Readonly my $FALSE => 0;
@@ -1800,7 +1800,7 @@ method get_last_subdir ($dirpath) {
     }
     if ( not $last_dir ) {
         if (@path) {
-            my $residual = join_dir( [@path] );
+            my $residual = $self->join_dir( [@path] );
             my @err = (
                 qq{Unable to resolve last directory:\n},
                 qq{  Received path '$dirpath' and wound up with an empty\n},
@@ -7714,155 +7714,15 @@ Scalar boolean.
 
 =head2 Perl modules
 
-=over
-
-=item Carp
-
-=item Config::Simple
-
-=item Curses
-
-=item Cwd
-
-=item Data::Dumper::Simple
-
-=item Data::Structure::Util
-
-=item Data::Validate::URI
-
-=item Date::Simple
-
-=item DateTime
-
-=item DateTime::Format::Mail
-
-=item DateTime::TimeZone
-
-=item Desktop::Detect
-
-=item Dn::Common::CommandResult
-
-=item Dn::Common::TermSize
-
-=item Dn::Common::Types
-
-=item Email::Valid
-
-=item English
-
-=item Env
-
-=item experimental
-
-=item File::Basename
-
-=item File::chdir
-
-=item File::Copy
-
-=item File::Copy::Recursive
-
-=item File::Find::Rule
-
-=item File::MimeInfo
-
-=item File::Path
-
-=item File::Spec
-
-=item File::Temp
-
-=item File::Util
-
-=item File::Which
-
-=item Function::Parameters
-
-=item Gtk2::Notify
-
-=item HTML::Entities
-
-=item IO::Pager
-
-=item IPC::Cmd
-
-=item IPC::Open3
-
-=item IPC::Run
-
-=item List::MoreUtils
-
-=item Logger::Syslog
-
-=item namespace::clean
-
-=item Moo
-
-=item MooX::HandlesVia
-
-=item Net::DBus
-
-=item Net::Ping::External
-
-=item Proc::ProcessTable
-
-=item Readonly
-
-=item Scalar::Util
-
-=item Storable
-
-=item strictures
-
-=item Term::ANSIColor
-
-=item Term::Clui
-
-=item Term::ReadKey
-
-=item Test::NeedsDisplay
-
-=item Text::Pluralize
-
-=item Text::Wrap
-
-=item Time::HiRes
-
-=item Time::Simple
-
-=item Type::Utils
-
-=item Types::Path::Tiny
-
-=item Types::Standard
-
-=item UI::Dialog
-
-=item version
-
-=back
+Carp, Config::Simple, Curses, Cwd, Data::Dumper::Simple, Data::Structure::Util, Data::Validate::URI, Date::Simple, DateTime, DateTime::Format::Mail, DateTime::TimeZone, Desktop::Detect, Dn::Common::CommandResult, Dn::Common::TermSize, Dn::Common::Types, Email::Valid, English, Env, experimental, File::Basename, File::chdir, File::Copy, File::Copy::Recursive, File::Find::Rule, File::MimeInfo, File::Path, File::Spec, File::Temp, File::Util, File::Which, Function::Parameters, Gtk2::Notify, HTML::Entities, IO::Pager, IPC::Cmd, IPC::Open3, IPC::Run, List::MoreUtils, Logger::Syslog, namespace::clean, Moo, MooX::HandlesVia, Net::DBus, Net::Ping::External, Proc::ProcessTable, Readonly, Scalar::Util, Storable, strictures, Term::ANSIColor, Term::Clui, Term::ReadKey, Test::NeedsDisplay, Text::Pluralize, Text::Wrap, Time::HiRes, Time::Simple, Type::Utils, Types::Path::Tiny, Types::Standard, UI::Dialog, version.
 
 =head2 Utilities
 
-=over
-
-=item adb | fb-adb
-
-=item autoconf
-
-=item echo
-
-=item fuser
-
-=item su
-
-=item sudo
-
-=back
+adb | fb-adb, autoconf, echo, fuser, su, sudo.
 
 =head2 Debian packaging
 
-Two of the modules that Dn::Common depends on are not available from the standard debian repository: F<Text::Pluralize> and F<Time::Simple>. For that reason the debian package of Dn::Common also provides these two modules.
+Two of the modules that Dn::Common depends on are not available from the standard debian repository: F<Text::Pluralize> and F<Time::Simple>. Debian packages for these modules, F<libtext-pluralize-perl> and F<libtime-simple-perl> respectively, are available from the same provider of the debian package for this module, F<libdn-common-perl>.
 
 =head1 BUGS AND LIMITATIONS
 
