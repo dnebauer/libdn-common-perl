@@ -3,7 +3,7 @@ package Dn::Common;
 use 5.014_002;    #                                                    {{{1
 use Moo;
 use strictures 2;
-use version; our $VERSION = qv('1.0.7');
+use version; our $VERSION = qv('1.0.8');
 
 # use of Gtk2::Notify causes debuild to fail with error:
 #   perl Build test --verbose 1

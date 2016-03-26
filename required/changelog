@@ -1,3 +1,9 @@
+libdn-common-perl (1.0.8-1) unstable; urgency=low
+
+  * New upstream version
+
+ -- David Nebauer <david@nebauer.org>  Sat, 26 Mar 2016 16:05:05 +0930
+
 libdn-common-perl (1.0.7-1) unstable; urgency=low
 
   * New upstream version

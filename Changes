@@ -2,6 +2,12 @@ Revision history for Dn-Common
 
 {{$NEXT}}
 
+1.0.7  2016-03-26 16:09:32 ACST
+        - Remove Time::Simple, Text::Pluralize and Sys::Runalone
+
+1.0.6  2015-09-13 22:16:54 ACST
+        - Add 'write_file'
+
 1.0.5  2015-06-26 03:35:17 ACST
         - Still trying to fix Gtk2 build error
 
