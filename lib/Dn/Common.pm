@@ -2961,7 +2961,8 @@ method run_command ($cmd, :$silent, :$fatal) {
 
         # errors supposedly displayed during execution,
         # but show again to be sure
-        say $err;
+        if   ($err) { warn "$err\n"; }
+        else        { warn "No error message available\n"; }
         say $div_bottom;
         if ( not $succeed ) {
             say "Command failed\n";
@@ -2970,15 +2971,12 @@ method run_command ($cmd, :$silent, :$fatal) {
 
     if ( $fatal and not $succeed ) {
         my $msg = 'Stopping execution due to error';
-        if ($verbose) {
-
-            # errors supposedly displayed during execution,
-            # but show again to be sure
-            say $err;
+        if ($verbose) {    # error displayed at/after command execution
             die "$msg\n";
         }
         else {             # break silence to explain situation to user
-            say $err;
+            if   ($err) { warn "$err\n"; }
+            else        { warn "No error message available\n"; }
             confess $msg;
         }
     }
