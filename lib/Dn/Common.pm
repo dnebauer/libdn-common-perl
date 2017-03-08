@@ -2933,12 +2933,8 @@ method run_command ($cmd, :$silent, :$fatal) {
         my $mwh = Curses->new();
         $mwh->getmaxyx( $height, $width );    # terminal dimensions
         endwin();
-        if ( $width > 61 ) {
-            $width = 60;
-        }
-        else {
-            $width--;
-        }
+        if ( $width > 61 ) { $width = 60; }
+        else               { $width--; }
         $div_top    = q{-} x $width;
         $div_bottom = q{=} x $width;
     }
@@ -2961,33 +2957,20 @@ method run_command ($cmd, :$silent, :$fatal) {
 
         # errors supposedly displayed during execution,
         # but show again to be sure
-        if   ($err) { warn "$err\n"; }
-        else        { warn "No error message available\n"; }
+        if ($err) { warn "$err\n"; }
         say $div_bottom;
-        if ( not $succeed ) {
-            say "Command failed\n";
-        }
+        if ( not $succeed ) { say "Command failed\n"; }
     }
 
     if ( $fatal and not $succeed ) {
+        if ( not $err ) { warn "No error message available\n"; }
         my $msg = 'Stopping execution due to error';
-        if ($verbose) {    # error displayed at/after command execution
-            die "$msg\n";
-        }
-        else {             # break silence to explain situation to user
-            if   ($err) { warn "$err\n"; }
-            else        { warn "No error message available\n"; }
-            confess $msg;
-        }
+        if   ($verbose) { die "$msg\n"; }    # errors already displayed
+        else            { confess $msg; }    # break silence now
     }
 
     # return
-    if (wantarray) {
-        return ( $succeed, $err );
-    }
-    else {
-        return $succeed;
-    }
+    return (wantarray) ? ( $succeed, $err ) : $succeed;
 }
 
 # save_store($ref, $file)                                              {{{1
