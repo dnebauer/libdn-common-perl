@@ -454,7 +454,7 @@ method _build_urls () {
 STYLE NOTES
 
 eval
-   
+
 - [http://www.perlmonks.org/?node_id=736082]
 -
 - use form:
@@ -564,14 +564,38 @@ method android_devices () {
     my $cmd = [ $adb, 'devices' ];
     my $result = $self->capture_command_output($cmd);
     my @devices;
+    my $device_count              = 0;
+    my $inaccessible_device_count = 0;
     for my $line ( $result->stdout ) {
         my @elements = split /\s+/xsm, $line;
         if ( scalar @elements == 2 ) {
             my $device = $elements[0];
             my $type   = $elements[1];
             if ( $type eq 'device' ) {
-                push @devices, $device;
+                $device_count++;
+
+                # if a device is plugged into a hub charging port
+                # the device string is represented by '??????????'
+                # which results in problems when it is used in
+                # regular expressions
+                if   ( $device =~ /^\?+\z/ ) { $inaccessible_device_count++; }
+                else                         { push @devices, $device; }
             }
+        }
+    }
+    if ( $inaccessible_device_count > 0 ) {
+        if ( $inaccessible_device_count == $device_count ) {
+            my $arg = 'The attached (device was|devices were) not properly '
+                . 'registered and (is|are) inaccessible';
+            my $msg = $self->pluralise( $arg, $device_count );
+            warn "$msg\n";
+        }
+        else {    # some devices accessible and some inaccessible
+            my $arg
+                = '(An|Some) attached (device was|devices were) not properly '
+                . 'registered and (is|are) inaccessible';
+            my $msg = $self->pluralise( $arg, $device_count );
+            warn "$msg\n";
         }
     }
     return @devices;
@@ -1766,14 +1790,9 @@ method future_date ($date) {
     return ( $iso_date >= $today );
 }
 
-# params: $filepath - file path [required]
-# prints: nil
-# return: scalar filename
-# uses:   File::Basename
-# note:   returns last element in path, which may be dir in dirpath
 # get_filename($filepath)                                              {{{1
 #
-# does:   get filename from filepath.
+# does:   get filename from filepath
 # params: $filepath - file path [required]
 # prints: nil
 # return: scalar filename
@@ -2939,6 +2958,10 @@ method run_command ($cmd, :$silent, :$fatal) {
 
     # provide final feedback
     if ($verbose) {
+
+        # errors supposedly displayed during execution,
+        # but show again to be sure
+        say $err;
         say $div_bottom;
         if ( not $succeed ) {
             say "Command failed\n";
@@ -2947,7 +2970,11 @@ method run_command ($cmd, :$silent, :$fatal) {
 
     if ( $fatal and not $succeed ) {
         my $msg = 'Stopping execution due to error';
-        if ($verbose) {    # error displayed at command execution
+        if ($verbose) {
+
+            # errors supposedly displayed during execution,
+            # but show again to be sure
+            say $err;
             die "$msg\n";
         }
         else {             # break silence to explain situation to user
@@ -4349,7 +4376,7 @@ Backs up file by renaming it to a unique file name. Will simply add integer to f
 
 =item $file
 
-File to back up. 
+File to back up.
 
 Required.
 
@@ -4377,7 +4404,7 @@ Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and
 
 =item $value
 
-Value to analyse. 
+Value to analyse.
 
 Required.
 
@@ -4614,7 +4641,7 @@ This is different to multiple B<lines> in the configuration files defining the s
 
 =head3 Return value
 
-As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values - this can be used to confirm a single parameter result where only one is expected. 
+As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values - this can be used to confirm a single parameter result where only one is expected.
 
 =head2 cwd( )
 
@@ -4768,7 +4795,7 @@ Perform standard conversions of HTML entities to reserved characters.
 
 =item $string
 
-String to analyse. 
+String to analyse.
 
 Required.
 
@@ -4794,7 +4821,7 @@ Remove number prefixes added by method 'number_list'.
 
 =item @items
 
-List to modify. 
+List to modify.
 
 Required.
 
@@ -5191,7 +5218,7 @@ Perform standard conversions of reserved characters to HTML entities.
 
 =item $string
 
-String to analyse. 
+String to analyse.
 
 Required.
 
@@ -5217,7 +5244,7 @@ Get path of executable.
 
 =item $exe
 
-Short name of executable. 
+Short name of executable.
 
 Required.
 
@@ -5369,7 +5396,7 @@ Determine whether supplied date occurs in the future, i.e, today or after today.
 
 =item $date
 
-Date to compare. Must be ISO format. 
+Date to compare. Must be ISO format.
 
 Required.
 
@@ -5451,7 +5478,7 @@ Get path from filepath.
 
 =item $filepath
 
-File path. 
+File path.
 
 Required.
 
@@ -5778,7 +5805,7 @@ Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'fals
 
 =item $value
 
-Value to be analysed. 
+Value to be analysed.
 
 Required.
 
@@ -6089,7 +6116,7 @@ Make directory recursively.
 
 =item $dir_path
 
-Directory path to create. 
+Directory path to create.
 
 Required.
 
@@ -6306,7 +6333,7 @@ Example: 'Item' becomes ' 9. Item'.
 
 =item @items
 
-List to be modified. 
+List to be modified.
 
 Required.
 
@@ -6332,7 +6359,7 @@ Get a date offset from today. The offset can be positive or negative.
 
 =item $offset
 
-Offset in days. Can be positive or negative. 
+Offset in days. Can be positive or negative.
 
 Required.
 
@@ -6478,7 +6505,7 @@ Note that the process table is reloaded each time this method is called, so it c
 
 =item $pid
 
-Process ID to search for. 
+Process ID to search for.
 
 Required.
 
@@ -6622,7 +6649,7 @@ Note that the process table is reloaded each time this method is called, so it c
 
 =item $regex
 
-Regular expression to match to command in C<ps aux> output. 
+Regular expression to match to command in C<ps aux> output.
 
 Required.
 
@@ -6736,7 +6763,7 @@ Retrieves function data from storage file.
 
 =item $file
 
-File in which data is stored. 
+File in which data is stored.
 
 Required.
 
@@ -6871,13 +6898,13 @@ Determine whether supplied times are in chronological sequence, i.e., second tim
 
 =item $time1
 
-First time to compare. 24 hour time format. 
+First time to compare. 24 hour time format.
 
 Required.
 
 =item $time2
 
-Second time to compare. 24 hour time format. 
+Second time to compare. 24 hour time format.
 
 Required.
 
@@ -6905,13 +6932,13 @@ Both dates must be in ISO format or method will return failure. It is recommende
 
 =item $date1
 
-First date. ISO format. 
+First date. ISO format.
 
 Required.
 
 =item $date2
 
-Second date. ISO format. 
+Second date. ISO format.
 
 Required.
 
@@ -6995,7 +7022,7 @@ Truncate text with ellipsis if too long.
 
 =item $string
 
-String to shorten. 
+String to shorten.
 
 Required.
 
@@ -7076,7 +7103,7 @@ Covert tab markers ('\t') in string to spaces. Default tab size is four spaces.
 
 =item $string
 
-String in which to convert tabs. 
+String in which to convert tabs.
 
 Required.
 
@@ -7136,7 +7163,7 @@ A Dn::Common::TermSize object.
 
     my $height = $cp->term_size->height;
     my $width = $cp->term_size->width;
-    
+
     my $ts = $cp->term_size;
     my ( $height, $width ) = ( $ts->height, $ts->width );
 
@@ -7236,7 +7263,7 @@ Remove leading and trailing whitespace.
 
 =item $string
 
-String to be converted. 
+String to be converted.
 
 Required.
 
@@ -7318,7 +7345,7 @@ Determine whether date is valid and in ISO format.
 
 =item $date
 
-Candidate date. 
+Candidate date.
 
 Required.
 
@@ -7370,7 +7397,7 @@ Determine whether supplied value is a valid integer.
 
 =item $value
 
-Value to test. 
+Value to test.
 
 Required.
 
@@ -7396,7 +7423,7 @@ Determine whether supplied value is a valid positive integer (zero or above).
 
 =item $value
 
-Value to test. 
+Value to test.
 
 Required.
 

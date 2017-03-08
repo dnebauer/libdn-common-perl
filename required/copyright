@@ -1,10 +1,14 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: https://github.com/dnebauer/libdn-common-perl
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://metacpan.org/release/Dn-Common
 Upstream-Contact: David Nebauer <davidnebauer@hotkey.net.au>
 Upstream-Name: Dn-Common
 
 Files: *
-Copyright: 2015 David Nebauer <davidnebauer@hotkey.net.au>
+Copyright: David Nebauer <davidnebauer@hotkey.net.au>
+License: Artistic or GPL-1+
+
+Files: debian/*
+Copyright: 2016, David Nebauer <david@hezmana.cogito.loc>
 License: Artistic or GPL-1+
 
 License: Artistic

@@ -1,19 +1,7 @@
 libdn-common-perl (1.0.8-1) unstable; urgency=low
 
-  * New upstream version
-
- -- David Nebauer <david@nebauer.org>  Sat, 26 Mar 2016 16:05:05 +0930
-
-libdn-common-perl (1.0.7-1) unstable; urgency=low
-
-  * New upstream version
-
- -- David Nebauer <david@nebauer.org>  Thu, 20 Aug 2015 21:26:15 +0930
-
-libdn-common-perl (1.0.2-1) unstable; urgency=low
-
   * Local package
   * Initial release
-  * Closes: #101
+  * Closes: 4101
 
- -- David Nebauer <david@nebauer.org>  Thu, 25 Jun 2015 23:13:57 +0930
+ -- David Nebauer <david@hezmana.cogito.loc>  Sat, 15 Oct 2016 21:10:42 +0930
