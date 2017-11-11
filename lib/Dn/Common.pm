@@ -22,7 +22,7 @@ use Data::Dumper::Simple;
 use Dn::Common::Types qw(NotifySysType);
 use English qw(-no_match_vars);
 use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PAGER PWD);
-use Function::Parameters;
+use Function::Parameters qw(:lax);
 use MooX::HandlesVia;
 use Readonly;
 use Type::Utils qw(declare);   # as|where|message apparently already declared!
