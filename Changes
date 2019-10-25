@@ -2,6 +2,9 @@ Revision history for Dn-Common
 
 {{$NEXT}}
 
+1.0.9  2018-10-25 21:36:13 ACST
+        - Inadvertent version bump during push to remote
+
 1.0.8  2018-10-25 20:53:15 ACST
         - Remove dependency on Gtk2::Notify
 
