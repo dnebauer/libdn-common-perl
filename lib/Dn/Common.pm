@@ -5,17 +5,6 @@ use Moo;
 use strictures 2;
 use version; our $VERSION = qv('1.0.8');
 
-# use of Gtk2::Notify causes debuild to fail with error:
-#   perl Build test --verbose 1
-#   Gtk-WARNING **: cannot open display:  \
-#       at /usr/lib/x86_64-linux-gnu/perl5/5.20/Gtk2.pm line 126
-# Test::NeedsDisplay prevents that error by loading a fake display
-# Test::NeedsDisplay needs to be loaded early -- according to the
-#   manpage, "it should be loaded as early as possible, before
-#   anything has a chance to change script parameters. These params
-#   will be resent through to the script again."
-use Test::NeedsDisplay;
-
 use namespace::clean;
 use Carp qw(cluck confess);
 use Data::Dumper::Simple;
@@ -58,7 +47,6 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use File::Util;
 use File::Which;
-use Gtk2::Notify -init, "$PROGRAM_NAME";    # invocation taken from manpage
 use HTML::Entities;
 use IO::Pager;
 use IPC::Cmd qw(run);
@@ -2450,8 +2438,7 @@ method notify (@messages) {
 #         the 'show()' call in the last line of this method causes
 #         the child process to hang without any feedback to user
 # note:   not guaranteed to respect newlines
-# uses:   Gtk2::Notify
-#         Test::NeedsDisplay (required to prevent build tools from failing)
+# uses:   Net::DBus
 method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
 
     # parameters
@@ -2501,9 +2488,10 @@ method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
     }
 
     # display notification popup
-    my $n = Gtk2::Notify->new( $title, $msg, $icon );
-    $n->set_timeout($time);
-    $n->show();
+    my $bus = Net::DBus->session;
+    my $svc = $bus->get_service('org.freedesktop.Notifications');
+    my $obj = $svc->get_object('/org/freedesktop/Notifications');
+    $obj->Notify( $self->_script, 0, $icon, $title, $msg, [], {}, $time );
     return;
 }
 
@@ -3758,9 +3746,10 @@ method _file_mime_type ($filepath) {
 # does:   gets filepath of icon included in module package
 # params: $icon - file name of icon [required]
 # prints: nil
-# return: icon filepath
+# return: icon url using file:// protocol
 method _get_icon ($icon) {
-    return $self->shared_module_file_milla( 'Dn-Common', $icon );
+    my $fp = $self->shared_module_file_milla( 'Dn-Common', $icon );
+    my $url = 'file://' . $fp;
 }
 
 # _is_android_file_or_dir($path, $type)                                {{{1
@@ -6939,6 +6928,8 @@ Boolean.
 
 Obtains the path to a file in a module's shared directory. Assumes the module was built using dist-milla and the target file was in the build tree's 'share' directory.
 
+Converts the filepath to a url using the file:// protocol. For example, F</path/to/file> converts to F<file:///path/to/file>.
+
 =head3 Parameters
 
 =over
@@ -7722,7 +7713,7 @@ Scalar boolean.
 
 =head2 Perl modules
 
-Carp, Config::Simple, Curses, Cwd, Data::Dumper::Simple, Data::Structure::Util, Data::Validate::URI, Date::Simple, DateTime, DateTime::Format::Mail, DateTime::TimeZone, Desktop::Detect, Dn::Common::CommandResult, Dn::Common::TermSize, Dn::Common::Types, Email::Valid, English, Env, experimental, File::Basename, File::chdir, File::Copy, File::Copy::Recursive, File::Find::Rule, File::MimeInfo, File::Path, File::Spec, File::Temp, File::Util, File::Which, Function::Parameters, Gtk2::Notify, HTML::Entities, IO::Pager, IPC::Cmd, IPC::Open3, IPC::Run, List::MoreUtils, Logger::Syslog, namespace::clean, Moo, MooX::HandlesVia, Net::DBus, Net::Ping::External, Proc::ProcessTable, Readonly, Scalar::Util, Storable, strictures, Term::ANSIColor, Term::Clui, Term::ReadKey, Test::NeedsDisplay, Text::Pluralize, Text::Wrap, Time::HiRes, Time::Simple, Type::Utils, Types::Path::Tiny, Types::Standard, UI::Dialog, version.
+Carp, Config::Simple, Curses, Cwd, Data::Dumper::Simple, Data::Structure::Util, Data::Validate::URI, Date::Simple, DateTime, DateTime::Format::Mail, DateTime::TimeZone, Desktop::Detect, Dn::Common::CommandResult, Dn::Common::TermSize, Dn::Common::Types, Email::Valid, English, Env, experimental, File::Basename, File::chdir, File::Copy, File::Copy::Recursive, File::Find::Rule, File::MimeInfo, File::Path, File::Spec, File::Temp, File::Util, File::Which, Function::Parameters, HTML::Entities, IO::Pager, IPC::Cmd, IPC::Open3, IPC::Run, List::MoreUtils, Logger::Syslog, namespace::clean, Moo, MooX::HandlesVia, Net::DBus, Net::Ping::External, Proc::ProcessTable, Readonly, Scalar::Util, Storable, strictures, Term::ANSIColor, Term::Clui, Term::ReadKey, Test::NeedsDisplay, Text::Pluralize, Text::Wrap, Time::HiRes, Time::Simple, Type::Utils, Types::Path::Tiny, Types::Standard, UI::Dialog, version.
 
 =head2 Utilities
 

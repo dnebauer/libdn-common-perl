@@ -27,7 +27,6 @@ requires 'File::Temp';
 requires 'File::Util';
 requires 'File::Which';
 requires 'Function::Parameters';
-requires 'Gtk2::Notify';
 requires 'HTML::Entities';
 requires 'IO::Pager';
 requires 'IPC::Cmd';

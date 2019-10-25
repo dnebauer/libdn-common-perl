@@ -2,6 +2,9 @@ Revision history for Dn-Common
 
 {{$NEXT}}
 
+1.0.8  2018-10-25 20:53:15 ACST
+        - Remove dependency on Gtk2::Notify
+
 1.0.7  2016-03-26 16:09:32 ACST
         - Remove Time::Simple, Text::Pluralize and Sys::Runalone
 

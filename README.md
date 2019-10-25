@@ -3420,8 +3420,6 @@ Perl modules
 
 *   Function::Parameters
 
-*   Gtk2::Notify
-
 *   HTML::Entities
 
 *   IO::Pager
