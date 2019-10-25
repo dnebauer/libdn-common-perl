@@ -1,133 +1,134 @@
-Dn::Common
-==========
+# NAME
 
-Provides useful methods for use by scripts.
+Dn::Common - common methods for use by perl scripts
 
-Note that this module has been optimised for clarity of script rather than speed of execution. For example, it uses Mouse.
+# SYNOPSIS
 
-abort\( @messages, \[\$prepend\] \)
------------------------------------
+    use Dn::Common;
 
-###Purpose
+# DESCRIPTION
+
+Provides methods used by Perl scripts. Can be used to create a standalone object providing these methods; or as base class for derived module or class.
+
+# SUBROUTINES/METHODS
+
+## abort(@messages, \[$prepend\])
+
+### Purpose
 
 Display console message and abort script execution.
 
-###Parameters
+### Parameters
 
-####@messages
+- @messages
 
-Message lines. Respects newlines if enclosed in double quotes.
+    Message lines. Respects newlines if enclosed in double quotes.
 
-Required.
+    Required.
 
-####\$prepend
+- $prepend
 
-Whether to prepend each message line with name of calling script.
+    Whether to prepend each message line with name of calling script.
 
-Named parameter. Boolean.
+    Named parameter. Boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 Messages followed by abort message.
 
-###Returns
+### Returns
 
 Nil.
 
-###Usage
+### Usage
 
-```perl
-$cp->abort('We failed');
-$cp->abort('We failed', prepend => 1);
-```
+    $cp->abort('We failed');
+    $cp->abort('We failed', prepend => $TRUE);
 
-android\_copy\_file\( \$source, \$target, \$android \)
-------------------------------------------------------
+## android\_copy\_file($source, $target, $android)
 
-###Purpose
+### Purpose
 
 Copy file to or from android device.
 
-###Parameters
+### Parameters
 
-####\$source
+- $source
 
-Source file path.
+    Source file path.
 
-Required.
+    Required.
 
-####\$target
+- $target
 
-Target file or directory.
+    Target file or directory.
 
-Required.
+    Required.
 
-####\$android
+- $android
 
-Which path is on android device. Must be 'source' or 'target'.
+    Which path is on android device. Must be 'source' or 'target'.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error message.
 
-###Returns
+### Returns
 
 N/A, die if serious error.
 
-###Notes
+### Notes
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-Method tries using 'fb-adb' then 'adb' and dies if both unavailable.
+Method tries using `fb-adb` then `adb` and dies if both unavailable.
 
-android\_devices\(\)
---------------------
+## android\_devices( )
 
-###Purpose
+### Purpose
 
-Get list of attached android devices.
+Get attached android devices.
 
-###Parameters
-
-Nil.
-
-###Prints
+### Parameters
 
 Nil.
 
-###Returns
+### Prints
+
+Nil.
+
+### Returns
 
 List of attached devices. (Empty list if none.)
 
-###Note
+### Note
 
-Tries to use 'fb-adb' then 'adb'. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
+Tries to use `fb-adb` then `adb`. If neither is detected prints an error message and returns empty list (or undef if called in scalar context).
 
-android\_device\_reset\(\)
---------------------------
+## android\_device\_reset( )
 
-###Purpose
+### Purpose
 
 Reset android device for android operations.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 User feedback if no android devices available, or user has to select between multiple devices.
 
-###Returns
+### Returns
 
 Scalar string (device id), or undef if no device is set.
 Boolean scalar.
 
-###Warning
+### Warning
 
 This method is called automatically whenever a method is called that requires an android device and one has not already been selected. If only one android device is available, it is selected automatically. If multiple android devices are available, the user is prompted to select one. If no android device is available, the method dies.
 
@@ -135,1155 +136,1095 @@ A selected device is used for subsequent methods that require an android device,
 
 For these reasons, this method should rarely need to be called directly.
 
-android\_file\_list\(\$dir\)
-----------------------------
+## android\_file\_list($dir)
 
-###Purpose
+### Purpose
 
 Get list of files in an android directory.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Android directory to obtains contents of.
+    Android directory to obtains contents of.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except for error messages.
 
-###Returns
+### Returns
 
 List of file names.
 
-###Note
+### Note
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-android\_mkdir\(\$dir\)
------------------------
+## android\_mkdir($dir)
 
-###Purpose
+### Purpose
 
 Ensure subdirectory exists on android device.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory to create.
+    Directory to create.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 N/A, dies on failure.
 
-###Notes
+### Notes
 
-No error if directory already exists, e.g., 'mkdir -p'.
+No error if directory already exists, e.g., `mkdir -p`.
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-Method tries using 'fb-adb' then 'adb' and dies if both unavailable.
+Method tries using `fb-adb` then `adb` and dies if both unavailable.
 
-android\_subdir\_list\(\$dir\)
-------------------------------
+## android\_subdir\_list($dir)
 
-###Purpose
+### Purpose
 
 Get list of subdirectories in an android directory.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Android directory to obtains contents of.
+    Android directory to obtains contents of.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except for error messages.
 
-###Returns
+### Returns
 
 List of subdirectory names.
 
-###Note
+### Note
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-autoconf\_version\(\)
----------------------
+## autoconf\_version( )
 
-###Purpose
+### Purpose
 
-Gets autoconf version. Can be used as value for the autoconf macro 'AC_PREREQ'.
+Gets autoconf version. Can be used as value for the autoconf macro 'AC\_PREREQ'.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil on successful execution.
 
 Error message on failure.
 
-###Returns
+### Returns
 
 Scalar string. Dies on failure.
 
-backup\_file\(\$file\)
-----------------------
+## backup\_file($file)
 
-###Purpose
+### Purpose
 
 Backs up file by renaming it to a unique file name. Will simply add integer to file basename.
 
-###Parameters
+### Parameters
 
-####\$file
+- $file
 
-File to back up. 
+    File to back up.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar filename.
 
-boolise\(\$value\)
-------------------
+## boolise($value)
 
-###Purpose
+### Purpose
 
 Convert value to boolean.
 
 Specifically, converts 'yes', 'true' and 'on' to 1, and convert 'no, 'false, and 'off' to 0. Other values are returned unchanged.
 
-###Parameters
+### Parameters
 
-####\$value
+- $value
 
-Value to analyse.
+    Value to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-browse\( \$title, \$text \)
----------------------------
+## browse($title, $text)
 
-###Purpose
+### Purpose
 
 Displays large volume of text in default editor and then returns viewer to original screen.
 
-###Parameters
+### Parameters
 
-####\$title
+- $title
 
-Title is prepended to displayed text \(along with some usage instructions\) and is used in creating the temporary file displayed in the editor.
+    Title is prepended to displayed text (along with some usage instructions) and is used in creating the temporary file displayed in the editor.
 
-Required.
+    Required.
 
-####\$text
+- $text
 
-Text to display.
+    Text to display.
 
-Required.
+    Required.
 
-###Prints
-
-Nil.
-
-###Returns
+### Prints
 
 Nil.
 
-capture\_command\_output\(\$cmd\)
----------------------------------
+### Returns
 
-###Purpose
+Nil.
+
+## capture\_command\_output($cmd)
+
+### Purpose
 
 Run system command and capture output.
 
-###Parameters
+### Parameters
 
-####\$cmd
+- $cmd
 
-Command to run. Array reference.
+    Command to run. Array reference.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-List: boolean success, list of stdout (success) or stdout + stderr (failure).
+Dn::Common::CommandResult object.
 
-centre\_text\( \[\$text\], \[\$width\] \)
------------------------------------------
+### Note
 
-###Purpose
+The returned object can provide stdout output, stderr output and full output (stdout and stderr combined as initially output). In each case, the output is provided as a list, with each list element being a line of original output.
+
+## centre\_text(\[$text\], \[$width\])
+
+### Purpose
 
 Centre text within specified width by inserting leading spaces.
 
-###Parameters
+### Parameters
 
-####\$text
+- $text
 
-Text to centre.
+    Text to centre.
 
-Optional. Default: empty string.
+    Optional. Default: empty string.
 
-####\$width
+- $width
 
-Width of line within which to centre text.
+    Width of line within which to centre text.
 
-Optional. Default: terminal width.
+    Optional. Default: terminal width.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Scalar string.
 
-###Usage
+### Usage
 
-```perl
-my $string = 'Centre me';
-my $centred = $cp->centre_text( $string, 20 );
-# $centred = '     Centre me'
-```
+    my $string = 'Centre me';
+    my $centred = $cp->centre_text( $string, 20 );
+    # $centred = '     Centre me'
 
-changelog\_from\_git\(\$dir\)
------------------------------
+## changelog\_from\_git($dir)
 
-###Purpose
+### Purpose
 
 Get ChangLog content from git repository.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Root file of repository. Must contain C<.git> subdirectory.
+    Root file of repository. Must contain `.git` subdirectory.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except feedback on failure.
 
-###Returns
+### Returns
 
 List of scalar strings.
 
-clear\_screen\(\)
------------------
+## clear\_screen( )
 
-###Purpose
+### Purpose
 
 Clear the terminal screen.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Nil.
 
-###Usage
+### Usage
 
-```perl
-$cp->clear_screen;
-```
+    $cp->clear_screen;
 
-config\_param\(\$parameter\)
-----------------------------
+## config\_param($parameter)
 
-###Configuration file syntax
+### Configuration file syntax
 
 This method can handle configuration files with the following formats:
 
-####simple
+- simple
 
-~~~~~~~~~~~~
-key1  value1
-key2  value2
-~~~~~~~~~~~~
+        key1  value1
+        key2  value2
 
-####http-like
+- http-like
 
-~~~~~~~~~~~~
-key1: value1
-key2: value2
-~~~~~~~~~~~~
+        key1: value1
+        key2: value2
 
-####ini file
+- ini file
 
-~~~~~~~~~~~~
-[block1]
-key1=value1
-key2=value2
+        [block1]
+        key1=value1
+        key2=value2
 
-[block2]
-key3 = value3
-key4 = value4
-~~~~~~~~~~~~
+        [block2]
+        key3 = value3
+        key4 = value4
 
-Note in this case the block headings are optional.
+    Note in this case the block headings are optional.
 
 Warning: Mixing formats in the same file will cause a fatal error.
 
-The key is provided as the argument to method, e.g.,
+The key is provided as the argument to method, e.g.:
+    $parameter1 = $cp->config\_param('key1');
 
-```perl
-$parameter1 = $cp->config_param('key1');
-```
+If the ini file format is used with block headings, the block heading must be included using dot syntax, e.g.:
+    $parameter1 = $cp->config\_param('block1.key1');
 
-If the ini file format is used with block headings, the block heading
-must be included using dot syntax, e.g.,
+### Configuration file locations and names
 
-```perl
-$parameter1 = $cp->config_param('block1.key1');
-```
+This method looks in these directories for configuration files in this order:
+    ./               # i.e., bash $( pwd )
+    /usr/local/etc
+    /etc
+    /etc/FOO         # where FOO is the calling script
+    ~/               # i.e., bash $HOME
 
-###Configuration file locations and names
+Each directory is searched for these file names in this order:
+    FOOconfig     # where FOO is the calling script
+    FOOconf
+    FOO.config
+    FOO.conf
+    FOOrc
+    .FOOrc
 
-This method looks in these directories for configuration files in this order \(where FOO is the calling script\): ./, /usr/local/etc, /etc, /etc/FOO, and \$HOME.
-
-Each directory is searched for these file names in this order \(where FOO is the calling script\): FOOconfig, FOOconf, FOO.config, FOO.conf, FOOrc, and .FOOrc.
-
-###Multiple values
+### Multiple values
 
 A key can have multiple values separated by commas:
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-key1  value1, value2, "value 3"
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    key1  value1, value2, "value 3"
 
 or
 
-~~~~~~~~~~~~~~~~~~~~
-key1: value1, value2
-~~~~~~~~~~~~~~~~~~~~
+    key1: value1, value2
 
 or
 
-~~~~~~~~~~~~~~~~~~~
-key1=value1, value2
-~~~~~~~~~~~~~~~~~~~
+    key1=value1, value2
 
-This is different to multiple lines in the configuration files defining the same key. In that case, the last such line overwrites all earlier ones.
+This is different to multiple **lines** in the configuration files defining the same key. In that case, the last such line overwrites all earlier ones.
 
-###Return value
+### Return value
 
-As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values -- this can be used to confirm a single parameter result where only one is expected.
+As it is possible to retrieve multiple values for a single key, this method returns a list of parameter values. If the result is obtained in scalar context it gives the number of values - this can be used to confirm a single parameter result where only one is expected.
 
-cwd\(\)
--------
+## cwd( )
 
-###Purpose
+### Purpose
 
 Provides current directory.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string
 
-date\_email\( \[\$date\], \[\$time\], \[\$offset\] \)
-------------------------------------------------------
+## date\_email (\[$date\], \[$time\], \[$offset\])
 
-###Purpose
+### Purpose
 
 Produce a date formatted according to RFC 2822 (Internet Message Format). An example such date is 'Mon, 16 Jul 1979 16:45:20 +1000'.
 
-###Parameters
+### Parameters
 
-####\$date
+- $date
 
-ISO-formatted date.
+    ISO-formatted date.
 
-Named parameter. Optional. Default: today.
+    Named parameter. Optional. Default: today.
 
-####\$time
+- $time
 
-A time in 24-hour format: 'HH:MM\[:SS\]'. Note that the following are not required: leading zero for hour, and seconds.
+    A time in 24-hour format: 'HH:MM\[:SS\]'. Note that the following are not required: leading zero for hour, and seconds.
 
-Named parameter. Optional. Default: now.
+    Named parameter. Optional. Default: now.
 
-####\$offset
+- $offset
 
-Timezone offset. Example: '+0930'.
+    Timezone offset. Example: '+0930'.
 
-Named parameter. Optional. Default: local timezone offset.
+    Named parameter. Optional. Default: local timezone offset.
 
-###Prints
+### Prints
 
 Nil routinely. Error message if fatal error encountered.
 
-###Returns
+### Returns
 
 Scalar string, undef if method fails.
 
-day\_of\_week\( \[\$date\] \)
------------------------------
+## day\_of\_week(\[$date\])
 
-###Purpose
+### Purpose
 
 Get the day of week that the supplied date falls on.
 
-###Parameters
+### Parameters
 
-####\$date
+- $date
 
-Date to analyse. Must be in ISO format.
+    Date to analyse. Must be in ISO format.
 
-Optional. Default: today.
+    Optional. Default: today.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar day name.
 
-debian\_install\_deb\(\$deb\)
------------------------------
+## debian\_install\_deb($deb)
 
-###Purpose
+### Purpose
 
 Install debian package from a deb file.
 
-First tries to install using C<dpkg> as if the user were root. If that fails, tries to install using C<sudo dpkg>. If that fails, finally tries to install using C<su -c dpkg>, which requires entry of the superuser (root) password.
+First tries to install using `dpkg` as if the user were root. If that fails, tries to install using `sudo dpkg`. If that fails, finally tries to install using `su -c dpkg`, which requires entry of the superuser (root) password.
 
-###Parameters
+### Parameters
 
-####\$deb
+> - $deb
+>
+>     Debian package file.
+>
+>     Required.
 
-Debian package file.
-
-Required.
-
-###Prints
+### Prints
 
 Feedback.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-debless\(\$object\)
--------------------
+## debless($object)
 
-###Purpose
+### Purpose
 
 Get underlying data structure of object/blessed reference. Will only work on an object containing an underlying data structure that is a hash.
 
-###Parameters
+### Parameters
 
-####\$object
+- $object
 
-Blessed reference to obtain underlying data structure of. Underlying data structure must be a hash.
+    Blessed reference to obtain underlying data structure of. Underlying data structure must be a hash.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error message if method fails.
 
-###Returns
+### Returns
 
 Hash. Dies if method fails.
 
-deentitise\(\$string\)
-----------------------
+## deentitise($string)
 
-###Purpose
+### Purpose
 
 Perform standard conversions of HTML entities to reserved characters.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to analyse.
+    String to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-denumber\_list\(@list\)
------------------------
+## denumber\_list(@list)
 
-###Purpose
+### Purpose
 
 Remove number prefixes added by method 'number\_list'.
 
-###Parameters
+### Parameters
 
-####@items
+- @items
 
-List to modify.
+    List to modify.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Return
+### Return
 
 List.
 
-dir\_add\_dir\(\$dir, \@subdirs\)
--------------------------------
+## dir\_add\_dir($dir, @subdirs)
 
-###Purpose
+### Purpose
 
-Add subdirectories to directory path.
+Add subdirectory to directory path.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory path to add to. The directory need not exist.
+    Directory path to add to. The directory need not exist.
 
-Required.
+    Required.
 
-####@subdirs
+- @subdirs
 
-Subdirectories to add to path.
+    Subdirectories to add to path.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar directory path.
 
-dir\_add\_file\(\$dir, \$file\)
--------------------------------
+## dir\_add\_file($dir, $file)
 
-###Purpose
+### Purpose
 
 Add file name to directory path.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory path to add to. The directory need not exist.
+    Directory path to add to. The directory need not exist.
 
-Required.
+    Required.
 
-####\$file
+- $file
 
-File name to add to path.
+    File name to add to path.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar file path.
 
-dirs\_list\( \[\$directory\] \)
--------------------------------
+## dirs\_list(\[$directory\])
 
-###Purpose
+### Purpose
 
 List subdirectories in directory. Uses current directory if no directory is supplied.
 
-###Parameters
+### Parameters
 
-####\$directory
+- $directory
 
-Directory from which to obtain file list.
+    Directory from which to obtain file list.
 
-Optional. Default: current directory.
+    Optional. Default: current directory.
 
-###Prints
+### Prints
 
-Nil \(error message if dies\).
+Nil (error message if dies).
 
-###Returns
+### Returns
 
-List \(dies if operation fails\).
+List (dies if operation fails).
 
-display\( \$string, \[\$error\] \)
-----------------------------------
+## display($string, \[$error\])
 
-###Purpose
+### Purpose
 
 Displays text on screen with word wrapping.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-Test for display.
+    Test for display.
 
-Required.
+    Required.
 
-####\$error
+- $error
 
-Print text to stderr rather than stdout. Boolean.
+    Print text to stderr rather than stdout. Boolean.
 
-Named parameter. Optional. Default: false.
+    Optional. Default: false.
 
-###Print
+### Print
 
-Text for screen display to stdout or stderr.
+Text for screen display.
 
-###Return
+### Return
 
 Nil.
 
-###Usage
+### Usage
 
-```perl
-$cp->display($long_string);
-```
+    $cp->display($long_string);
 
-do\_copy\( \$src, \$dest \)
------------------------
+## do\_copy($src, $dest)
 
-###Purpose
+### Purpose
 
 Copy source file or directory to target file or directory.
 
-###Parameters
+### Parameters
 
-####\$src
+- $src
 
-Source file or directory. Must exist.
+    Source file or directory. Must exist.
 
-Required.
+    Required.
 
-####\$dest
+- $dest
 
-Destination file or directory. Need not exist.
+    Destination file or directory. Need not exist.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil on successful operation.
 
 Error message on failure.
 
-###Returns
+### Returns
 
 Boolean success of copy operation.
 
 Dies if missing argument.
 
-###Notes
+### Notes
 
-Can copy file to file or directory, and directory to directory, but not directory to file.
+Can copy file to file or directory, and directory to directory, but _not_ directory to file.
 
 Uses the File::Copy::Recursive::rcopy function which tries very hard to complete the copy operation, including creating missing subdirectories in the target path.
 
-do\_rmdir\(\$dir\)
-------------------
+## do\_rmdir($dir)
 
-###Purpose
+### Purpose
 
 Removes directory recursively (like 'rm -fr').
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Root of directory tree to remove.
+    Root of directory tree to remove.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean scalar.
 
-do\_wrap\( \$strings, \[\%options\] \)
+## do\_wrap($strings, \[%options\])
 
-###Purpose
+### Purpose
 
-Wrap strings at terminal (or provided) width. Continuation lines have a prepended continuation character (U+21A9, '↩').
+Wrap strings at terminal (or provided) width. Continuation lines have a prepended continuation character (U+21A9, leftwards arrow with hook).
 
 This method is often used with method 'pager' to format screen display.
 
-###Parameters
+### Parameters
 
-####\$strings
+- $strings
 
-Text to wrap. Single string or reference to array of strings.
+    Text to wrap. Single string or reference to array of strings.
 
-Required.
+    Required.
 
-####%options
+- %options
 
-Options hash. Optional.
+    Options hash. Optional.
 
-Hash members:
+    Hash members:
 
-*   \$width
+    - $width
 
-    Width at which to wrap.
+        Width at which to wrap.
 
-    Optional. Default: terminal width.
+        Optional. Default: terminal width.
 
-    Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
+        Note: Cannot be wider than terminal width. If it is, this width is silently discarded and the terminal width used instead.
 
-*   \$indent
+    - $indent
 
-    Size of indent. Can be indent of first line only (if \$hang is also provided) or of all lines (if \$hang is not provided). Indent is spaces.
+        Size of indent. Can be indent of first line only (if $hang is also provided) or of all lines (if $hang is not provided). Indent is spaces.
 
-    Optional. Default: 0.
+        Optional. Default: 0.
 
-*   \$hang
+    - $hang
 
-    Size of indent of second and subsequent lines. If not provided, \$indent is used for all lines.
+        Size of indent of second and subsequent lines. If not provided, $indent is used for all lines.
 
-    Optional. Default: \$indent.
+        Optional. Default: $indent.
 
-*   \$break
+    - $break
 
-    Characters on which to break. Cannot include escapes (such as '\s'). Array reference.
+        Characters on which to break. Cannot includes escapes (such as '\\s'). Array reference.
 
-    Optional. Default: [' '].
+        Optional. Default: \[' '\].
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 List of scalar strings (no terminal newlines).
 
-###Usage
+### Usage
 
-```perl
-my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
-my @output = $cp->do_wrap([@many_strings]);
-```
+    my @output = $cp->do_wrap($long_string, indent => 2, hang => 4);
+    my @output = $cp->do_wrap([@many_strings]);
 
-###Note
+## echo\_e($string)
 
-A line consisting solely of break characters, even break\_protect characters (such as a line of dashes, where dashes are defined as a break\_protect character) will simply disappear during processing. This is due to an idiosyncrasy of the Text::Wrap class.
-
-echo\_e\(\$string\)
--------------------
-
-###Purpose
+### Purpose
 
 Use shell command 'echo -e' to display text in console. Escape sequences are escaped.
 
-###Parameters
+### Parameters
 
-####\$text
+- $text
 
-Text to display. Scalar string.
+    Text to display. Scalar string.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Text with shell escape sequences escaped.
 
-###Returns
+### Returns
 
 Nil.
 
-echo\_en\(\$string\)
---------------------
+## echo\_en($string)
 
-###Purpose
+### Purpose
 
 Use shell command 'echo -en' to display text in console. Escape sequences are escaped. No newline is appended.
 
-###Parameters
+### Parameters
 
-####\$text
+- $text
 
-Text to display. Scalar string.
+    Text to display. Scalar string.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Text with shell escape sequences escaped and no trailing newline.
 
-###Returns
+### Returns
 
 Nil.
 
-ensure\_no\_trailing\_slash\(\$dir\)
-------------------------------------
+## ensure\_no\_trailing\_slash($dir)
 
-###Purpose
+### Purpose
 
-Remove trailing slash \('/'\), if present, from directory path.
+Remove trailing slash ('/'), if present, from directory path.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory path to analyse.
+    Directory path to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string (directory path).
 
 Undef if no directory path provided.
 
-ensure\_trailing\_slash\(\$dir\)
---------------------------------
+## ensure\_trailing\_slash($dir)
 
-###Purpose
+### Purpose
 
-Ensure directory has a trailing slash \('/'\).
+Ensure directory has a trailing slash ('/').
 
-###Parameters
+### Parameters
 
-=over
+- $dir
 
-####\$dir
+    Directory path to analyse.
 
-Directory path to analyse.
+    Required.
 
-Required.
-
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-Scalar string \(directory path\).
+Scalar string (directory path).
 
 Undef if no directory path provided.
 
-entitise\(\$string\)
---------------------
+## entitise($string)
 
-###Purpose
+### Purpose
 
 Perform standard conversions of reserved characters to HTML entities.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to analyse.
+    String to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-executable\_path\(\$exe\)
--------------------------
+## executable\_path($exe)
 
-###Purpose
+### Purpose
 
 Get path of executable.
 
-###Parameters
+### Parameters
 
-####\$exe
+- $exe
 
-Short name of executable.
+    Short name of executable.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Return
+### Return
 
 Scalar filepath: absolute path to executable if executable exists.
 
 Scalar boolean: returns undef If executable does not exist.
 
-extract\_key\_value\( \$key, @items \)
---------------------------------------
+## extract\_key\_value($key, @items)
 
-###Purpose
+### Purpose
 
 Provided with a list that contains a key-value pair as a sequential pair of elements, return the value and the list-minus-key-and-value.
 
-###Parameters
+### Parameters
 
-####\$key
+- $key
 
-Key of the key-value pair.
+    Key of the key-value pair.
 
-Required.
+    Required.
 
-####@items
+- @items
 
-The items containing key and value.
+    The items containing key and value.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-List with first element being the target value \(undef if not found\) and subsequent elements being the original list minus key and value.
+List with first element being the target value (undef if not found) and subsequent elements being the original list minus key and value.
 
-###Usage
+### Usage
 
-```perl
-my ($value, @list) = $cp->($key, @list);
-```
+    my ($value, @list) = $cp->($key, @list);
 
-file\_used\_by\(\$file\)
-------------------------
+## file\_used\_by($file)
 
-###Purpose
+### Purpose
 
 Get ids of processes using a specified file.
 
-###Parameters
+### Parameters
 
-####\$file
+- $file
 
-File or filepath. Can be relative or absolute.
+    File or filepath. Can be relative or absolute.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 List of pids.
 
-###Note
+### Note
 
-Uses shell utility 'fuser'.
+Uses shell utility `fuser`.
 
-files\_list\( \[\$directory\] \)
---------------------------------
+## files\_list(\[$directory\])
 
-###Purpose
+### Purpose
 
 List files in directory. Uses current directory if no directory is supplied.
 
-###Parameters
+### Parameters
 
-####\$directory
+- $directory
 
-Directory path.
+    Directory path.
 
-Optional. Default: current directory.
+    Optional. Default: current directory.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 List. Dies if operation fails.
 
-find\_files\_in\_dir\( \$dir, \$pattern \)
-------------------------------------------
+## find\_files\_in\_dir($dir, $pattern)
 
-###Purpose
+### Purpose
 
 Finds file in directory matching a given pattern. Note that only the nominated directory is searched -- the search does not recurse into subdirectories.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory to search.
+    Directory to search.
 
-Required.
+    Required.
 
-####\$pattern
+- $pattern
 
-File name pattern to match. It can be a glob or a regular expression.
+    File name pattern to match. It can be a glob or a regular expression.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 List of absolute file paths.
 
-future\_date\(\$date\)
-----------------------
+## future\_date($date)
 
-###Purpose
+### Purpose
 
 Determine whether supplied date occurs in the future, i.e, today or after today.
 
-###Parameters
+### Parameters
 
-####\$date
+- $date
 
-Date to compare. Must be ISO format.
+    Date to compare. Must be ISO format.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
-Nil. \(Error if invalid date.\)
+Nil. (Error if invalid date.)
 
-###Return
+### Return
 
-Boolean. \(Dies if invalid date.\)
+Boolean. (Dies if invalid date.)
 
-get\_filename\(\$filepath\)
----------------------------
+## get\_filename($filepath)
 
-###Purpose
+### Purpose
 
 Get filename from filepath.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-Filepath to analyse. Assumed to have a filename as the last element in the path.
+    Filepath to analyse. Assumed to have a filename as the last element in the path.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-Scalar string \(filename\).
+Scalar string (filename).
 
-###Note
+### Note
 
-This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle "virtual" filepaths.
+This method simply returns the last element in the path. If it is a directory path, and there is no trailing directory separator, the final subdirectory in the path is returned. It is potentially possible to check the path at runtime to determine whether it is a directory path or file path. The disadvantage of doing so is that the method would then not be able to handle _virtual_ filepaths.
 
-get\_last\_subdir\(\$dirpath\)
-------------------------------
+## get\_last\_directory($dirpath)
 
-###Purpose
+### Purpose
 
-Get last subdirectory from a directory path.
+Get last directory from a directory path.
 
-###Parameters
+### Parameters
 
-####\$dirpath
+- $dirpath
 
-Directory path to analyse.
+    Directory path to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Scalar path (dies on failure).
 
-get\_path\(\$filepath\)
------------------------
+## get\_path($filepath)
 
-###Purpose
+### Purpose
 
 Get path from filepath.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-File path.
+    File path.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar path.
 
-input\_ask\( \$prompt, \[\$default\], \[\$prepend\] \)
-------------------------------------------------------
+## input\_ask($prompt, \[$default\], \[$prepend\])
 
-###Purpose
+### Purpose
 
 Obtain input from user.
 
@@ -1291,547 +1232,500 @@ This method is intended for entering short values. Once the entered text wraps t
 
 Use method 'input\_large' if the value is likely to be longer than a single line.
 
-###Parameters
+### Parameters
 
-####\$prompt
+- $prompt
 
-User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
+    User prompt. If user uses 'prepend' option (see below) the script name is prepended to the prompt.
 
-####\$default
+- $default
 
-Default input.
+    Default input.
 
-Optional. Default: none.
+    Optional. Default: none.
 
-####\$prepend
+- $prepend
 
-Whether to prepend the script name to the prompt.
+    Whether to prepend the script name to the prompt.
 
-Named parameter. Boolean.
+    Named parameter. Boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 User interaction.
 
-###Returns
+### Returns
 
-User's input \(scalar\).
+User's input (scalar).
 
-###Usage
+### Usage
 
-```perl
-my $value;
-my $default = 'default';
-while (1) {
-    $value = $self->input_ask( "Enter value:", $default );
-    last if $value;
-}
-```
+    my $value;
+    my $default = 'default';
+    while (1) {
+        $value = $self->input_ask( "Enter value:", $default );
+        last if $value;
+    }
 
-input\_choose\( \$prompt, @options, \[\$prepend\] \)
-----------------------------------------------------
+## input\_choose($prompt, @options, \[$prepend\])
 
-###Purpose
+### Purpose
 
 User selects option from a menu.
 
-###Parameters
+### Parameters
 
-####\$prompt
+- $prompt
 
-Menu prompt.
+    Menu prompt.
 
-Required.
+    Required.
 
-####@options
+- @options
 
-Menu options.
+    Menu options.
 
-Required.
+    Required.
 
-####\$prepend
+- $prepend
 
-Flag indicating whether to prepend script name to prompt.
+    Flag indicating whether to prepend script name to prompt.
 
-Named parameter. Scalar boolean.
+    Named parameter. Scalar boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 Menu and user interaction.
 
-###Returns
+### Returns
 
 Return value depends on the calling context:
 
-####scalar
+- scalar
 
-Returns scalar \(undef if choice cancelled\).
+    Returns scalar (undef if choice cancelled).
 
-####list
+- list
 
-Returns list \(empty list if choice cancelled\).
+    Returns list (empty list if choice cancelled).
 
-###Usage
+### Usage
 
-```perl
-my $value = undef;
-my @options = ( 'Pick me', 'No, me!' );
-while (1) {
-    $value = $self->input_choose( "Select value:", @options );
-    last if $value;
-    say "Invalid choice. Sorry, please try again.";
-}
-```
+    my $value = undef;
+    my @options = ( 'Pick me', 'No, me!' );
+    while ($TRUE) {
+        $value = $self->input_choose( "Select value:", @options );
+        last if $value;
+        say "Invalid choice. Sorry, please try again.";
+    }
 
-input\_confirm\( \$question, \[\$prepend\] \)
----------------------------------------------
+## input\_confirm($question, \[$prepend\])
 
-###Purpose
+### Purpose
 
 User answers y/n to a question.
 
-###Parameters
+### Parameters
 
-####\$question
+- $question
 
-Question to elicit user response. If user uses 'prepend' option \(see below\) the script name is prepended to it.
+    Question to elicit user response. If user uses 'prepend' option (see below) the script name is prepended to it.
 
-Can be multi-line, i.e., enclose in double quotes and include '\\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
+    Can be multi-line, i.e., enclose in double quotes and include '\\n' newlines. After the user answers, all but first line of question is removed from the screen. For that reason, it is good style to make the first line of the question a short summary, and subsequent lines can give additional detail.
 
-Required.
+    Required.
 
-####\$prepend
+- $prepend
 
-Whether to prepend the script name to the question.
+    Whether to prepend the script name to the question.
 
-Boolean.
+    Boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 User interaction.
 
-###Return
+### Return
 
 Scalar boolean.
 
-###Usage
+### Usage
 
-```perl
-my $prompt = "Short question?nnMorenmulti-linentext.";
-if ( input_confirm($prompt) ) {
-    # do stuff
-}
-```
+    my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
+    if ( input_confirm($prompt) ) {
+        # do stuff
+    }
 
-input\_large\( \$prompt, \[\$default\], \[\$prepend\] \)
---------------------------------------------------------
+## input\_large($prompt, \[$default\], \[$prepend\])
 
-###Purpose
+### Purpose
 
 Obtain input from user.
 
-This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple \(short\) value. An editor is used to enter the data. The default editor is used. If no default editor is set, vi\(m\) is used.
+This method is intended for entry of data likely to be longer than a single line. Use method 'input\_ask' if entering a simple (short) value. An editor is used to enter the data. The default editor is used. If no default editor is set, vi(m) is used.
 
-When the editor opens it displays some boilerplate, the prompt, a horizontal rule \(a line of dashes\), and the default value if provided. When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
+When the editor opens it displays some boilerplate, the prompt, a horizontal rule (a line of dashes), and the default value if provided. When the editor is closed all lines up to and including the first horizontal rule are deleted. The user can get the same effect by deleting in the editor all lines up to and including the first horizontal rule.
 
 Use method 'input\_ask' if the prompt and input will fit on a single line.
 
-###Parameters
+### Parameters
 
-####\$prompt
+- $prompt
 
-User prompt. If user uses 'prepend' option \(see below\) the script name is prepended to the prompt.
+    User prompt. If user uses 'prepend' option (see below) the script name is prepended to the prompt.
 
-####\$default
+- $default
 
-Default input.
+    Default input.
 
-Optional. Default: none.
+    Optional. Default: none.
 
-####\$prepend
+- $prepend
 
-Whether to prepend the script name to the prompt.
+    Whether to prepend the script name to the prompt.
 
-Named parameter. Boolean.
+    Named parameter. Boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 User interaction.
 
-###Returns
+### Returns
 
 User's input as list, split on newlines in user input.
 
-###Usage
+### Usage
 
 Here is a case where input is required:
 
-```perl
-my @input;
-my $default = 'default';
-my $prompt = 'Enter input:';
-while (1) {
-    @input = $self->input_large( $prompt, $default );
-    last if @input;
-    $prompt = "Input is requirednEnter input:";
-}
-```
+    my @input;
+    my $default = 'default';
+    my $prompt = 'Enter input:';
+    while (1) {
+        @input = $self->input_large( $prompt, $default );
+        last if @input;
+        $prompt = "Input is required\nEnter input:";
+    }
 
-internet\_connection\(\[\$verbose\]\)
-------------------------
+## internet\_connection(\[$verbose\])
 
-###Purpose
+### Purpose
 
 Checks to see whether an internet connection can be found.
 
-###Parameters
+### Parameters
 
-####\$verbose
+- $verbose
 
-Whether to provide user feedback during connection attempts.
+    Whether to provide user feedback during connection attempts.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
-Nil.
+Feedback if requested, otherwise nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-is\_android\_directory\(\$path\)
---------------------------------
+## is\_android\_directory($path)
 
-###Purpose
+### Purpose
 
 Determine whether path is an android directory.
 
-###Parameters
+### Parameters
 
-####\$path
+- $path
 
-Path to check.
+    Path to check.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Boolean (dies if no path provided).
 
-###Note
+### Note
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-is\_android\_file\(\$path\)
----------------------------
+## is\_android\_file($path)
 
-###Purpose
+### Purpose
 
 Determine whether path is an android file.
 
-###Parameters
+### Parameters
 
-####\$path
+- $path
 
-Path to check.
+    Path to check.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Boolean (dies if no path provided).
 
-###Note
+### Note
 
-See method 'android\_device\_reset' regarding selection of android device for this method.
+See method ["android\_device\_reset"](#android_device_reset) regarding selection of android device for this method.
 
-is\_boolean\(\$value\)
-----------------------
+## is\_boolean($value)
 
-###Purpose
+### Purpose
 
 Determine whether supplied value is boolean.
 
 Specifically, checks whether value is one of: 'yes', 'true', 'on', 1, 'no, 'false, 'off' or 0.
 
-###Parameters
+### Parameters
 
-####\$value
+- $value
 
-Value to be analysed.
+    Value to be analysed.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-Boolean. \(Undefined if no value provided.\)
+Boolean. (Undefined if no value provided.)
 
-###is\_mp3\(\$filepath\)
+## is\_deb($filepath)
 
-###Purpose
+### Purpose
+
+Determine whether file is a debian package file.
+
+### Parameters
+
+- $filepath
+
+    File to analyse.
+
+    Required. Method dies if $filepath is not provided or is invalid.
+
+### Prints
+
+Nil.
+
+### Returns
+
+Scalar boolean.
+
+## is\_mp3($filepath)
+
+### Purpose
 
 Determine whether file is an mp3 file.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-File to analyse.
+    File to analyse.
 
-Required. Method dies if \$filepath is not provided or is invalid.
+    Required. Method dies if $filepath is not provided or is invalid.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-###is\_mp4\(\$filepath\)
+## is\_mp4($filepath)
 
-###Purpose
+### Purpose
 
 Determine whether file is an mp4 file.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-File to analyse.
+    File to analyse.
 
-Required. Method dies if \$filepath is not provided or is invalid.
+    Required. Method dies if $filepath is not provided or is invalid.
 
-###Prints
-
-Nil.
-
-###Returns
-
-Scalar boolean.
-
-is\_mp3\(\$filepath\)
----------------------
-
-###Purpose
-
-Determine whether file is an mp3 file.
-
-###Parameters
-
-####\$filepath
-
-File to analyse.
-
-Required. Method dies if \$filepath is not provided or is invalid.
-
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-is\_mp4\(\$filepath\)
----------------------
+## is\_perl($filepath)
 
-###Purpose
-
-Determine whether file is an mp4 file.
-
-###Parameters
-
-####\$filepath
-
-File to analyse.
-
-Required. Method dies if \$filepath is not provided or is invalid.
-
-###Prints
-
-Nil.
-
-###Returns
-
-Scalar boolean.
-
-is\_perl\(\$filepath\)
-----------------------
-
-###Purpose
+### Purpose
 
 Determine whether file is a perl file.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-File to analyse.
+    File to analyse.
 
-Required. Method dies if \$filepath is not provided or is invalid.
+    Required. Method dies if $filepath is not provided or is invalid.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-join\_dir\(\$dir\)
-------------------
+## join\_dir($dir)
 
-###Purpose
+### Purpose
 
 Concatenate list of directories in path to string path.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory parts. Array reference.
+    Directory parts. Array reference.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string directory path. (Dies on error.
 
-kde\_desktop\(\)
-----------------
+## kde\_desktop( )
 
-###Purpose
+### Purpose
 
 Determine whether the KDE desktop is running.
 
-###Parameters
+### Parameters
 
 Nil
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean scalar.
 
-konsolekalendar\_date\_format\( \[\$date\] \)
----------------------------------------------
+## konsolekalendar\_date\_format(\[$date\])
 
-###Purpose
+### Purpose
 
 Get date formatted in same manner as konsolekalendar does in its output. An example date value is 'Tues, 15 Apr 2008'. The corresponding strftime format string is '%a, %e %b %Y'.
 
-###Parameters
+### Parameters
 
-####\$date
+- $date
 
-Date to convert. Must be in ISO format.
+    Date to convert. Must be in ISO format.
 
-Optional, Default: today.
+    Optional, Default: today.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar date string.
 
-kill\_process\(\$pid\)
-----------------------
+## kill\_process($pid)
 
-###Purpose
+### Purpose
 
 Kill a specified process.
 
-###Parameters
+### Parameters
 
-####\$pid
+- $pid
 
-Id of process to kill.
+    Id of process to kill.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
-List ($success, $error_message).
+List ($success, $error\_message).
 
-listify\(@items\)
------------------
+## listify(@items)
 
-###Purpose
+### Purpose
 
 Tries to convert scalar, array and hash references in list to sequences of simple scalars. For other reference types a warning is issued.
 
-###Parameters
+### Parameters
 
-####@items
+- @items
 
-Items to convert to simple list.
+    Items to convert to simple list.
 
-###Prints
+### Prints
 
 Warning messages for references other than scalar, array and hash.
 
-###Returns
+### Returns
 
 Simple list.
 
-local\_timezone\(\)
--------------------
+## local\_timezone( )
 
-###Purpose
+### Purpose
 
 Get local timezone.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-logger\( \$message, \[\$type\] \)
----------------------------------
+## logger($message, \[$type\])
 
-###Purpose
+### Purpose
 
 Display message in system log.
 
@@ -1839,247 +1733,231 @@ There are four message types: 'debug', 'notice', 'warning' and 'error'. Not all 
 
 Method dies if invalid message type is provided.
 
-###Parameters
+### Parameters
 
-####\$message
+- $message
 
-Message content.
+    Message content.
 
-Required.
+    Required.
 
-####\$type
+- $type
 
-Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
+    Type of log message. Must be one of 'debug', 'notice', 'warning' and 'error'.
 
-Method dies if invalid message type is provided.
+    Method dies if invalid message type is provided.
 
-Optional. Default: 'notice'.
+    Optional. Default: 'notice'.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Nil. Note method dies if invalid message type is provided.
 
-###Usage
+### Usage
 
-```perl
-$cp->logger('Widget started');
-$cp->logger( 'Widget died unexpectedly!', 'error' );
-```
+    $cp->logger('Widget started');
+    $cp->logger( 'Widget died unexpectedly!', 'error' );
 
-make\_dir\(\$dir\_path\)
-------------------------
+## make\_dir($dir\_path)
 
-###Purpose
+### Purpose
 
 Make directory recursively.
 
-###Parameters
+### Parameters
 
-####\$dir\_path
+- $dir\_path
 
-Directory path to create.
+    Directory path to create.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Return
+### Return
 
 Scalar boolean. If directory already exists returns true.
 
-moox\_option\_bool\_is\_true\(\$value\)
----------------------------------------
+## moox\_option\_bool\_is\_true($value)
 
-###Purpose
+### Purpose
 
 Determine whether a boolean MooX::Option is true.
 
-A simple truth check on such a value does not work because the value when false, an empty array reference, evaluates as true.
+A simple truth check on such a value does not work because MooX::Option's false value, an empty array reference, evaluates in perl as true.
 
-###Parameters
+### Parameters
 
-####\$value
+- $value
 
-Option value.
+    Option value.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error message on failure.
 
-###Returns
+### Returns
 
 N/A, dies on failure.
 
-msg\_box\( \[\$msg\], \[\$title\] \)
-------------------------------------
+## msg\_box(\[$msg\], \[$title\])
 
-###Purpose
+### Purpose
 
 Display message in gui message box.
 
-###Parameters
+### Parameters
 
-####\$msg
+- $msg
 
-Message to display.
+    Message to display.
 
-Optional. Default: 'Press OK button to proceed'.
+    Optional. Default: 'Press OK button to proceed'.
 
-####\$title
+- $title
 
-Title of message box.
+    Title of message box.
 
-Optional. Default: name of calling script.
+    Optional. Default: name of calling script.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 N/A.
 
-notify\( @messages, \[\$prepend\] \)
-------------------------------------
+## notify(@messages, \[$prepend\])
 
-###Purpose
+### Purpose
 
 Display console message.
 
-###Parameters
+### Parameters
 
-####@messages
+- @messages
 
-Message lines. Respects newlines if enclosed in double quotes.
+    Message lines. Respects newlines if enclosed in double quotes.
 
-Required.
+    Required.
 
-####\$prepend
+- $prepend
 
-Whether to prepend each message line with name of calling script.
+    Whether to prepend each message line with name of calling script.
 
-Named parameter. Boolean.
+    Named parameter. Boolean.
 
-Optional. Default: false.
+    Optional. Default: false.
 
-###Prints
+### Prints
 
 Messages.
 
-###Returns
+### Returns
 
 Nil.
 
-###Usage
+### Usage
 
-```perl
-$cp->notify('File path is:', $filepath);
-$cp->notify('File path is:', $filepath, prepend => 1);
-```
+    $cp->notify('File path is:', $filepath);
+    $cp->notify('File path is:', $filepath, prepend => $TRUE);
 
-notify\_sys\_type\(\$type\)
----------------------------
+## notify\_sys\_type($type)
 
-notify\_sys\_title\(\$title\)
------------------------------
+## notify\_sys\_title($title)
 
-notify\_sys\_icon\(\$icon\)
----------------------------
+## notify\_sys\_icon\_path($icon)
 
-###Purpose
+### Purpose
 
-Set default values for 'notify\_sys' method parameters 'type', 'title' and 'icon', respectively. Applies to subsequent calls to 'notify\_sys'. Overridden by parameters supplied in subsequent 'notify\_sys' method calls.
+Set default values for `notify_sys` method parameters `type`, `title` and `icon`, respectively. Applies to subsequent calls to `notify_sys`. Overridden by parameters supplied in subsequent `notify_sys` method calls.
 
-notify\_sys\( \$message, \[\$title\], \[\$type\], \[\$icon\], \[\$time\] \)
----------------------------------------------------------------------------
+## notify\_sys($message, \[$title\], \[$type\], \[$icon\], \[$time\])
 
-###Purpose
+### Purpose
 
 Display message to user in system notification area
 
-###Parameters
+### Parameters
 
-####\$message
+- $message
 
-Message content.
+    Message content.
 
-Note there is no guarantee that newlines in message content will be respected.
+    Note there is no guarantee that newlines in message content will be respected.
 
-Required.
+    Required.
 
-####\$title
+- $title
 
-Message title.
+    Message title.
 
-Named parameter. Optional. Default: name of calling script.
+    Named parameter. Optional. Defaults to attribute `notify_sys_title` if available, otherwise to name of calling script.
 
-####\$type
+- $type
 
-Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
+    Type of message. Must be one of 'info', 'question', 'warn' and 'error'.
 
-Named parameter. Optional. Default: 'info'.
+    Named parameter. Optional. Defaults to attribute `notify_sys_type` if available, otherwise to 'info'.
 
-####\$icon
+- $icon
 
-Message box icon filepath.
+    Message box icon filepath.
 
-Named parameter. Optional. A default icon is provided for each message type.
+    Named parameter. Optional. Defaults to attribute `notify_sys_icon_path` if available, otherwise to a default icon provided for each message type.
 
-####\$time
+- $time
 
-Message display time \(msec\).
+    Message display time (msec).
 
-Named parameter. Optional. Default: 10,000.
+    Named parameter. Optional. Default: 10,000.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean: whether able to display notification.
 
-###Usage
+### Usage
 
-```perl
-$cp->notify_sys('Operation successful!', title => 'Outcome')
-```
+    $cp->notify_sys('Operation successful!', title => 'Outcome')
 
-###Caution
+### Caution
 
-Do not call this method from a spawned child process -- the 'show\(\)' call in the last line of this method causes the child process to hang without any feedback to user.
+Do not call this method from a spawned child process -- the 'show()' call in the last line of this method causes the child process to hang without any feedback to user.
 
-now\(\)
--------
+## now( )
 
-###Purpose
+### Purpose
 
 Provide current time in format 'HH::MM::SS'.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-number\_list\(@items\)
-----------------------
+## number\_list(@items)
 
-###Purpose
+### Purpose
 
 Prefix each list item with element index. The index base is 1.
 
@@ -2087,840 +1965,849 @@ The prefix is left padded with spaces so each is the same length.
 
 Example: 'Item' becomes ' 9. Item'.
 
-###Parameters
+### Parameters
 
-####@items
+- @items
 
-List to be modified.
+    List to be modified.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 List.
 
-offset\_date\(\$offset\)
-------------------------
+## offset\_date($offset)
 
-###Purpose
+### Purpose
 
 Get a date offset from today. The offset can be positive or negative.
 
-###Parameters
+### Parameters
 
-####\$offset
+- $offset
 
-Offset in days. Can be positive or negative.
+    Offset in days. Can be positive or negative.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 ISO-formatted date.
 
-pager\(\$lines\)
-----------------
+## pager($lines, \[$prefer\])
 
-###Purpose
+### Purpose
 
-Display list of lines in terminal using pager.
+Display list of lines in terminal using pager. Unless a preferred pager is provided the pager used is determined by `IO::Pager`.
 
 It does not matter whether or not the lines have terminal newlines or not.
 
-The content is paged. See the IO::Pager manpage for details on the algorithm used to determine the pager used.
-
 This method is often used with method 'do\_wrap' to format screen display.
 
-###Parameters
+### Parameters
 
-####\$lines
+- $lines
 
-Content to display. Array reference.
+    Content to display. Array reference.
 
-Required.
+    Required.
 
-####\$prefer
+- $prefer
 
-Preferred pager. It is used if available.
+    Preferred pager. It is used if available.
 
-Optional. No default, i.e., normally follows [IO::Pager](http://search.cpan.org/~jpierce/IO-Pager-0.34/lib/IO/Pager.pm) algorithm.
+    Optional. No default, i.e., normally follows [IO::Pager](https://metacpan.org/pod/IO::Pager) algorithm.
 
-###Prints
+### Prints
 
 Provided content, each line begins on a new line and is intelligently wrapped.
 
-###Return
+The content is paged. See [IO::Pager](https://metacpan.org/pod/IO::Pager) for details on the algorithm used to determine the pager used.
+
+### Return
 
 N/A.
 
-parent\_dir\(\$dir\)
---------------------
+## parent\_dir($dir)
 
-###Purpose
+### Purpose
 
 Get parent directory of a directory path.
 
 Whether the provided directory path is absolute or relative, the returned parent directory path is absolute.
 
-###Parameters
+### Parameters
 
-####\$dir
+- $dir
 
-Directory path to analyse. May be relative or absolute.
+    Directory path to analyse. May be relative or absolute.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar (absolute directory path).
 
-path\_split\(\$path\)
--------------------
+## path\_split($path)
 
-###Purpose
+### Purpose
 
-Split directory or file path into component subdirectories.
+Split directory or file path into component parts.
 
-###Parameters
+### Parameters
 
-####\$path
+- $path
 
-Directory or file path to split. Need not exist.
+    Directory or file path to split. Need not exist.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 List.
 
-pid\_command\(\$pid\)
----------------------
+## pid\_command($pid)
 
-###Purpose
+### Purpose
 
 Get command for a specified process id.
 
-###Parameters
+### Parameters
 
-####\$pid
+- $pid
 
-Process id for which to obtain command.
+    Process id for which to obtain command.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Scalar string (process command).
 
-pid\_running\(\$pid\)
----------------------
+## pid\_running($pid)
 
-###Purpose
+### Purpose
 
 Determines whether process id is running.
 
-###Parameters
+Note that the process table is reloaded each time this method is called, so it can be called repeatedly in dynamic situations where processes are starting and stopping.
 
-####\$pid
+### Parameters
 
-Process ID to search for.
+- $pid
 
-Required.
+    Process ID to search for.
 
-###Prints
+    Required.
+
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean scalar.
 
-pluralise\( \$string, \$number \)
----------------------------------
+## pluralise($string, $number)
 
-###Purpose
+### Purpose
 
-Adjust string based on provided numerical value. Note that this method is a simple wrapper of Text::Pluralize::pluralize.
+Adjust string based on provided numerical value. Note that this method is a simple wrapper of [Text::Pluralize::pluralize](https://metacpan.org/pod/Text::Pluralise#pluralize).
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to adjust based on the numeric value provided.
+    String to adjust based on the numeric value provided.
 
-Required.
+    Required.
 
-####\$number
+- $number
 
-Numeric value used in adjusting the string provided. Must be a positive integer (including zero).
+    Numeric value used in adjusting the string provided. Must be a positive integer (including zero).
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-process\_children\(\$pid\)
---------------------------
+## process\_children($pid)
 
-###Purpose
+### Purpose
 
 Get child processes of a specified pid.
 
-###Parameters
+### Parameters
 
-####\$pid
+- $pid
 
-PID to analyse.
+    PID to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 List of pids.
 
-process\_ids\( \$cmd\_re, \[\$silent\] \)
+## process\_ids($cmd\_re, \[$silent\])
 
-###Purpose
+### Purpose
 
 Get pids for process command.
 
-###Parameters
+### Parameters
 
-####\$cmd\_re
+- $cmd\_re
 
-Expression to match against process commands in ps output. Regular expression.
+    Value to match against process commands in ps output. Regular expression.
 
-Required.
+    Required.
 
-####\$silent
+- $silent
 
-Whether to suppress warnings. Note: by default warnings are issued if there is no match or there are multiple matches found.
+    Whether to suppress warnings. Note: by default warnings are issued if there is no match or there are multiple matches found.
 
-Named parameter. Optional. Default: false.
+    Named parameter. Optional. Default: false.
 
-###Prints
+### Prints
 
 Warning messages if other than a single matching pid found.
 
-###Returns
+### Returns
 
-List of scalar integers \(pids\).
+List of scalar integers (pids).
 
-process\_parent\(\$pid\)
-------------------------
+## process\_parent($pid)
 
-###Purpose
+### Purpose
 
 Get parent process of a specified pid.
 
-###Parameters
+### Parameters
 
-####\$pid
+- $pid
 
-PID to analyse.
+    PID to analyse.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Scalar integer (PID).
 
-process\_running\(\$regex\)
----------------------------
+## process\_running($regex)
 
-###Purpose
+### Purpose
 
-Determines whether process is running. Matches on process commands in "ps aux" output.
+Determines whether process is running. Matches on process command.
 
-###Parameters
+Note that the process table is reloaded each time this method is called, so it can be called repeatedly in dynamic situations where processes are starting and stopping.
 
-####\$regex
+### Parameters
 
-Regular expression to match to command in "ps aux" output. 
+- $regex
 
-Required.
+    Regular expression to match to command in `ps aux` output.
 
-###Prints
+    Required.
+
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean scalar.
 
-prompt\( \[message\] \)
------------------------
+## prompt(\[message\])
 
-###Purpose
+### Purpose
 
 Display message and prompt user to press any key.
 
-###Parameters
+### Parameters
 
-####Message
+- Message
 
-Message to display.
+    Message to display.
 
-Optional. Default: 'Press any key to continue'.
+    Optional. Default: 'Press any key to continue...'.
 
-###Prints
+### Prints
 
 Message.
 
-###Returns
+### Returns
 
 Nil.
 
-push\_arrayref(\$arrayref, @item\)
------------------------------------------
+## push\_arrayref($arrayref, @items)
 
-###Purpose
+### Purpose
 
 Add items to array reference.
 
-###Parameters
+### Parameters
 
-####\$arrayref
+- $arrayref
 
-Array reference to add to.
+    Array reference to add to.
 
-Required.
+    Required.
 
-####@items
+- @items
 
-Items to add to array reference.
+    Items to add to array reference.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil, except error messages.
 
-###Returns
+### Returns
 
 Array reference. (Method dies on failure.)
 
-restore\_screensaver\( \[\$title\] \)
--------------------------------------
+## restore\_screensaver(\[$title\])
 
-###Purpose
+### Purpose
 
-Restore suspended kde screensaver.
+Restore suspended screensaver. Currently handles xscreensaver and kde screensaver.
 
-Only works if used by the same process that suspended the screensaver \(See method "suspend\_screensaver". The screensaver is restored automatically is the process that suspended the screensaver exits.
+As a result of the method used to suspend the kde screensaver, it can only be restored by the same process that suspended it (see method 'suspend\_screensaver'), or when that process exits.
 
-###Parameters
+### Parameters
 
-####\$title
+- $title
 
-Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
+    Message box title. Note that feedback is given in a popup notification (see method `notify_sys`).
 
-Optional. Default: name of calling script.
+    Optional. Default: name of calling script.
 
-###Prints
+### Prints
 
 User feedback indicating success or failure.
 
-###Returns
+### Returns
 
 Boolean. Whether able to successfully suspend the screensaver.
 
-retrieve\_store\(\$file\)
--------------------------
+Note that if none of the supported screensavers is detected, the return value is true, i.e., it is presumed there is no screensaver.
 
-###Purpose
+## retrieve\_store($file)
+
+### Purpose
 
 Retrieves function data from storage file.
 
-###Parameters
+### Parameters
 
-####\$file
+- $file
 
-File in which data is stored.
+    File in which data is stored.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
-Nil \(except feedback from Storage module\).
+Nil (except feedback from Storage module).
 
-###Returns
+### Returns
 
-Boolean.
+Reference to stored data structure.
 
-###Usage
+### Usage
 
-```perl
-my $storage_file = '/path/to/filename';
-my $ref = $self->retrieve_store($storage_file);
-my %data = %{$ref};
-```
+    my $storage_file = '/path/to/filename';
+    my $ref = $self->retrieve_store($storage_file);
+    my %data = %{$ref};
 
-save\_store\( \$ref, \$file \)
-------------------------------
+## run\_command\_silent($silent)
 
-###Purpose
+## run\_command\_fatal($fatal)
+
+### Purpose
+
+Set default values for `run_command` method parameters `silent` and `fatal`, respectively. Applies to subsequent calls to `run_command`. Overridden by parameters supplied in subsequent `run_command` method calls.
+
+## run\_command($cmd, \[$silent\], \[$fatal\])
+
+### Purpose
+
+Run a system command.
+
+The default behaviour is to display the command, shell feedback between horizontal dividers and, if the command failed, an error message.
+
+Note that shell feedback is displayed only after command execution completes -- for a long-running command this can result in an apparently unresponsive terminal.
+
+### Parameters
+
+- $cmd
+
+    Command to run. Array reference.
+
+    Required.
+
+- $silent
+
+    Suppress output of command feedback. If the command fails and 'fatal' is enabled, a traceback is displayed. Boolean.
+
+    Named parameter. Optional. Defaults to attribute `run_command_silent` if defined, otherwise to false.
+
+- $fatal
+
+    Whether to halt script execution if the command fails. Boolean.
+
+    Named parameter. Optional. Defaults to attribute `run_command_fatal` if defined, otherwise to false.
+
+### Prints
+
+Command to be executed, shell output and, if the command failed, an error message. This output can be suppressed by 'silent'. Note that even if 'silent' is selected, if the command fails while 'fatal' is set, an error traceback is displayed.
+
+### Returns
+
+In scalar context: boolean.
+
+In list context: boolean, error message.
+
+## save\_store($ref, $file)
+
+### Purpose
 
 Store data structure in file.
 
-###Parameters
+### Parameters
 
-####\$ref
+- $ref
 
-Reference to data structure \(usually hash or array\) to be stored.
+    Reference to data structure (usually hash or array) to be stored.
 
-####\$file
+- $file
 
-File path in which to store data.
+    File path in which to store data.
 
-###Prints
+### Prints
 
-Nil \(except feedback from Storable module\).
+Nil (except feedback from Storable module).
 
-###Returns
+### Returns
 
 Boolean.
 
-###Usage
+### Usage
 
-```perl
-my $storage_dir = '/path/to/filename';
-$self->save_store( %data, $storage_file );
-```
+    my $storage_dir = '/path/to/filename';
+    $self->save_store( \%data, $storage_file );
 
-scriptname\(\)
---------------
+## scriptname( )
 
-###Purpose
+### Purpose
 
 Get name of executing script.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-sequential\_24h\_times\( \$time1, \$time2 \)
---------------------------------------------
+## sequential\_24h\_times($time1, $time2)
 
-###Purpose
+### Purpose
 
 Determine whether supplied times are in chronological sequence, i.e., second time occurs after first time. Assume both times are from the same day.
 
-###Parameters
+### Parameters
 
-####\$time1
+- $time1
 
-First time to compare. 24 hour time format.
+    First time to compare. 24 hour time format.
 
-Required.
+    Required.
 
-####\$time2
+- $time2
 
-Second time to compare. 24 hour time format.
+    Second time to compare. 24 hour time format.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
-Nil. \(Error if invalid time.\)
+Nil. (Error if invalid time.)
 
-###Returns
+### Returns
 
-Boolean \(Dies if invalid time.\)
+Boolean (Dies if invalid time.)
 
-sequential\_dates\( \$date1, \$date2 \)
----------------------------------------
+## sequential\_dates($date1, $date2)
 
-###Purpose
+### Purpose
 
 Determine whether supplied dates are in chronological sequence.
 
 Both dates must be in ISO format or method will return failure. It is recommended that date formats be checked before calling this method.
 
-###Parameters
+### Parameters
 
-####\$date1
+- $date1
 
-First date. ISO format.
+    First date. ISO format.
 
-Required.
+    Required.
 
-####\$date2
+- $date2
 
-Second date. ISO format.
+    Second date. ISO format.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil. Error message if dates not in ISO-format.
 
-###Returns
+### Returns
 
 Boolean.
 
-shared\_module\_file\_milla\( \$dist, \$file \)
------------------------------------------------
+## shared\_module\_file\_milla($dist, $file)
 
-###Purpose
+### Purpose
 
 Obtains the path to a file in a module's shared directory. Assumes the module was built using dist-milla and the target file was in the build tree's 'share' directory.
 
-###Parameters
+Converts the filepath to a url using the file:// protocol. For example, `/path/to/file` converts to `file:///path/to/file`.
 
-####\$dist
+### Parameters
 
-Module name. Uses "dash" format. For example, module My::Module would be 'My-Module'.
+- $dist
 
-Required.
+    Module name. Uses "dash" format. For example, module My::Module would be `My-Module`.
 
-####\$file
+    Required.
 
-Name of file to search for.
+- $file
 
-Required.
+    Name of file to search for.
 
-###Prints
+    Required.
+
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar. (If not found returns undef, so can also function as scalar boolean.)
 
-shell\_underline\(\$string\)
-----------------------------
+## shell\_underline($string)
 
-###Purpose
+### Purpose
 
 Underline string using shell escapes.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to underline. Scalar string.
+    String to underline. Scalar string.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string: string with enclosing shell commands.
 
-shorten\( \$string, \[\$limit\], \[\$cont\] \)
-----------------------------------------------
+## shorten($string, \[$limit\], \[$cont\])
 
-###Purpose
+### Purpose
 
 Truncate text with ellipsis if too long.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to shorten.
+    String to shorten.
 
-Required.
+    Required.
 
-####\$length
+- $length
 
-Length at which to truncate. Must be integer > 10.
+    Length at which to truncate. Must be integer > 10.
 
-Optional. Default: 72.
+    Optional. Default: 72.
 
-####\$cont
+- $cont
 
-Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
+    Continuation sequence placed at end of truncated string to indicate shortening. Cannot be longer than three characters.
 
-Optional. Default: '...'.
+    Optional. Default: '...'.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-suspend\_screensaver\( \[\$title\], \[\$msg\] \)
-------------------------------------------------
+## suspend\_screensaver(\[$title\], \[$msg\])
 
-###Purpose
+### Purpose
 
-Suspend kde screensaver if it is present.
+Suspend screensaver. Currently handles xscreensaver and kde screensaver.
 
-The screensaver is suspended until it is restored \(see method "restore\_screensaver"\) or the process that suspended the screensaver exits.
+As a result of the method used to suspend and restore the kde screensaver, it can only be restored by the same process that suspended it (see method 'restore\_screensaver'), or when that process exits.
 
-###Parameters
+### Parameters
 
-####\$title
+- $title
 
-Message box title. Note that feedback is given in a popup notification \(see method "notify\_sys"\).
+    Message box title. Note that feedback is given in a popup notification (see method `notify_sys`).
 
-Optional. Default: name of calling script.
+    Optional. Default: name of calling script.
 
-####\$msg
+- $msg
 
-Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
+    Message explaining suspend request. It is passed to the screensaver object and is not seen by the user.
 
-Named parameter.
+    Named parameter.
 
-Optional. Default: 'request from \$PID'.
+    Optional. Default: 'request from $PID'.
 
-###Prints
+### Prints
 
 User feedback indicating success or failure.
 
-###Returns
+### Returns
 
 Boolean. Whether able to successfully suspend the screensaver.
 
-###Usage
+### Usage
 
-```perl
-$cp->suspend_screensaver('Playing movie');
-$cp->suspend_screensaver(
-    'Playing movie', msg => 'requested by my-movie-player'
+    $cp->suspend_screensaver('Playing movie');
+    $cp->suspend_screensaver(
+        'Playing movie', msg => 'requested by my-movie-player'
+    );
 
-);
-```
+## tabify($string, \[$tab\_size\])
 
-tabify\( \$string, \[\$tab\_size\] \)
--------------------------------------
+### Purpose
 
-###Purpose
+Covert tab markers ('\\t') in string to spaces. Default tab size is four spaces.
 
-Covert tab markers \('\t'\) in string to spaces. Default tab size is four spaces.
+### Parameters
 
-###Parameters
+- $string
 
-####\$string
+    String in which to convert tabs.
 
-String in which to convert tabs.
+    Required.
 
-Required.
+- $tab\_size
 
-####\$tab\_size
+    Number of spaces in each tab. Integer.
 
-Number of spaces in each tab. Integer.
+    Optional. Default: 4.
 
-Optional. Default: 4.
-
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-temp\_dir\(\)
--------------
+## temp\_dir( )
 
-###Purpose
+### Purpose
 
 Create a temporary directory.
 
-###Parmeters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar directory path.
 
-term\_size\(\)
---------------
+## term\_size( )
 
-###Purpose
+### Purpose
 
 Get dimensions of current terminal.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
-Hash reference with keys C<height> and C<width>
+A Dn::Common::TermSize object.
 
-###Usage
+### Usage
 
-```perl
-my $height = $cp->term_size->height;
-my $width = $cp->term_size->width;
-```
+    my $height = $cp->term_size->height;
+    my $width = $cp->term_size->width;
 
-```perl
-my $ts = $cp->term_size;
-my ( $height, $width ) = ( $ts->height, $ts->width );
-```
+    my $ts = $cp->term_size;
+    my ( $height, $width ) = ( $ts->height, $ts->width );
 
-timezone\_from\_offset\(\$offset\)
-----------------------------------
+## timezone\_from\_offset($offset)
 
-###Purpose
+### Purpose
 
 Determine timezone for offset. In most cases an offset matches multiple timezones. The first matching Australian timezone is selected if one is present, otherwise the first matching timezone is selected.
 
-###Parameters
+### Parameters
 
-####\$offset
+- $offset
 
-Timezone offset to check. Example: '+0930'.
+    Timezone offset to check. Example: '+0930'.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Error message if no offset provided or no matching timezone found.
 
-###Returns
+### Returns
 
-Scalar string \(timezone\), undef if no match found.
+Scalar string (timezone), undef if no match found.
 
-today\(\)
----------
+## today( )
 
-###Purpose
+### Purpose
 
 Get today as an ISO-formatted date.
 
-###Parameters
+### Parameters
 
 Nil.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 ISO-formatted date.
 
-tools\_available\(\@tools\)
----------------------------
+## tools\_available(@tools)
 
-###Purpose
+### Purpose
 
 Check that required executables are available on system.
 
-###Parameters
+### Parameters
 
-=over
+- @tools
 
-=item @tools
+    Required executables. List.
 
-Required executables. List.
+    Optional.
 
-Optional.
-
-=back
-
-###Prints
+### Prints
 
 Message to stderr if any tools not available, otherwise nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-###Usage
+### Usage
 
-```perl
-if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
-```
+    if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
 
-###Note
+### Note
 
 The error message looks like:
 
-> Required executable is not available: not-here
+    Required executable is not available: not-here
 
 or
 
-> Required executables are not available: not-here, me-either
+    Required executables are not available: not-here, me-either
 
-trim\(\$string\)
-----------------
+## trim($string)
 
-###Purpose
+### Purpose
 
 Remove leading and trailing whitespace.
 
-###Parameters
+### Parameters
 
-####\$string
+- $string
 
-String to be converted.
+    String to be converted.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar string.
 
-true\_path\(\$filepath\)
-------------------------
+## true\_path($filepath)
 
-###Purpose
+### Purpose
 
 Converts relative to absolute filepaths. Any filepath can be provided to this method -- if an absolute filepath is provided it is returned unchanged. Symlinks will be followed and converted to their true filepaths.
 
@@ -2928,187 +2815,179 @@ If the directory part of the filepath does not exist the entire filepath is retu
 
 WARNING: If passing a variable to this function it should be double quoted. If not, passing a value like './' results in an error as the value is somehow reduced to an empty value.
 
-###Parameters
+### Parameters
 
-####\$filepath
+- $filepath
 
-Path to analyse. If a variable should be double quoted \(see above\).
+    Path to analyse. If a variable should be double quoted (see above).
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil
 
-###Returns
+### Returns
 
 Scalar filepath.
 
-valid\_24h\_time\(\$time\)
---------------------------
+## valid\_24h\_time($time)
 
-###Purpose
+### Purpose
 
 Determine whether supplied time is valid.
 
-###Parameters
+### Parameters
 
-####\$time
+- $time
 
-Time to evaluate. Must be in 'HH:MM' format \(leading zero can be dropped\) or 'HHMM' format \(cannot drop leading zero\).
+    Time to evaluate. Must be in 'HH:MM' format (leading zero can be dropped) or 'HHMM' format (cannot drop leading zero).
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-valid\_date\(\$date\)
----------------------
+## valid\_date($date)
 
-###Purpose
+### Purpose
 
 Determine whether date is valid and in ISO format.
 
-###Parameters
+### Parameters
 
-####\$date
+- $date
 
-Candidate date.
+    Candidate date.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-valid\_email(\$email\)
-----------------------
+## valid\_email($email)
 
-###Purpose
+### Purpose
 
 Determine validity of an email address.
 
-###Parameters
+### Parameters
 
-####\$email
+- $email
 
-Email address to validate.
+    Email address to validate.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Return
+### Return
 
 Scalar boolean.
 
-valid\_integer\(\$value\)
--------------------------
+## valid\_integer($value)
 
-###Purpose
+### Purpose
 
 Determine whether supplied value is a valid integer.
 
-###Parameters
+### Parameters
 
-####\$value
+- $value
 
-Value to test.
+    Value to test.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-valid\_positive\_integer\(\$value\)
------------------------------------
+## valid\_positive\_integer($value)
 
-###Purpose
+### Purpose
 
-Determine whether supplied value is a valid positive integer \(zero or above\).
+Determine whether supplied value is a valid positive integer (zero or above).
 
-###Parameters
+### Parameters
 
-####\$value
+- $value
 
-Value to test.
+    Value to test.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Boolean.
 
-valid\_web\_uri(\$email\)
--------------------------
+## valid\_timezone\_offset($offset)
 
-###Purpose
-
-Determine validity of a web URI.
-
-###Parameters
-
-####\$uri
-
-Web address to validate.
-
-Required.
-
-###Prints
-
-Nil.
-
-###Return
-
-Scalar boolean.
-
-valid\_timezone\_offset\(\$offset\)
------------------------------------
-
-###Purpose
+### Purpose
 
 Determine whether a timezone offset is valid.
 
-###Parameters
+### Parameters
 
-####\$offset
+- $offset
 
-Timezone offset to analyse. Example: '+0930'.
+    Timezone offset to analyse. Example: '+0930'.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-vim\_list\_print\(@messages\)
------------------------------
+## valid\_web\_url($url)
 
-###Purpose
+### Purpose
+
+Determine validity of a web url.
+
+### Parameters
+
+- $url
+
+    Web address to validate.
+
+    Required.
+
+### Prints
+
+Nil.
+
+### Return
+
+Scalar boolean.
+
+## vim\_list\_print(@messages)
+
+### Purpose
 
 Prints a list of strings to the terminal screen using vim's default colour scheme.
 
@@ -3117,42 +2996,34 @@ Five styles have been implemented:
              Vim
              Highlight
     Style    Group       Foreground    Background
-
     -------  ----------  ------------  ----------
-
     title    Title       bold magenta  normal
-
     error    ErrorMsg    bold white    red
-
     warning  WarningMsg  red           normal
-
     prompt   MoreMsg     bold green    normal
-
     normal   Normal      normal        normal
-
 
 Supplied strings can contain escaped double quotes.
 
-###Parameters
+### Parameters
 
-####@messages
+- @messages
 
-Each element of the list can be printed in a different style.  Element strings need to be prepared using the 'vim\_printify' method. See the 'vim\_printify' method for an example.
+    Each element of the list can be printed in a different style. Element strings need to be prepared using the 'vim\_printify' method. See the 'vim\_printify' method for an example.
 
-Required.
+    Required.
 
-###Prints
+### Prints
 
 Messages in requested styles.
 
-###Returns
+### Returns
 
 Nil.
 
-vim\_print\( \$type, @messages \)
----------------------------------
+## vim\_print($type, @messages)
 
-###Purpose
+### Purpose
 
 Print text to terminal screen using vim's default colour scheme.
 
@@ -3161,56 +3032,46 @@ Five styles have been implemented:
              Vim
              Highlight
     Style    Group       Foreground    Background
-
     -------  ----------  ------------  ----------
-
     title    Title       bold magenta  normal
-
     error    ErrorMsg    bold white    red
-
     warning  WarningMsg  red           normal
-
     prompt   MoreMsg     bold green    normal
-
     normal   Normal      normal        normal
 
+### Parameters
 
-###Parameters
+- $type
 
-####\$type
+    Type of text. Determines colour scheme.
 
-Type of text. Determines colour scheme.
+    Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
 
-Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
+    Required.
 
-Required.
+- @messages
 
-####@messages
+    Content to display.
 
-Content to display.
+    Supplied strings can contain escaped double quotes.
 
-Supplied strings can contain escaped double quotes.
+    Required.
 
-Required.
-
-###Prints
+### Prints
 
 Messages in the requested colour scheme.
 
-###Returns
+### Returns
 
 Nil.
 
-###Usage
+### Usage
 
-```perl
-$cp->vim_print( 't', 'This is a title' );
-```
+    $cp->vim_print( 't', 'This is a title' );
 
-vim\_printify\( \$type, \$message \)
-------------------------------------
+## vim\_printify($type, $message)
 
-###Purpose
+### Purpose
 
 Modifies a single string to be included in a List to be passed to the 'vim\_list\_print' method. The string is given a prefix that signals to 'vim\_list\_print' what format to use. The prefix is stripped before the string is printed.
 
@@ -3219,284 +3080,156 @@ Five styles have been implemented:
              Vim
              Highlight
     Style    Group       Foreground    Background
-
     -------  ----------  ------------  ----------
-
     title    Title       bold magenta  normal
-
     error    ErrorMsg    bold white    red
-
     warning  WarningMsg  red           normal
-
     prompt   MoreMsg     bold green    normal
-
     normal   Normal      normal        normal
 
+### Parameters
 
-###Parameters
+- $type
 
-####\$type
+    Type of text. Determines colour scheme.
 
-Type of text. Determines colour scheme.
+    Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
 
-Must be one of: 'title', 'error', 'warning', 'prompt' and 'normal'. Case-insensitive. Can supply a partial value, down to and including just the first letter.
+    Required.
 
-Required.
+- $message
 
-####\$message
+    Content to modify.
 
-Content to modify.
+    Supplied string can contain escaped double quotes.
 
-Supplied string can contain escaped double quotes.
+    Required.
 
-Required.
-
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Modified string.
 
-###Usage
+### Usage
 
-```perl
-$cp->vim_printify( 't', 'This is a title' );
-```
+    $cp->vim_printify( 't', 'This is a title' );
 
-write\_file\( \$file, \$content, \[\$silent\], \[\$fatal\], \[\$no\_newline\] \)
+## write\_file($file, $content, \[$silent\], \[$fatal\], \[$no\_newline\])
 
-###Purpose
+### Purpose
 
 Write provided content to a file.
 
-###Parameters
+### Parameters
 
-###\$file
+- $file
 
-Path of file to create.
+    Path of file to create.
 
-Required.
+    Required.
 
-###\$content
+- $content
 
-Content to write to file. Scalar or array reference.
+    Content to write to file. Scalar or array reference.
 
-Required.
+    Required.
 
-###\$silent
+- $silent
 
-Whether to suppress feedback.
+    Whether to suppress feedback.
 
-Named parameter. Optional. Default: false.
+    Named parameter. Optional. Default: false.
 
-###\$fatal
+- $fatal
 
-Whether to die on write failure.
+    Whether to die on write failure.
 
-Named parameter. Optional. Default: false.
+    Named parameter. Optional. Default: false.
 
-###\$no\_newline
+- $no\_newline
 
-Whether to not add a terminal newline where missing.
+    Whether to not add a terminal newline where missing.
 
-Named parameter. Optional. Default: false.
+    Named parameter. Optional. Default: false.
 
-=back
-
-###Prints
+### Prints
 
 Feedback:
 
-*   if write operation is successful
+> - if write operation is successful
+>
+>         "Wrote file '$file'"
+>
+> - if write operation fails
+>
+>         "Unable to write '$file'"
 
-    "Wrote file '\$file'"
-
-*   if write operation fails
-
-    "Unable to write '\$file'"
-
-###Returns
+### Returns
 
 Boolean success.
 
-###Note
+### Note
 
-If \$fatal is set to true and the write operation fails, an error message is provided regardless of the value of \$silent.
+If $fatal is set to true and the write operation fails, an error message is provided regardless of the value of $silent.
 
-yesno\(\$question, \[\$title\]\)
---------------------------------
+## yesno($question, \[$title\])
 
-###Purpose
+### Purpose
 
 Ask yes/no question in gui dialog.
 
 Note that aborting the dialog (by pressing Escape) has the same effect as selecting 'No' -- returning false.
 
-###Parameters
+### Parameters
 
-####\$question
+- $question
 
-Question to be answered. Is displayed unaltered, i.e., include terminal question mark.
+    Question to be answered. Is displayed unaltered, i.e., include terminal question mark.
 
-Required.
+    Required.
 
-####\$title
+- $title
 
-Dialog title.
+    Dialog title.
 
-Optional. Default: script name.
+    Optional. Default: script name.
 
-###Prints
+### Prints
 
 Nil.
 
-###Returns
+### Returns
 
 Scalar boolean.
 
-Dependencies
-============
+# DEPENDENCIES
 
-Perl modules
-------------
+## Perl modules
 
-*   autodie
+Carp, Config::Simple, Curses, Cwd, Data::Dumper::Simple, Data::Structure::Util, Data::Validate::URI, Date::Simple, DateTime, DateTime::Format::Mail, DateTime::TimeZone, Desktop::Detect, Dn::Common::CommandResult, Dn::Common::TermSize, Dn::Common::Types, Email::Valid, English, Env, experimental, File::Basename, File::chdir, File::Copy, File::Copy::Recursive, File::Find::Rule, File::MimeInfo, File::Path, File::Spec, File::Temp, File::Util, File::Which, Function::Parameters, HTML::Entities, IO::Pager, IPC::Cmd, IPC::Open3, IPC::Run, List::MoreUtils, Logger::Syslog, namespace::clean, Moo, MooX::HandlesVia, Net::DBus, Net::Ping::External, Proc::ProcessTable, Readonly, Scalar::Util, Storable, strictures, Term::ANSIColor, Term::Clui, Term::ReadKey, Test::NeedsDisplay, Text::Pluralize, Text::Wrap, Time::HiRes, Time::Simple, Type::Utils, Types::Path::Tiny, Types::Standard, UI::Dialog, version.
 
-*   Carp
+## Utilities
 
-*   Config::Simple
+adb | fb-adb, autoconf, echo, fuser, su, sudo.
 
-*   Curses
+## Debian packaging
 
-*   Cwd
+Two of the modules that Dn::Common depends on are not available from the standard debian repository: `Text::Pluralize` and `Time::Simple`. Debian packages for these modules, `libtext-pluralize-perl` and `libtime-simple-perl` respectively, are available from the same provider of the debian package for this module, `libdn-common-perl`.
 
-*   Data::Dumper::Simple
+# BUGS AND LIMITATIONS
 
-*   Data::Structure::Util
+Report to module author.
 
-*   Data::Validate::URI
+# AUTHOR
 
-*   Date::Simple
+David Nebauer <davidnebauer@hotkey.net.au>
 
-*   DateTime
+# LICENSE AND COPYRIGHT
 
-*   DateTime::Format::Mail
+Copyright (c) 2015 David Nebauer <davidnebauer@hotkey.net.au>
 
-*   DateTime::TimeZone
-
-*   Desktop::Detect
-
-*   Email::Valid
-
-*   English
-
-*   Env
-
-*   experimental
-
-*   File::Basename
-
-*   File::chdir
-
-*   File::Copy
-
-*   File::Copy::Recursive
-
-*   File::Find::Rule
-
-*   File::MimeInfo
-
-*   File::Path
-
-*   File::Spec
-
-*   File::Temp
-
-*   File::Util
-
-*   File::Which
-
-*   Function::Parameters
-
-*   HTML::Entities
-
-*   IO::Pager
-
-*   IPC::Cmd
-
-*   IPC::Open3
-
-*   IPC::Run
-
-*   Logger::Syslog
-
-*   namespace::clean
-
-*   Moo
-
-*   MooX::HandlesVia
-
-*   Net::DBus
-
-*   Net::Ping::External
-
-*   Proc::ProcessTable
-
-*   Readonly
-
-*   Scalar::Util
-
-*   Storable
-
-*   strictures
-
-*   Term::ANSIColor
-
-*   Term::Clui
-
-*   Term::ReadKey
-
-*   Test::NeedsDisplay
-
-*   Text::Pluralize
-
-*   Text::Wrap
-
-*   Time::HiRes
-
-*   Time::Simple
-
-*   Type::Utils
-
-*   Types::Path::Tiny
-
-*   UI::Dialog
-
-*   version
-
-Executables
------------
-
-*   adb | fb-adb
-
-*   autoconf
-
-*   echo
-
-*   fuser
-
-*   su
-
-*   sudo
-
-Debian packaging
-----------------
-
-Two of the modules that Dn::Common depends on are not available from the standard debian repository: [Text::Pluralize](http://search.cpan.org/~kvail/Text-Pluralize-1.1/lib/Text/Pluralize.pm) and [Time::Simple](http://search.cpan.org/~lgoddard/Time-Simple-0.06/lib/Time/Simple.pm). For that reason the debian package of Dn::Common also provides these two modules.
-
-License
-=======
-
-This library is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
