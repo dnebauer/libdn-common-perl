@@ -3,7 +3,7 @@ package Dn::Common;
 use 5.014_002;    #                                                    {{{1
 use Moo;
 use strictures 2;
-use version; our $VERSION = qv('1.0.8');
+use version; our $VERSION = qv('1.0.9');
 
 use namespace::clean;
 use Carp qw(cluck confess);
@@ -3061,12 +3061,14 @@ method shared_module_file_milla ($dist, $file) {
     if ( not $file ) { confess 'No file provided'; }
     if ( not $dist ) { confess 'No dist provided'; }
     my $branch = "auto/share/dist/$dist/$file";
+    my $fp;
     for my $root (@INC) {
         if ( -e "$root/$branch" ) {
-            return "$root/$branch";
+            $fp = "$root/$branch";
+            last;
         }
     }
-    return;
+    return $fp;
 }
 
 # shell_underline($string)                                             {{{1
@@ -3749,7 +3751,8 @@ method _file_mime_type ($filepath) {
 # return: icon url using file:// protocol
 method _get_icon ($icon) {
     my $fp = $self->shared_module_file_milla( 'Dn-Common', $icon );
-    my $url = 'file://' . $fp;
+    cluck "Unable to locate 'Dn-Common/$icon'" if not $fp;
+    return $fp;
 }
 
 # _is_android_file_or_dir($path, $type)                                {{{1

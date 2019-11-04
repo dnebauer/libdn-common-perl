@@ -1,7 +1,7 @@
-libdn-common-perl (1.0.8-1) unstable; urgency=low
+libdn-common-perl (1.0.9-1) unstable; urgency=low
 
   * Local package
   * Initial release
   * Closes: 500006
 
- -- David Nebauer <david@hezmana.cogito.loc>  Sat, 15 Oct 2016 21:10:42 +0930
+ -- David Nebauer <david@hezmana.cogito.loc>  Mon, 04 Nov 2019 18:35:03 +0930
